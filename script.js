@@ -1,4 +1,4 @@
-/* KANJI STRIKER - Main Script & Application Lifecycle */
+/* KANJI STRIKER - Phase 02: Player & Input System */
 
 document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
@@ -23,6 +23,19 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let currentState = GameState.MENU;
+    let animationFrameId = null;
+    let lastTime = 0;
+
+    // Player Object
+    let player = {
+        x: 0,
+        y: 0,
+        width: 40,
+        height: 40,
+        speed: 5,
+        targetX: 0,
+        isDragging: false
+    };
 
     // Canvas Resizing for High-DPI & Mobile Fit
     function resizeCanvas() {
@@ -30,16 +43,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const width = container.clientWidth;
         const height = container.clientHeight;
 
-        // Set display size
         canvas.style.width = width + 'px';
         canvas.style.height = height + 'px';
 
-        // Set actual size in memory (scaled for high-DPI displays)
         const dpr = window.devicePixelRatio || 1;
         canvas.width = width * dpr;
         canvas.height = height * dpr;
 
         ctx.scale(dpr, dpr);
+
+        // Reset player position to bottom-center when resizing/starting
+        if (player) {
+            player.x = width / 2;
+            player.y = height - 70;
+            player.targetX = player.x;
+        }
     }
 
     window.addEventListener('resize', () => {
@@ -77,11 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentState === GameState.PLAYING) {
             currentState = GameState.PAUSED;
             pauseBtn.textContent = '▶';
-            // TODO: Stop game loop / show pause overlay
         } else if (currentState === GameState.PAUSED) {
             currentState = GameState.PLAYING;
             pauseBtn.textContent = '⏸';
-            // TODO: Resume game loop
+            lastTime = performance.now();
+            runGameLoop(lastTime);
         }
     });
 
@@ -93,12 +111,36 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('SETTINGS хэсэг дараагийн хөгжүүлэлтэд нэмэгдэнэ.');
     });
 
-    // Placeholder for Game Loop / Canvas Rendering (Phase 01 & 02 preparation)
-    let animationFrameId = null;
+    // --- INPUT HANDLING (Touch & Mouse) ---
+    function getEventPosition(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        return clientX - rect.left;
+    }
 
+    canvas.addEventListener('pointerdown', (e) => {
+        if (currentState !== GameState.PLAYING) return;
+        player.isDragging = true;
+        player.targetX = getEventPosition(e);
+        e.preventDefault();
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+        if (currentState !== GameState.PLAYING || !player.isDragging) return;
+        player.targetX = getEventPosition(e);
+        e.preventDefault();
+    });
+
+    window.addEventListener('pointerup', () => {
+        player.isDragging = false;
+    });
+
+    // --- GAME ENGINE & LOOP ---
     function initGameEngine() {
-        console.log('Game Engine Initialized');
-        runGameLoop();
+        console.log('Game Engine Initialized with Player');
+        lastTime = performance.now();
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        animationFrameId = requestAnimationFrame(runGameLoop);
     }
 
     function stopGameEngine() {
@@ -109,18 +151,61 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Game Engine Stopped');
     }
 
-    function runGameLoop() {
+    function update(dt) {
+        // Smooth interpolation (lerp) towards targetX for fluid movement
+        const lerpFactor = 0.2;
+        player.x += (player.targetX - player.x) * lerpFactor;
+
+        // Constrain player within canvas horizontal boundaries
+        const logicalWidth = canvas.width / (window.devicePixelRatio || 1);
+        const halfWidth = player.width / 2;
+        if (player.x < halfWidth) player.x = halfWidth;
+        if (player.x > logicalWidth - halfWidth) player.x = logicalWidth - halfWidth;
+    }
+
+    function render() {
+        const logicalWidth = canvas.width / (window.devicePixelRatio || 1);
+        const logicalHeight = canvas.height / (window.devicePixelRatio || 1);
+
+        // Clear Background
+        ctx.fillStyle = '#050508';
+        ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+        // Draw Starfield Effect (Simple background decor)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(50, 100, 2, 2);
+        ctx.fillRect(180, 250, 1.5, 1.5);
+        ctx.fillRect(300, 80, 2, 2);
+        ctx.fillRect(100, 400, 1, 1);
+
+        // Draw Player Spaceship (Retro Pixel Style Placeholder)
+        ctx.save();
+        ctx.translate(player.x, player.y);
+
+        // Ship Body (Crimson Red)
+        ctx.fillStyle = '#ff0055';
+        ctx.beginPath();
+        ctx.moveTo(0, -player.height / 2); // Nose
+        ctx.lineTo(player.width / 2, player.height / 2); // Right wing
+        ctx.lineTo(-player.width / 2, player.height / 2); // Left wing
+        ctx.closePath();
+        ctx.fill();
+
+        // Cockpit (Cyan highlight)
+        ctx.fillStyle = '#00ffff';
+        ctx.fillRect(-4, -5, 8, 12);
+
+        ctx.restore();
+    }
+
+    function runGameLoop(timestamp) {
         if (currentState !== GameState.PLAYING) return;
 
-        // Clear canvas and draw background placeholder / stars
-        ctx.fillStyle = '#050508';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const dt = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
 
-        // Draw temporary placeholder text on canvas
-        ctx.fillStyle = '#00ffff';
-        ctx.font = '16px "Courier New", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('SHOOTER ENGINE READY (PHASE 01)', canvas.width / (2 * (window.devicePixelRatio || 1)), canvas.height / (2 * (window.devicePixelRatio || 1)));
+        update(dt);
+        render();
 
         animationFrameId = requestAnimationFrame(runGameLoop);
     }
