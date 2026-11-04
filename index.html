@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="KANJI STRIKER - A retro arcade space shooter for learning Japanese Kanji.">
+  <meta name="theme-color" content="#0a0a0c">
+  <title>KANJI STRIKER</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div id="app" class="app">
+
+    <!-- MAIN MENU -->
+    <main id="mainMenuSection" class="screen screen-menu" aria-labelledby="gameTitle">
+      <header class="menu-header">
+        <h1 id="gameTitle" class="game-title">
+          <span class="title-line title-line-top">KANJI</span>
+          <span class="title-line title-line-bottom">STRIKER</span>
+        </h1>
+        <p id="gameTagline" class="game-tagline">LEARN JAPANESE. FIGHT THROUGH THE GALAXY.</p>
+      </header>
+
+      <nav id="mainMenuNav" class="menu-nav" aria-label="Main menu">
+        <button id="startGameButton" class="menu-button menu-button-primary" type="button" aria-label="Start game">START GAME</button>
+        <button id="kanjiCollectionButton" class="menu-button" type="button" aria-label="Open kanji collection">KANJI COLLECTION</button>
+        <button id="settingsButton" class="menu-button" type="button" aria-label="Open settings">SETTINGS</button>
+      </nav>
+    </main>
+
+    <!-- GAME SCREEN -->
+    <section id="gameSection" class="screen screen-game" aria-label="Game screen" hidden>
+      <header id="gameHud" class="game-hud" aria-label="Game status">
+        <div class="hud-item">
+          <span class="hud-label" id="hpLabel">HP</span>
+          <span id="hpDisplay" class="hud-value" role="status" aria-labelledby="hpLabel">100</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label" id="scoreLabel">SCORE</span>
+          <span id="scoreDisplay" class="hud-value" role="status" aria-labelledby="scoreLabel">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label" id="comboLabel">COMBO</span>
+          <span id="comboDisplay" class="hud-value" role="status" aria-labelledby="comboLabel">x0</span>
+        </div>
+      </header>
+
+      <div id="canvasContainer" class="canvas-container">
+        <canvas id="gameCanvas" aria-label="Kanji Striker game area" role="img">
+          Your browser does not support the HTML5 canvas element.
+        </canvas>
+      </div>
+
+      <footer id="gameControls" class="game-controls" aria-label="Game controls">
+        <button id="pauseButton" class="control-button" type="button" aria-label="Pause game">PAUSE</button>
+        <button id="backToMenuButton" class="control-button control-button-danger" type="button" aria-label="Back to main menu">MENU</button>
+      </footer>
+    </section>
+
+    <!-- APP FOOTER -->
+    <footer id="appFooter" class="app-footer">
+      <small id="versionLabel">v0.1.0</small>
+    </footer>
+
+  </div>
+</body>
+</html>
