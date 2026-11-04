@@ -1,212 +1,384 @@
-/* KANJI STRIKER - Phase 02: Player & Input System */
+/* KANJI STRIKER - v0.1.0
+   Menu, game screen, moving starfield and player ship with touch/mouse/keyboard control. */
 
-document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
-    const menuScreen = document.getElementById('menu-screen');
-    const gameScreen = document.getElementById('game-screen');
-    const startGameBtn = document.getElementById('start-game-btn');
-    const collectionBtn = document.getElementById('collection-btn');
-    const settingsBtn = document.getElementById('settings-btn');
-    const pauseBtn = document.getElementById('pause-btn');
-    const backToMenuBtn = document.getElementById('back-to-menu-btn');
-    
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+(function () {
+  'use strict';
 
-    // Game States
-    const GameState = {
-        MENU: 'MENU',
-        READY: 'READY',
-        PLAYING: 'PLAYING',
-        PAUSED: 'PAUSED',
-        GAME_OVER: 'GAME_OVER'
-    };
+  // ---------- Page elements ----------
+  var appFooter = document.getElementById('appFooter');
+  var mainMenuSection = document.getElementById('mainMenuSection');
+  var gameSection = document.getElementById('gameSection');
 
-    let currentState = GameState.MENU;
-    let animationFrameId = null;
-    let lastTime = 0;
+  var startGameButton = document.getElementById('startGameButton');
+  var kanjiCollectionButton = document.getElementById('kanjiCollectionButton');
+  var settingsButton = document.getElementById('settingsButton');
+  var pauseButton = document.getElementById('pauseButton');
+  var backToMenuButton = document.getElementById('backToMenuButton');
 
-    // Player Object
-    let player = {
-        x: 0,
-        y: 0,
-        width: 40,
-        height: 40,
-        speed: 5,
-        targetX: 0,
-        isDragging: false
-    };
+  var hpDisplay = document.getElementById('hpDisplay');
+  var scoreDisplay = document.getElementById('scoreDisplay');
+  var comboDisplay = document.getElementById('comboDisplay');
 
-    // Canvas Resizing for High-DPI & Mobile Fit
-    function resizeCanvas() {
-        const container = canvas.parentElement;
-        const width = container.clientWidth;
-        const height = container.clientHeight;
+  var canvas = document.getElementById('gameCanvas');
+  var ctx = canvas.getContext('2d');
 
-        canvas.style.width = width + 'px';
-        canvas.style.height = height + 'px';
+  // ---------- Game state ----------
+  var STATE_MENU = 'MENU';
+  var STATE_PLAYING = 'PLAYING';
+  var STATE_PAUSED = 'PAUSED';
 
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = width * dpr;
-        canvas.height = height * dpr;
+  var currentState = STATE_MENU;
+  var animationFrameId = null;
+  var lastTime = 0;
+  var totalTime = 0;
 
-        ctx.scale(dpr, dpr);
+  var viewWidth = 0;
+  var viewHeight = 0;
 
-        // Reset player position to bottom-center when resizing/starting
-        if (player) {
-            player.x = width / 2;
-            player.y = height - 70;
-            player.targetX = player.x;
+  var hp = 100;
+  var score = 0;
+  var combo = 0;
+
+  var player = {
+    x: 0,
+    y: 0,
+    targetX: 0,
+    isDragging: false
+  };
+
+  var stars = [];
+
+  // ---------- Pixel ship drawing ----------
+  var PIXEL = 3;
+  var SHIP_COLORS = {
+    R: '#e0123c',
+    D: '#8a0a26',
+    C: '#66e0ff',
+    W: '#ffffff'
+  };
+  var SHIP_PIXELS = [
+    '.....R.....',
+    '....RRR....',
+    '....RWR....',
+    '...RRCRR...',
+    '..RRRCRRR..',
+    '.RRRRCRRRR.',
+    'RRDRRRRRDRR',
+    'RR.RRRRR.RR',
+    'R..RRDRR..R',
+    '...D...D...'
+  ];
+  var SHIP_WIDTH = SHIP_PIXELS[0].length * PIXEL;
+  var SHIP_HEIGHT = SHIP_PIXELS.length * PIXEL;
+
+  // ---------- Screen switching ----------
+  function showMenu() {
+    gameSection.hidden = true;
+    mainMenuSection.hidden = false;
+    appFooter.hidden = false;
+  }
+
+  function showGame() {
+    mainMenuSection.hidden = true;
+    gameSection.hidden = false;
+    appFooter.hidden = true;
+  }
+
+  // ---------- HUD ----------
+  function updateHud() {
+    hpDisplay.textContent = String(hp);
+    scoreDisplay.textContent = String(score);
+    comboDisplay.textContent = 'x' + combo;
+  }
+
+  // ---------- Canvas size ----------
+  function createStars() {
+    stars = [];
+    var count = 60;
+    for (var i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random() * viewWidth,
+        y: Math.random() * viewHeight,
+        speed: 20 + Math.random() * 80,
+        size: Math.random() < 0.8 ? 1 : 2
+      });
+    }
+  }
+
+  function resizeCanvas() {
+    var container = canvas.parentElement;
+    var width = container.clientWidth;
+    var height = container.clientHeight;
+    if (width === 0 || height === 0) {
+      return;
+    }
+
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+
+    var oldWidth = viewWidth;
+    viewWidth = width;
+    viewHeight = height;
+
+    player.y = viewHeight - 60;
+    if (oldWidth > 0) {
+      player.x = (player.x / oldWidth) * viewWidth;
+      player.targetX = (player.targetX / oldWidth) * viewWidth;
+    } else {
+      player.x = viewWidth / 2;
+      player.targetX = player.x;
+    }
+
+    createStars();
+  }
+
+  // ---------- Game control ----------
+  function startGame() {
+    hp = 100;
+    score = 0;
+    combo = 0;
+    updateHud();
+
+    currentState = STATE_PLAYING;
+    pauseButton.textContent = 'PAUSE';
+    pauseButton.setAttribute('aria-label', 'Pause game');
+
+    showGame();
+    viewWidth = 0;
+    resizeCanvas();
+
+    player.isDragging = false;
+    startLoop();
+  }
+
+  function backToMenu() {
+    currentState = STATE_MENU;
+    stopLoop();
+    showMenu();
+  }
+
+  function pauseGame() {
+    if (currentState !== STATE_PLAYING) {
+      return;
+    }
+    currentState = STATE_PAUSED;
+    pauseButton.textContent = 'RESUME';
+    pauseButton.setAttribute('aria-label', 'Resume game');
+  }
+
+  function resumeGame() {
+    if (currentState !== STATE_PAUSED) {
+      return;
+    }
+    currentState = STATE_PLAYING;
+    pauseButton.textContent = 'PAUSE';
+    pauseButton.setAttribute('aria-label', 'Pause game');
+  }
+
+  function togglePause() {
+    if (currentState === STATE_PLAYING) {
+      pauseGame();
+    } else if (currentState === STATE_PAUSED) {
+      resumeGame();
+    }
+  }
+
+  // ---------- Game loop ----------
+  function startLoop() {
+    stopLoop();
+    lastTime = performance.now();
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function stopLoop() {
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+  }
+
+  function gameLoop(timestamp) {
+    var dt = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+    if (dt > 0.05) {
+      dt = 0.05;
+    }
+
+    if (currentState === STATE_PLAYING) {
+      update(dt);
+    }
+    render();
+
+    if (currentState !== STATE_MENU) {
+      animationFrameId = requestAnimationFrame(gameLoop);
+    }
+  }
+
+  function update(dt) {
+    totalTime += dt;
+
+    // Smooth movement toward the target position
+    player.x += (player.targetX - player.x) * 0.2;
+
+    var halfShip = SHIP_WIDTH / 2;
+    if (player.x < halfShip) {
+      player.x = halfShip;
+    }
+    if (player.x > viewWidth - halfShip) {
+      player.x = viewWidth - halfShip;
+    }
+
+    // Scroll the stars downward
+    for (var i = 0; i < stars.length; i++) {
+      var star = stars[i];
+      star.y += star.speed * dt;
+      if (star.y > viewHeight) {
+        star.y = 0;
+        star.x = Math.random() * viewWidth;
+      }
+    }
+  }
+
+  // ---------- Drawing ----------
+  function drawShip() {
+    var left = Math.round(player.x - SHIP_WIDTH / 2);
+    var top = Math.round(player.y - SHIP_HEIGHT / 2);
+
+    for (var row = 0; row < SHIP_PIXELS.length; row++) {
+      for (var col = 0; col < SHIP_PIXELS[row].length; col++) {
+        var key = SHIP_PIXELS[row][col];
+        if (key === '.') {
+          continue;
         }
+        ctx.fillStyle = SHIP_COLORS[key];
+        ctx.fillRect(left + col * PIXEL, top + row * PIXEL, PIXEL, PIXEL);
+      }
     }
 
-    window.addEventListener('resize', () => {
-        if (currentState !== GameState.MENU) {
-            resizeCanvas();
-        }
-    });
+    // Engine flame (flickers)
+    var flameLength = Math.floor(totalTime * 20) % 2 === 0 ? 2 : 3;
+    ctx.fillStyle = '#ffd21f';
+    ctx.fillRect(left + 3 * PIXEL, top + SHIP_HEIGHT, PIXEL, PIXEL * flameLength);
+    ctx.fillRect(left + 7 * PIXEL, top + SHIP_HEIGHT, PIXEL, PIXEL * flameLength);
+  }
 
-    // Screen Switching Logic
-    function switchScreen(screenId) {
-        document.querySelectorAll('.screen').forEach(screen => {
-            screen.classList.remove('active');
-        });
-        const targetScreen = document.getElementById(screenId);
-        if (targetScreen) {
-            targetScreen.classList.add('active');
-        }
+  function render() {
+    ctx.fillStyle = '#050508';
+    ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+    // Stars
+    ctx.fillStyle = '#ffffff';
+    for (var i = 0; i < stars.length; i++) {
+      var star = stars[i];
+      ctx.fillRect(Math.round(star.x), Math.round(star.y), star.size, star.size);
     }
 
-    // Event Listeners for Navigation
-    startGameBtn.addEventListener('click', () => {
-        currentState = GameState.PLAYING;
-        switchScreen('game-screen');
-        resizeCanvas();
-        initGameEngine();
-    });
+    drawShip();
 
-    backToMenuBtn.addEventListener('click', () => {
-        currentState = GameState.MENU;
-        switchScreen('menu-screen');
-        stopGameEngine();
-    });
-
-    pauseBtn.addEventListener('click', () => {
-        if (currentState === GameState.PLAYING) {
-            currentState = GameState.PAUSED;
-            pauseBtn.textContent = '▶';
-        } else if (currentState === GameState.PAUSED) {
-            currentState = GameState.PLAYING;
-            pauseBtn.textContent = '⏸';
-            lastTime = performance.now();
-            runGameLoop(lastTime);
-        }
-    });
-
-    collectionBtn.addEventListener('click', () => {
-        alert('KANJI COLLECTION хэсэг дараагийн хөгжүүлэлтэд нэмэгдэнэ.');
-    });
-
-    settingsBtn.addEventListener('click', () => {
-        alert('SETTINGS хэсэг дараагийн хөгжүүлэлтэд нэмэгдэнэ.');
-    });
-
-    // --- INPUT HANDLING (Touch & Mouse) ---
-    function getEventPosition(e) {
-        const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        return clientX - rect.left;
+    if (currentState === STATE_PAUSED) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+      ctx.fillStyle = '#ffd21f';
+      ctx.font = 'bold 28px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('PAUSED', viewWidth / 2, viewHeight / 2);
     }
+  }
 
-    canvas.addEventListener('pointerdown', (e) => {
-        if (currentState !== GameState.PLAYING) return;
-        player.isDragging = true;
-        player.targetX = getEventPosition(e);
-        e.preventDefault();
-    });
+  // ---------- Input ----------
+  function getPointerX(event) {
+    var rect = canvas.getBoundingClientRect();
+    return event.clientX - rect.left;
+  }
 
-    canvas.addEventListener('pointermove', (e) => {
-        if (currentState !== GameState.PLAYING || !player.isDragging) return;
-        player.targetX = getEventPosition(e);
-        e.preventDefault();
-    });
-
-    window.addEventListener('pointerup', () => {
-        player.isDragging = false;
-    });
-
-    // --- GAME ENGINE & LOOP ---
-    function initGameEngine() {
-        console.log('Game Engine Initialized with Player');
-        lastTime = performance.now();
-        if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        animationFrameId = requestAnimationFrame(runGameLoop);
+  canvas.addEventListener('pointerdown', function (event) {
+    if (currentState !== STATE_PLAYING) {
+      return;
     }
-
-    function stopGameEngine() {
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-        }
-        console.log('Game Engine Stopped');
+    player.isDragging = true;
+    player.targetX = getPointerX(event);
+    if (canvas.setPointerCapture) {
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch (error) {
+        /* ignore */
+      }
     }
+    event.preventDefault();
+  });
 
-    function update(dt) {
-        // Smooth interpolation (lerp) towards targetX for fluid movement
-        const lerpFactor = 0.2;
-        player.x += (player.targetX - player.x) * lerpFactor;
-
-        // Constrain player within canvas horizontal boundaries
-        const logicalWidth = canvas.width / (window.devicePixelRatio || 1);
-        const halfWidth = player.width / 2;
-        if (player.x < halfWidth) player.x = halfWidth;
-        if (player.x > logicalWidth - halfWidth) player.x = logicalWidth - halfWidth;
+  canvas.addEventListener('pointermove', function (event) {
+    if (currentState !== STATE_PLAYING || !player.isDragging) {
+      return;
     }
+    player.targetX = getPointerX(event);
+    event.preventDefault();
+  });
 
-    function render() {
-        const logicalWidth = canvas.width / (window.devicePixelRatio || 1);
-        const logicalHeight = canvas.height / (window.devicePixelRatio || 1);
+  function stopDragging() {
+    player.isDragging = false;
+  }
 
-        // Clear Background
-        ctx.fillStyle = '#050508';
-        ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+  canvas.addEventListener('pointerup', stopDragging);
+  canvas.addEventListener('pointercancel', stopDragging);
+  window.addEventListener('pointerup', stopDragging);
 
-        // Draw Starfield Effect (Simple background decor)
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(50, 100, 2, 2);
-        ctx.fillRect(180, 250, 1.5, 1.5);
-        ctx.fillRect(300, 80, 2, 2);
-        ctx.fillRect(100, 400, 1, 1);
-
-        // Draw Player Spaceship (Retro Pixel Style Placeholder)
-        ctx.save();
-        ctx.translate(player.x, player.y);
-
-        // Ship Body (Crimson Red)
-        ctx.fillStyle = '#ff0055';
-        ctx.beginPath();
-        ctx.moveTo(0, -player.height / 2); // Nose
-        ctx.lineTo(player.width / 2, player.height / 2); // Right wing
-        ctx.lineTo(-player.width / 2, player.height / 2); // Left wing
-        ctx.closePath();
-        ctx.fill();
-
-        // Cockpit (Cyan highlight)
-        ctx.fillStyle = '#00ffff';
-        ctx.fillRect(-4, -5, 8, 12);
-
-        ctx.restore();
+  // Keyboard (for computers)
+  window.addEventListener('keydown', function (event) {
+    if (currentState !== STATE_PLAYING) {
+      return;
     }
-
-    function runGameLoop(timestamp) {
-        if (currentState !== GameState.PLAYING) return;
-
-        const dt = (timestamp - lastTime) / 1000;
-        lastTime = timestamp;
-
-        update(dt);
-        render();
-
-        animationFrameId = requestAnimationFrame(runGameLoop);
+    if (event.key === 'ArrowLeft') {
+      player.targetX -= 40;
+    } else if (event.key === 'ArrowRight') {
+      player.targetX += 40;
     }
-});
+    if (player.targetX < 0) {
+      player.targetX = 0;
+    }
+    if (player.targetX > viewWidth) {
+      player.targetX = viewWidth;
+    }
+  });
+
+  // ---------- Buttons ----------
+  startGameButton.addEventListener('click', startGame);
+  backToMenuButton.addEventListener('click', backToMenu);
+  pauseButton.addEventListener('click', togglePause);
+
+  kanjiCollectionButton.addEventListener('click', function () {
+    alert('KANJI COLLECTION хэсэг дараагийн хөгжүүлэлтэд нэмэгдэнэ.');
+  });
+
+  settingsButton.addEventListener('click', function () {
+    alert('SETTINGS хэсэг дараагийн хөгжүүлэлтэд нэмэгдэнэ.');
+  });
+
+  // ---------- Window events ----------
+  window.addEventListener('resize', function () {
+    if (currentState !== STATE_MENU) {
+      resizeCanvas();
+    }
+  });
+
+  window.addEventListener('orientationchange', function () {
+    if (currentState !== STATE_MENU) {
+      setTimeout(resizeCanvas, 200);
+    }
+  });
+
+  // Pause automatically when the page is hidden
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      pauseGame();
+    }
+  });
+
+  // ---------- Start ----------
+  updateHud();
+  showMenu();
+})();
