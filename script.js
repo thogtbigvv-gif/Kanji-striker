@@ -1,5 +1,5 @@
-/* KANJI STRIKER - Phase 03
-   Auto-fire, kanji enemies, meaning question, score/combo/HP, game over and restart. */
+/* KANJI STRIKER - Phase 04
+   Kanji collection, saved progress, settings, sound effects and learning messages. */
 
 (function () {
   'use strict';
@@ -14,6 +14,17 @@
   var settingsButton = document.getElementById('settingsButton');
   var pauseButton = document.getElementById('pauseButton');
   var backToMenuButton = document.getElementById('backToMenuButton');
+
+  var collectionSection = document.getElementById('collectionSection');
+  var collectionSummary = document.getElementById('collectionSummary');
+  var collectionGrid = document.getElementById('collectionGrid');
+  var collectionBackButton = document.getElementById('collectionBackButton');
+
+  var settingsSection = document.getElementById('settingsSection');
+  var soundToggleButton = document.getElementById('soundToggleButton');
+  var resetProgressButton = document.getElementById('resetProgressButton');
+  var settingsMessage = document.getElementById('settingsMessage');
+  var settingsBackButton = document.getElementById('settingsBackButton');
 
   var hpDisplay = document.getElementById('hpDisplay');
   var scoreDisplay = document.getElementById('scoreDisplay');
@@ -67,11 +78,32 @@
     { kanji: '目', meaning: 'Нүд' },
     { kanji: '手', meaning: 'Гар' },
     { kanji: '足', meaning: 'Хөл' },
+    { kanji: '耳', meaning: 'Чих' },
     { kanji: '犬', meaning: 'Нохой' },
     { kanji: '雨', meaning: 'Бороо' },
     { kanji: '花', meaning: 'Цэцэг' },
-    { kanji: '本', meaning: 'Ном' }
+    { kanji: '本', meaning: 'Ном' },
+    { kanji: '車', meaning: 'Машин' },
+    { kanji: '王', meaning: 'Хаан' },
+    { kanji: '女', meaning: 'Эмэгтэй' },
+    { kanji: '男', meaning: 'Эрэгтэй' },
+    { kanji: '子', meaning: 'Хүүхэд' },
+    { kanji: '天', meaning: 'Тэнгэр' },
+    { kanji: '上', meaning: 'Дээр' },
+    { kanji: '下', meaning: 'Доор' },
+    { kanji: '中', meaning: 'Дунд' },
+    { kanji: '白', meaning: 'Цагаан' },
+    { kanji: '力', meaning: 'Хүч' },
+    { kanji: '入', meaning: 'Орох' },
+    { kanji: '出', meaning: 'Гарах' },
+    { kanji: '見', meaning: 'Харах' },
+    { kanji: '食', meaning: 'Идэх' },
+    { kanji: '飲', meaning: 'Уух' },
+    { kanji: '行', meaning: 'Явах' },
+    { kanji: '休', meaning: 'Амрах' },
+    { kanji: '立', meaning: 'Зогсох' }
   ];
+  var MASTERED_HITS = 3;
 
   var question = KANJI_LIST[0];
   var enemies = [];
@@ -82,6 +114,11 @@
   var damageFlash = 0;
   var gameOverAt = 0;
   var bestScore = 0;
+  var newBest = false;
+  var toast = { text: '', color: '#ffffff', time: 0 };
+  var progress = {};
+  var soundEnabled = true;
+  var audioContext = null;
 
   var ENEMY_WIDTH = 44;
   var ENEMY_HEIGHT = 54;
@@ -124,35 +161,228 @@
     '..B.D.B..'
   ];
 
-  // ---------- Best score (saved in the browser) ----------
-  function loadBestScore() {
+  // ---------- Saved data (stored in the browser) ----------
+  var KEY_BEST = 'kanjiStrikerBestScore';
+  var KEY_PROGRESS = 'kanjiStrikerProgress';
+  var KEY_SOUND = 'kanjiStrikerSound';
+
+  function readStorage(key) {
     try {
-      var saved = parseInt(window.localStorage.getItem('kanjiStrikerBestScore'), 10);
-      bestScore = isNaN(saved) ? 0 : saved;
+      return window.localStorage.getItem(key);
     } catch (error) {
-      bestScore = 0;
+      return null;
     }
   }
 
-  function saveBestScore() {
+  function writeStorage(key, value) {
     try {
-      window.localStorage.setItem('kanjiStrikerBestScore', String(bestScore));
+      window.localStorage.setItem(key, value);
     } catch (error) {
       /* ignore */
     }
   }
 
+  function removeStorage(key) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch (error) {
+      /* ignore */
+    }
+  }
+
+  function loadSavedData() {
+    var savedBest = parseInt(readStorage(KEY_BEST), 10);
+    bestScore = isNaN(savedBest) ? 0 : savedBest;
+
+    progress = {};
+    var savedProgress = readStorage(KEY_PROGRESS);
+    if (savedProgress) {
+      try {
+        var parsed = JSON.parse(savedProgress);
+        if (parsed && typeof parsed === 'object') {
+          progress = parsed;
+        }
+      } catch (error) {
+        progress = {};
+      }
+    }
+
+    soundEnabled = readStorage(KEY_SOUND) !== 'off';
+  }
+
+  function saveBestScore() {
+    writeStorage(KEY_BEST, String(bestScore));
+  }
+
+  function saveProgress() {
+    writeStorage(KEY_PROGRESS, JSON.stringify(progress));
+  }
+
+  function getEntry(kanji) {
+    if (!progress[kanji]) {
+      progress[kanji] = { hits: 0, misses: 0 };
+    }
+    return progress[kanji];
+  }
+
+  function recordHit(kanji) {
+    getEntry(kanji).hits += 1;
+    saveProgress();
+  }
+
+  function recordMiss(kanji) {
+    getEntry(kanji).misses += 1;
+    saveProgress();
+  }
+
+  // ---------- Sound (simple beeps, no sound files needed) ----------
+  function getAudio() {
+    if (!soundEnabled) {
+      return null;
+    }
+    if (!audioContext) {
+      var AudioClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioClass) {
+        return null;
+      }
+      try {
+        audioContext = new AudioClass();
+      } catch (error) {
+        return null;
+      }
+    }
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+    return audioContext;
+  }
+
+  function playTone(frequency, duration, type, volume, delay, endFrequency) {
+    var audio = getAudio();
+    if (!audio) {
+      return;
+    }
+    var startAt = audio.currentTime + (delay || 0);
+    var oscillator = audio.createOscillator();
+    var gain = audio.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, startAt);
+    if (endFrequency) {
+      oscillator.frequency.linearRampToValueAtTime(endFrequency, startAt + duration);
+    }
+    gain.gain.setValueAtTime(volume, startAt);
+    gain.gain.linearRampToValueAtTime(0.0001, startAt + duration);
+    oscillator.connect(gain);
+    gain.connect(audio.destination);
+    oscillator.start(startAt);
+    oscillator.stop(startAt + duration + 0.02);
+  }
+
+  function playCorrectSound() {
+    playTone(660, 0.1, 'square', 0.08, 0);
+    playTone(990, 0.16, 'square', 0.08, 0.09);
+  }
+
+  function playWrongSound() {
+    playTone(220, 0.25, 'sawtooth', 0.08, 0, 90);
+  }
+
+  function playHurtSound() {
+    playTone(150, 0.2, 'square', 0.09, 0, 60);
+  }
+
+  function playGameOverSound() {
+    playTone(440, 0.2, 'triangle', 0.1, 0);
+    playTone(330, 0.2, 'triangle', 0.1, 0.2);
+    playTone(220, 0.4, 'triangle', 0.1, 0.4);
+  }
+
+  function updateSoundButton() {
+    soundToggleButton.textContent = soundEnabled ? 'SOUND: ON' : 'SOUND: OFF';
+  }
+
+  // ---------- Learning message (shown under the question) ----------
+  function showToast(text, color) {
+    toast.text = text;
+    toast.color = color;
+    toast.time = 1.8;
+  }
+
   // ---------- Screen switching ----------
+  function showOnly(section, showFooter) {
+    mainMenuSection.hidden = section !== mainMenuSection;
+    collectionSection.hidden = section !== collectionSection;
+    settingsSection.hidden = section !== settingsSection;
+    gameSection.hidden = section !== gameSection;
+    appFooter.hidden = !showFooter;
+  }
+
   function showMenu() {
-    gameSection.hidden = true;
-    mainMenuSection.hidden = false;
-    appFooter.hidden = false;
+    showOnly(mainMenuSection, true);
   }
 
   function showGame() {
-    mainMenuSection.hidden = true;
-    gameSection.hidden = false;
-    appFooter.hidden = true;
+    showOnly(gameSection, false);
+  }
+
+  function showCollection() {
+    buildCollection();
+    showOnly(collectionSection, true);
+  }
+
+  function showSettings() {
+    settingsMessage.textContent = '';
+    updateSoundButton();
+    showOnly(settingsSection, true);
+  }
+
+  // ---------- Kanji collection screen ----------
+  function buildCollection() {
+    while (collectionGrid.firstChild) {
+      collectionGrid.removeChild(collectionGrid.firstChild);
+    }
+
+    var collected = 0;
+    for (var i = 0; i < KANJI_LIST.length; i++) {
+      var item = KANJI_LIST[i];
+      var entry = progress[item.kanji];
+      var hits = entry ? entry.hits : 0;
+
+      var cell = document.createElement('div');
+      cell.className = 'kanji-cell';
+      cell.setAttribute('role', 'listitem');
+
+      var charSpan = document.createElement('span');
+      charSpan.className = 'kanji-cell-char';
+      var meaningSpan = document.createElement('span');
+      meaningSpan.className = 'kanji-cell-meaning';
+
+      if (hits >= MASTERED_HITS) {
+        cell.className += ' is-mastered';
+        collected += 1;
+      } else if (hits >= 1) {
+        cell.className += ' is-collected';
+        collected += 1;
+      } else {
+        cell.className += ' is-locked';
+      }
+
+      if (hits >= 1) {
+        charSpan.textContent = item.kanji;
+        meaningSpan.textContent = item.meaning;
+        cell.setAttribute('aria-label', item.kanji + ' - ' + item.meaning);
+      } else {
+        charSpan.textContent = '?';
+        meaningSpan.textContent = '???';
+        cell.setAttribute('aria-label', 'Locked kanji');
+      }
+
+      cell.appendChild(charSpan);
+      cell.appendChild(meaningSpan);
+      collectionGrid.appendChild(cell);
+    }
+
+    collectionSummary.textContent = 'COLLECTED ' + collected + ' / ' + KANJI_LIST.length;
   }
 
   // ---------- HUD ----------
@@ -219,6 +449,7 @@
     score = 0;
     combo = 0;
     updateHud();
+    getAudio();
 
     enemies = [];
     bullets = [];
@@ -226,6 +457,8 @@
     spawnTimer = 0;
     fireTimer = 0;
     damageFlash = 0;
+    toast.time = 0;
+    newBest = false;
     totalTime = 0;
     pickQuestion();
 
@@ -332,17 +565,32 @@
       player.isDragging = false;
       if (score > bestScore) {
         bestScore = score;
+        newBest = true;
         saveBestScore();
       }
+      playGameOverSound();
+    } else {
+      playHurtSound();
     }
     updateHud();
   }
 
-  function correctHit() {
+  function correctHit(data) {
     combo += 1;
-    score += 10 * combo;
+    var points = 10 * combo;
+    score += points;
+    recordHit(data.kanji);
+    showToast(data.kanji + ' = ' + data.meaning.toUpperCase() + '   +' + points, '#5dff8a');
+    playCorrectSound();
     pickQuestion();
     updateHud();
+  }
+
+  function wrongHit(data) {
+    recordMiss(question.kanji);
+    showToast(data.kanji + ' = ' + data.meaning.toUpperCase(), '#ff6b86');
+    playWrongSound();
+    loseHp(10);
   }
 
   function updateGameplay(dt) {
@@ -382,6 +630,8 @@
         var wasAnswer = enemy.data === question;
         enemies.splice(i, 1);
         if (wasAnswer) {
+          recordMiss(question.kanji);
+          showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
           loseHp(10);
           if (currentState === STATE_GAME_OVER) {
             return;
@@ -420,10 +670,10 @@
           enemies.splice(j, 1);
           if (e.data === question) {
             burst(e.x, e.y + ENEMY_HEIGHT / 2, '#5dff8a');
-            correctHit();
+            correctHit(e.data);
           } else {
             burst(e.x, e.y + ENEMY_HEIGHT / 2, '#ff6b86');
-            loseHp(10);
+            wrongHit(e.data);
             if (currentState === STATE_GAME_OVER) {
               return;
             }
@@ -494,6 +744,9 @@
     // Particles and damage flash
     if (damageFlash > 0) {
       damageFlash -= dt;
+    }
+    if (toast.time > 0) {
+      toast.time -= dt;
     }
     for (var p = particles.length - 1; p >= 0; p--) {
       var particle = particles[p];
@@ -577,6 +830,21 @@
     ctx.fillText(question.meaning.toUpperCase(), viewWidth / 2, 32);
   }
 
+  function drawToast() {
+    if (toast.time <= 0) {
+      return;
+    }
+    ctx.globalAlpha = Math.min(toast.time / 0.4, 1);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 18px ' + KANJI_FONT;
+    ctx.fillStyle = '#000000';
+    ctx.fillText(toast.text, viewWidth / 2 + 1, 71);
+    ctx.fillStyle = toast.color;
+    ctx.fillText(toast.text, viewWidth / 2, 70);
+    ctx.globalAlpha = 1;
+  }
+
   function drawOverlayText(title, subtitle, color) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(0, 0, viewWidth, viewHeight);
@@ -631,6 +899,7 @@
     }
 
     drawQuestion();
+    drawToast();
 
     if (currentState === STATE_PAUSED) {
       drawOverlayText('PAUSED', 'Press RESUME to continue', '#ffd21f');
@@ -639,6 +908,10 @@
       ctx.fillStyle = '#6fb7ff';
       ctx.font = 'bold 14px "Courier New", monospace';
       ctx.fillText('TAP THE SCREEN TO PLAY AGAIN', viewWidth / 2, viewHeight / 2 + 48);
+      if (newBest) {
+        ctx.fillStyle = '#ffd21f';
+        ctx.fillText('NEW BEST SCORE!', viewWidth / 2, viewHeight / 2 + 72);
+      }
     }
   }
 
@@ -711,12 +984,29 @@
   backToMenuButton.addEventListener('click', backToMenu);
   pauseButton.addEventListener('click', togglePause);
 
-  kanjiCollectionButton.addEventListener('click', function () {
-    alert('KANJI COLLECTION хэсэг дараагийн хөгжүүлэлтэд нэмэгдэнэ.');
+  kanjiCollectionButton.addEventListener('click', showCollection);
+  settingsButton.addEventListener('click', showSettings);
+  collectionBackButton.addEventListener('click', showMenu);
+  settingsBackButton.addEventListener('click', showMenu);
+
+  soundToggleButton.addEventListener('click', function () {
+    soundEnabled = !soundEnabled;
+    writeStorage(KEY_SOUND, soundEnabled ? 'on' : 'off');
+    updateSoundButton();
+    if (soundEnabled) {
+      playCorrectSound();
+    }
   });
 
-  settingsButton.addEventListener('click', function () {
-    alert('SETTINGS хэсэг дараагийн хөгжүүлэлтэд нэмэгдэнэ.');
+  resetProgressButton.addEventListener('click', function () {
+    if (!window.confirm('Бүх хадгалсан ахиц болон дээд оноог устгах уу?')) {
+      return;
+    }
+    progress = {};
+    bestScore = 0;
+    removeStorage(KEY_PROGRESS);
+    removeStorage(KEY_BEST);
+    settingsMessage.textContent = 'PROGRESS RESET';
   });
 
   // ---------- Window events ----------
@@ -740,7 +1030,8 @@
   });
 
   // ---------- Start ----------
-  loadBestScore();
+  loadSavedData();
+  updateSoundButton();
   updateHud();
   showMenu();
 })();
