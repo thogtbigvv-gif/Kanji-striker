@@ -2,7 +2,9 @@
    Kanji collection, saved progress, settings, sound effects and learning messages.
    Phase 01: smooth pointer control, delta-time shooting, one correct target per question,
    safe collisions, gradual difficulty, stable game states and responsive canvas.
-   Campaign foundation: World/Stage data and saved campaign progress (data only, no screens yet). */
+   Campaign foundation: World/Stage data and saved campaign progress (data only, no screens yet).
+   Stage Wave System: a stage is played as 4 waves (Introduction, Formation Attack, Mixed Attack,
+   Final Wave). When the last wave is cleared the game enters STATE_STAGE_COMPLETE (no saving yet). */
 
 (function () {
   'use strict';
@@ -41,13 +43,14 @@
   var STATE_PLAYING = 'PLAYING';
   var STATE_PAUSED = 'PAUSED';
   var STATE_GAME_OVER = 'GAME_OVER';
+  var STATE_STAGE_COMPLETE = 'STAGE_COMPLETE'; // every wave of the stage was cleared
 
   var currentState = STATE_MENU;
   var animationFrameId = null;
   var lastTime = 0;
   var totalTime = 0;
   var questionSerial = 0; // changes for every new question, so old enemies can never match a new one
-  var answered = 0;       // correct answers in this run (drives difficulty)
+  var answered = 0;       // correct answers in this run
 
   var viewWidth = 0;
   var viewHeight = 0;
@@ -109,6 +112,12 @@
     { kanji: '休', meaning: 'Амрах' },
     { kanji: '立', meaning: 'Зогсох' }
   ];
+  var KANJI_BY_CHAR = {}; // kanji character -> its entry in KANJI_LIST (used to load a stage's kanji)
+  (function () {
+    for (var i = 0; i < KANJI_LIST.length; i++) {
+      KANJI_BY_CHAR[KANJI_LIST[i].kanji] = KANJI_LIST[i];
+    }
+  })();
   var MASTERED_HITS = 3;
 
   // Gameplay tuning
@@ -119,10 +128,11 @@
   var MAX_DPR = 3;           // limits canvas size on very dense Android screens
 
   var question = KANJI_LIST[0];
+  var questionPool = KANJI_LIST; // kanji that can become the question (replaced by the stage's own kanji)
+  var decoyPool = KANJI_LIST;    // kanji that can appear as wrong answers (stage kanji + its review kanji)
   var enemies = [];
   var bullets = [];
   var particles = [];
-  var spawnTimer = 0;
   var fireTimer = 0;
   var damageFlash = 0;
   var gameOverAt = 0;
@@ -558,6 +568,18 @@
     playTone(220, 0.4, 'triangle', 0.1, 0.4);
   }
 
+  function playWaveSound() {
+    playTone(520, 0.1, 'square', 0.06, 0);
+    playTone(780, 0.14, 'square', 0.06, 0.1);
+  }
+
+  function playStageCompleteSound() {
+    playTone(523, 0.12, 'square', 0.08, 0);
+    playTone(659, 0.12, 'square', 0.08, 0.12);
+    playTone(784, 0.12, 'square', 0.08, 0.24);
+    playTone(1047, 0.3, 'square', 0.08, 0.36);
+  }
+
   function updateSoundButton() {
     soundToggleButton.textContent = soundEnabled ? 'SOUND: ON' : 'SOUND: OFF';
   }
@@ -723,8 +745,315 @@
     return x < half ? half : x > max ? max : x;
   }
 
+  // ---------- Stage Wave System ----------
+  // A stage is played as a sequence of waves. Each wave is a fixed list of enemy groups (a single ship,
+  // a row or a V formation) that appear one after another. The next wave starts ONLY when every enemy of
+  // the current wave is defeated or has left the screen. When the last wave is cleared the game enters
+  // STATE_STAGE_COMPLETE, stores the result in stageResult and fires one "kanjiStriker:stageComplete"
+  // event. Saving the stage result (recordStageResult) is NOT done here: that belongs to the Stage Clear step.
+  var WAVE_INTRO_TIME = 1.6;  // seconds the "WAVE n" banner is shown (nothing spawns during it)
+  var WAVE_GAP_TIME = 0.5;    // short quiet pause after a wave is cleared, before the next banner
+  var V_FORMATION_LIFT = 40;  // how much higher the outer ships of a V start (pixels)
+  var STAGE_COMPLETE_EVENT = 'kanjiStriker:stageComplete';
+
+  // speed = enemy speed in pixels per second (at the reference screen height), groupGap = seconds between groups
+  var WAVE_DEFS = [
+    {
+      name: 'Introduction',
+      speed: 62,
+      groupGap: 1.6,
+      groups: [
+        { count: 1, shape: 'single' },
+        { count: 1, shape: 'single' },
+        { count: 2, shape: 'row' },
+        { count: 1, shape: 'single' }
+      ]
+    },
+    {
+      name: 'Formation Attack',
+      speed: 74,
+      groupGap: 2.4,
+      groups: [
+        { count: 2, shape: 'row' },
+        { count: 3, shape: 'v' },
+        { count: 3, shape: 'row' }
+      ]
+    },
+    {
+      name: 'Mixed Attack',
+      speed: 86,
+      groupGap: 2.0,
+      groups: [
+        { count: 1, shape: 'single' },
+        { count: 2, shape: 'row' },
+        { count: 3, shape: 'v' },
+        { count: 1, shape: 'single' },
+        { count: 3, shape: 'row' }
+      ]
+    },
+    {
+      name: 'Final Wave',
+      speed: 98,
+      groupGap: 1.7,
+      groups: [
+        { count: 2, shape: 'row' },
+        { count: 3, shape: 'v' },
+        { count: 1, shape: 'single' },
+        { count: 3, shape: 'row' },
+        { count: 2, shape: 'row' },
+        { count: 1, shape: 'single' }
+      ]
+    }
+  ];
+
+  var currentStageId = null;     // id of the stage being played, e.g. "w1-s1"
+  var currentStage = null;       // its entry in CAMPAIGN_STAGES (world, number, kanji, ...)
+  var stageWaves = [];           // the waves of the stage being played
+  var stageCompleteFired = false; // makes sure the completion happens only once per run
+  var stageResult = null;        // filled when the last wave is cleared; read by the later Stage Clear step
+  // phase: 'none' | 'intro' (banner) | 'spawning' | 'clearing' (all spawned, waiting) | 'gap' (between waves)
+  var waveState = { index: 0, phase: 'none', timer: 0, groupIndex: 0, groupTimer: 0 };
+
+  var START_BUTTON_LABEL = startGameButton.textContent;
+  var startLabelTimer = null;
+
+  // Every stage uses the same wave plan for now (a later step can return a different plan per stage)
+  function getWavesForStage(stage) {
+    return stage ? WAVE_DEFS : [];
+  }
+
+  function kanjiItemsFor(chars) {
+    var items = [];
+    for (var i = 0; i < chars.length; i++) {
+      var item = KANJI_BY_CHAR[chars[i]];
+      if (item && items.indexOf(item) === -1) {
+        items.push(item);
+      }
+    }
+    return items;
+  }
+
+  // Questions come from the stage's own kanji. Wrong answers may also use the stage's review kanji.
+  function buildStagePools(stage) {
+    return {
+      targets: kanjiItemsFor(stage.kanji),
+      decoys: kanjiItemsFor(stage.kanji.concat(stage.review))
+    };
+  }
+
+  // Returns '' when the stage can be started, otherwise the reason it cannot
+  function getStageStartProblem(stageId) {
+    var stage = CAMPAIGN_STAGES[stageId];
+    if (!stage) {
+      return 'unknown stage';
+    }
+    if (!stage.ready) {
+      return 'not ready (no kanji data yet)';
+    }
+    if (!isStageUnlocked(stageId)) {
+      return 'locked';
+    }
+    if (stage.boss) {
+      return 'boss battle is not built yet';
+    }
+    if (getWavesForStage(stage).length === 0) {
+      return 'no waves';
+    }
+    var pools = buildStagePools(stage);
+    if (pools.targets.length < 2 || pools.decoys.length < 2) {
+      return 'not enough kanji';
+    }
+    return '';
+  }
+
+  // Shows "STAGE NOT READY" on the START GAME button for a moment (no new HTML needed)
+  function showStageNotReady() {
+    startGameButton.textContent = 'STAGE NOT READY';
+    if (startLabelTimer !== null) {
+      clearTimeout(startLabelTimer);
+    }
+    startLabelTimer = setTimeout(function () {
+      startGameButton.textContent = START_BUTTON_LABEL;
+      startLabelTimer = null;
+    }, 1800);
+  }
+
+  function shuffle(list) {
+    for (var i = list.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = list[i];
+      list[i] = list[j];
+      list[j] = temp;
+    }
+    return list;
+  }
+
+  // Start positions of the ships of one group. lift = extra height above the spawn line (V formation).
+  function formationSlots(group) {
+    var slots = [];
+    var count = group.count;
+    var i;
+    if (count <= 1) {
+      slots.push({ x: pickSpawnX(), lift: 0 });
+      return slots;
+    }
+    var margin = ENEMY_WIDTH / 2 + 4;
+    var usable = viewWidth - margin * 2;
+    var spacing = Math.min(ENEMY_WIDTH * 2 + 10, usable / (count - 1));
+    var half = (spacing * (count - 1)) / 2;
+    var minCenter = margin + half;
+    var maxCenter = viewWidth - margin - half;
+    var center = maxCenter > minCenter ? minCenter + Math.random() * (maxCenter - minCenter) : viewWidth / 2;
+    for (i = 0; i < count; i++) {
+      var fromMiddle = Math.abs(i - (count - 1) / 2);
+      slots.push({
+        x: center - half + spacing * i,
+        lift: group.shape === 'v' ? Math.round(fromMiddle * V_FORMATION_LIFT) : 0
+      });
+    }
+    return slots;
+  }
+
+  // Spawns every ship of a group at once. The ships are created in random order, so the correct
+  // target (the first ship created while no target is on screen) is not always on the same side.
+  function spawnGroup(group, speed) {
+    var slots = shuffle(formationSlots(group));
+    for (var i = 0; i < slots.length; i++) {
+      spawnEnemy(slots[i].x, -ENEMY_HEIGHT - slots[i].lift, speed);
+    }
+  }
+
+  function beginWave(index) {
+    waveState.index = index;
+    waveState.phase = 'intro';
+    waveState.timer = WAVE_INTRO_TIME;
+    waveState.groupIndex = 0;
+    waveState.groupTimer = 0;
+    playWaveSound();
+  }
+
+  // Runs every frame while playing: banner -> spawn the groups one by one -> wait for the wave to be cleared
+  function updateWaveSpawning(dt) {
+    var def = stageWaves[waveState.index];
+    if (!def) {
+      return;
+    }
+
+    if (waveState.phase === 'gap') {
+      waveState.timer -= dt;
+      if (waveState.timer <= 0 && waveState.index + 1 < stageWaves.length) {
+        beginWave(waveState.index + 1);
+      }
+      return;
+    }
+
+    if (waveState.phase === 'intro') {
+      waveState.timer -= dt;
+      if (waveState.timer > 0) {
+        return;
+      }
+      waveState.phase = 'spawning';
+      waveState.groupIndex = 0;
+      waveState.groupTimer = 0;
+    }
+
+    if (waveState.phase === 'spawning') {
+      waveState.groupTimer -= dt;
+      if (waveState.groupTimer > 0) {
+        return;
+      }
+      spawnGroup(def.groups[waveState.groupIndex], def.speed);
+      waveState.groupIndex += 1;
+      if (waveState.groupIndex >= def.groups.length) {
+        waveState.phase = 'clearing'; // everything of this wave is on screen now
+      } else {
+        waveState.groupTimer = def.groupGap;
+      }
+    }
+  }
+
+  function aliveEnemyCount() {
+    var n = 0;
+    for (var i = 0; i < enemies.length; i++) {
+      if (!enemies[i].dead) {
+        n += 1;
+      }
+    }
+    return n;
+  }
+
+  // Runs at the end of every playing frame (after dead enemies were removed)
+  function checkWaveCleared() {
+    if (currentState !== STATE_PLAYING || waveState.phase !== 'clearing') {
+      return;
+    }
+    if (aliveEnemyCount() > 0) {
+      return; // the wave is not over: ships are still on screen
+    }
+    if (waveState.index + 1 < stageWaves.length) {
+      waveState.phase = 'gap';
+      waveState.timer = WAVE_GAP_TIME;
+    } else {
+      completeStage();
+    }
+  }
+
+  // The last wave was cleared while the player was still alive
+  function completeStage() {
+    if (currentState !== STATE_PLAYING || stageCompleteFired) {
+      return;
+    }
+    stageCompleteFired = true;
+    waveState.phase = 'done';
+    currentState = STATE_STAGE_COMPLETE;
+    resetDrag();
+    bullets = [];
+    if (commitBestScore()) {
+      newBest = true;
+    }
+    stageResult = {
+      stageId: currentStageId,
+      worldId: currentStage.worldId,
+      stageNumber: currentStage.number,
+      cleared: true,
+      wavesCleared: stageWaves.length,
+      score: score,
+      hp: hp
+    };
+    playStageCompleteSound();
+    try {
+      window.dispatchEvent(new CustomEvent(STAGE_COMPLETE_EVENT, {
+        detail: {
+          stageId: stageResult.stageId,
+          worldId: stageResult.worldId,
+          stageNumber: stageResult.stageNumber,
+          cleared: true,
+          wavesCleared: stageResult.wavesCleared,
+          score: stageResult.score,
+          hp: stageResult.hp
+        }
+      }));
+    } catch (error) {
+      /* ignore: STATE_STAGE_COMPLETE and stageResult are still set */
+    }
+  }
+
   // ---------- Game control ----------
-  function startGame() {
+  // Starts one stage. Returns false (and changes nothing) when the stage cannot be played.
+  function startStage(stageId) {
+    if (getStageStartProblem(stageId) !== '') {
+      return false;
+    }
+    var stage = CAMPAIGN_STAGES[stageId];
+    var pools = buildStagePools(stage);
+    currentStageId = stageId;
+    currentStage = stage;
+    questionPool = pools.targets;
+    decoyPool = pools.decoys;
+    stageWaves = getWavesForStage(stage);
+    stageCompleteFired = false;
+    stageResult = null;
+
     hp = 100;
     score = 0;
     combo = 0;
@@ -734,7 +1063,6 @@
     enemies = [];
     bullets = [];
     particles = [];
-    spawnTimer = 0;
     fireTimer = 0;
     damageFlash = 0;
     toast.time = 0;
@@ -753,11 +1081,28 @@
 
     player.isDragging = false;
     player.pointerId = null;
+    beginWave(0);
     startLoop();
+    return true;
+  }
+
+  // START GAME: plays the stage the campaign says is next
+  function startGame() {
+    var stageId = getContinueStageId();
+    if (!stageId || !startStage(stageId)) {
+      showStageNotReady();
+    }
+  }
+
+  // Tap after GAME OVER: try the same stage again
+  function restartCurrentStage() {
+    if (!currentStageId || !startStage(currentStageId)) {
+      backToMenu();
+    }
   }
 
   function backToMenu() {
-    if (currentState === STATE_PLAYING || currentState === STATE_PAUSED) {
+    if (currentState === STATE_PLAYING || currentState === STATE_PAUSED || currentState === STATE_STAGE_COMPLETE) {
       commitBestScore();
     }
     currentState = STATE_MENU;
@@ -798,11 +1143,6 @@
     return scale < 0.8 ? 0.8 : scale > 1.4 ? 1.4 : scale;
   }
 
-  // 0 at the start, slowly grows to 1 with correct answers and play time
-  function difficulty() {
-    return Math.min(1, answered * 0.014 + totalTime * 0.0015);
-  }
-
   // An enemy is the correct target only if it was spawned as the target of the CURRENT question
   function isActiveTarget(enemy) {
     return !enemy.dead && enemy.isTarget && enemy.qid === questionSerial;
@@ -828,15 +1168,15 @@
 
     // New question: not the previous one and not a kanji already flying on screen
     var pool = [];
-    for (i = 0; i < KANJI_LIST.length; i++) {
-      if (KANJI_LIST[i] !== question && !onScreen[KANJI_LIST[i].kanji]) {
-        pool.push(KANJI_LIST[i]);
+    for (i = 0; i < questionPool.length; i++) {
+      if (questionPool[i] !== question && !onScreen[questionPool[i].kanji]) {
+        pool.push(questionPool[i]);
       }
     }
     if (pool.length === 0) {
-      for (i = 0; i < KANJI_LIST.length; i++) {
-        if (KANJI_LIST[i] !== question) {
-          pool.push(KANJI_LIST[i]);
+      for (i = 0; i < questionPool.length; i++) {
+        if (questionPool[i] !== question) {
+          pool.push(questionPool[i]);
         }
       }
     }
@@ -862,15 +1202,15 @@
       }
     }
     var pool = [];
-    for (i = 0; i < KANJI_LIST.length; i++) {
-      if (KANJI_LIST[i] !== question && !onScreen[KANJI_LIST[i].kanji]) {
-        pool.push(KANJI_LIST[i]);
+    for (i = 0; i < decoyPool.length; i++) {
+      if (decoyPool[i] !== question && !onScreen[decoyPool[i].kanji]) {
+        pool.push(decoyPool[i]);
       }
     }
     if (pool.length === 0) {
-      for (i = 0; i < KANJI_LIST.length; i++) {
-        if (KANJI_LIST[i] !== question) {
-          pool.push(KANJI_LIST[i]);
+      for (i = 0; i < decoyPool.length; i++) {
+        if (decoyPool[i] !== question) {
+          pool.push(decoyPool[i]);
         }
       }
     }
@@ -908,7 +1248,7 @@
     return bestX;
   }
 
-  function spawnEnemy() {
+  function spawnEnemy(x, y, speed) {
     // Exactly one correct target per question: spawn it only when none is active
     var needTarget = !activeTargetOnScreen();
     enemies.push({
@@ -916,8 +1256,10 @@
       isTarget: needTarget,
       qid: questionSerial,
       dead: false,
-      x: pickSpawnX(),
-      y: -ENEMY_HEIGHT
+      x: x,
+      y: y,
+      speed: speed,         // pixels per second at the reference screen height (set by the wave)
+      wave: waveState.index // which wave this ship belongs to
     });
   }
 
@@ -964,7 +1306,6 @@
     showToast(data.kanji + ' = ' + data.meaning.toUpperCase() + '   +' + points, '#5dff8a');
     playCorrectSound();
     pickQuestion();
-    spawnTimer = Math.min(spawnTimer, 0.35); // bring the next target in quickly
     updateHud();
   }
 
@@ -981,7 +1322,6 @@
   function targetMissed(amount) {
     recordMiss(question.kanji);
     showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
-    spawnTimer = Math.min(spawnTimer, 0.35); // same question, bring a new target quickly
     loseHp(amount);
   }
 
@@ -1013,9 +1353,7 @@
   }
 
   function updateGameplay(dt) {
-    var progressLevel = difficulty();
-    var enemySpeed = (60 + 90 * progressLevel) * sizeScale();
-    var spawnInterval = 1.3 - 0.45 * progressLevel;
+    var scale = sizeScale();
     var i;
     var j;
 
@@ -1027,15 +1365,8 @@
       bullets.push({ x: player.x, y: startY, prevY: startY, dead: false });
     }
 
-    // Spawn enemies
-    spawnTimer -= dt;
-    if (spawnTimer <= 0) {
-      spawnTimer += spawnInterval;
-      if (spawnTimer < 0.2) {
-        spawnTimer = 0.2;
-      }
-      spawnEnemy();
-    }
+    // Spawn enemies: the Wave System decides what appears and when
+    updateWaveSpawning(dt);
 
     // Move bullets (they remember the previous position so fast bullets cannot skip an enemy)
     for (i = 0; i < bullets.length; i++) {
@@ -1052,7 +1383,7 @@
       if (enemy.dead) {
         continue;
       }
-      enemy.y += enemySpeed * dt;
+      enemy.y += enemy.speed * scale * dt;
 
       if (enemy.y > viewHeight) {
         var escapedTarget = isActiveTarget(enemy);
@@ -1125,6 +1456,7 @@
     }
 
     sweepDead();
+    checkWaveCleared();
   }
 
   // ---------- Game loop ----------
@@ -1153,7 +1485,7 @@
 
     if (currentState === STATE_PLAYING) {
       update(dt);
-    } else if (currentState === STATE_GAME_OVER) {
+    } else if (currentState === STATE_GAME_OVER || currentState === STATE_STAGE_COMPLETE) {
       updateEffects(dt);
     }
     render();
@@ -1275,6 +1607,55 @@
     ctx.fillStyle = '#ffd21f';
     ctx.font = 'bold 22px "Courier New", monospace';
     ctx.fillText(question.meaning.toUpperCase(), viewWidth / 2, 32);
+
+    // Small wave and stage labels in the corners of the banner
+    if (currentStage) {
+      ctx.fillStyle = '#8f99a8';
+      ctx.font = 'bold 10px "Courier New", monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText('WAVE ' + (waveState.index + 1) + '/' + stageWaves.length, 8, 13);
+      ctx.textAlign = 'right';
+      ctx.fillText('STAGE ' + currentStage.worldId + '-' + currentStage.number, viewWidth - 8, 13);
+      ctx.textAlign = 'center';
+    }
+  }
+
+  // Big "WAVE n" announcement that fades in and out when a wave begins
+  function drawWaveBanner() {
+    if (waveState.phase !== 'intro' || !stageWaves[waveState.index]) {
+      return;
+    }
+    var def = stageWaves[waveState.index];
+    var elapsed = WAVE_INTRO_TIME - waveState.timer;
+    var alpha = Math.min(1, elapsed / 0.25, waveState.timer / 0.4);
+    if (alpha <= 0) {
+      return;
+    }
+    var centerX = viewWidth / 2;
+    var centerY = viewHeight * 0.4;
+
+    ctx.globalAlpha = alpha;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.font = 'bold 34px "Courier New", monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText('WAVE ' + (waveState.index + 1), centerX + 2, centerY + 2);
+    ctx.fillStyle = '#ffd21f';
+    ctx.fillText('WAVE ' + (waveState.index + 1), centerX, centerY);
+
+    ctx.font = 'bold 16px "Courier New", monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText(def.name.toUpperCase(), centerX + 1, centerY + 34);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(def.name.toUpperCase(), centerX, centerY + 33);
+
+    if (waveState.index === 0 && currentStage) {
+      ctx.font = 'bold 12px "Courier New", monospace';
+      ctx.fillStyle = '#6fb7ff';
+      ctx.fillText('STAGE ' + currentStage.worldId + '-' + currentStage.number + '  ' + currentStage.name.toUpperCase(), centerX, centerY + 58);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function drawToast() {
@@ -1347,9 +1728,18 @@
 
     drawQuestion();
     drawToast();
+    drawWaveBanner();
 
     if (currentState === STATE_PAUSED) {
       drawOverlayText('PAUSED', 'Press RESUME to continue', '#ffd21f');
+    } else if (currentState === STATE_STAGE_COMPLETE) {
+      // Temporary text only: the real Stage Clear screen is built in a later step
+      drawOverlayText('STAGE COMPLETE', 'ALL ' + stageWaves.length + ' WAVES CLEARED', '#5dff8a');
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px "Courier New", monospace';
+      ctx.fillText('SCORE ' + score + '   BEST ' + bestScore, viewWidth / 2, viewHeight / 2 + 44);
+      ctx.fillStyle = '#6fb7ff';
+      ctx.fillText('PRESS MENU TO EXIT', viewWidth / 2, viewHeight / 2 + 68);
     } else if (currentState === STATE_GAME_OVER) {
       drawOverlayText('GAME OVER', 'SCORE ' + score + '   BEST ' + bestScore, '#ff6b86');
       ctx.fillStyle = '#6fb7ff';
@@ -1380,7 +1770,7 @@
     if (currentState === STATE_GAME_OVER) {
       // Short delay so a finishing tap does not restart the game by accident
       if (performance.now() - gameOverAt > 700) {
-        startGame();
+        restartCurrentStage();
       }
       event.preventDefault();
       return;
