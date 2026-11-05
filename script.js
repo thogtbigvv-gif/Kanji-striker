@@ -1,7 +1,8 @@
 /* KANJI STRIKER - Phase 01 (core gameplay optimization)
    Kanji collection, saved progress, settings, sound effects and learning messages.
    Phase 01: smooth pointer control, delta-time shooting, one correct target per question,
-   safe collisions, gradual difficulty, stable game states and responsive canvas. */
+   safe collisions, gradual difficulty, stable game states and responsive canvas.
+   Campaign foundation: World/Stage data and saved campaign progress (data only, no screens yet). */
 
 (function () {
   'use strict';
@@ -129,6 +130,8 @@
   var newBest = false;
   var toast = { text: '', color: '#ffffff', time: 0 };
   var progress = {};
+  var campaign = null;          // saved campaign progress (see Campaign section)
+  var campaignReadOnly = false; // true if the saved campaign data comes from a newer version
   var soundEnabled = true;
   var audioContext = null;
 
@@ -179,6 +182,7 @@
   var KEY_BEST = 'kanjiStrikerBestScore';
   var KEY_PROGRESS = 'kanjiStrikerProgress';
   var KEY_SOUND = 'kanjiStrikerSound';
+  var KEY_CAMPAIGN = 'kanjiStrikerCampaign'; // new key; the keys above are never changed
 
   function readStorage(key) {
     try {
@@ -222,6 +226,8 @@
     }
 
     soundEnabled = readStorage(KEY_SOUND) !== 'off';
+
+    campaign = loadCampaign();
   }
 
   function saveBestScore() {
@@ -264,6 +270,230 @@
   function recordMiss(kanji) {
     getEntry(kanji).misses += 1;
     saveProgress();
+  }
+
+  // ---------- Campaign data: Galaxy -> World -> Stage ----------
+  // Data and saved progress only. No screen or gameplay uses this yet (Waves, Stage Clear and the
+  // Galaxy Map come later). Progress is saved by stage id, so the stage lists below can be changed
+  // later without breaking saved data.
+  var CAMPAIGN_VERSION = 1;
+  var STAGES_PER_WORLD = 5;
+
+  var WORLD_DEFS = [
+    { id: 1, name: 'Beginner Galaxy', jlpt: 'N5' },
+    { id: 2, name: 'Rising Galaxy', jlpt: 'N4' },
+    { id: 3, name: 'Advanced Galaxy', jlpt: 'N3' },
+    { id: 4, name: 'Elite Galaxy', jlpt: 'N2' },
+    { id: 5, name: 'Master Galaxy', jlpt: 'N1' }
+  ];
+
+  // The same five-stage template is used for every world
+  var STAGE_DEFS = [
+    { kind: 'learn', name: 'New Kanji' },
+    { kind: 'review', name: 'Review Run' },
+    { kind: 'waves', name: 'Big Waves' },
+    { kind: 'challenge', name: 'Hard Fight' },
+    { kind: 'boss', name: 'Boss Gate' }
+  ];
+
+  // Kanji available for each world. Only World 1 has data so far (the current kanji list).
+  // Other worlds stay empty until verified kanji data is added; they are marked "not ready".
+  var WORLD_KANJI = { 1: KANJI_LIST.map(function (item) { return item.kanji; }) };
+
+  var CAMPAIGN_WORLDS = [];
+  var CAMPAIGN_STAGES = {}; // stage id -> stage
+  var CAMPAIGN_ORDER = [];  // stage ids in play order
+
+  function buildCampaign() {
+    for (var w = 0; w < WORLD_DEFS.length; w++) {
+      var def = WORLD_DEFS[w];
+      var pool = WORLD_KANJI[def.id] || [];
+      var perStage = Math.ceil(pool.length / (STAGES_PER_WORLD - 1));
+      var seen = [];
+      var stages = [];
+
+      for (var s = 0; s < STAGES_PER_WORLD; s++) {
+        var template = STAGE_DEFS[s];
+        var isBoss = template.kind === 'boss';
+        var fresh = isBoss ? [] : pool.slice(s * perStage, (s + 1) * perStage);
+        var stage = {
+          id: 'w' + def.id + '-s' + (s + 1),
+          worldId: def.id,
+          number: s + 1,
+          kind: template.kind,
+          name: template.name,
+          boss: isBoss,
+          ready: pool.length > 0,
+          kanji: fresh,        // new kanji introduced in this stage
+          review: seen.slice() // kanji from earlier stages of the same world
+        };
+        stages.push(stage);
+        CAMPAIGN_STAGES[stage.id] = stage;
+        CAMPAIGN_ORDER.push(stage.id);
+        seen = seen.concat(fresh);
+      }
+
+      CAMPAIGN_WORLDS.push({
+        id: def.id,
+        name: def.name,
+        jlpt: def.jlpt,
+        ready: pool.length > 0,
+        stages: stages
+      });
+    }
+  }
+  buildCampaign();
+
+  // ---------- Campaign progress (saved in the browser) ----------
+  // Saved shape: { v: 1, stages: { "w1-s1": { completed: true, bestScore: 120, plays: 3 } } }
+  // Unlocks are calculated from "completed", so saved data can never disagree with itself.
+  function freshCampaign() {
+    return { v: CAMPAIGN_VERSION, stages: {} };
+  }
+
+  function emptyStageProgress() {
+    return { completed: false, bestScore: 0, plays: 0 };
+  }
+
+  function safeCount(value) {
+    var n = Math.floor(Number(value));
+    return isFinite(n) && n > 0 ? Math.min(n, 1000000000) : 0;
+  }
+
+  // Upgrades old saved campaign data to the current shape (only version 1 exists so far)
+  function migrateCampaign(parsed) {
+    var version = parseInt(parsed.v, 10);
+    if (isNaN(version) || version < 1) {
+      version = 1;
+    }
+    // Future versions: add one step per version here, e.g. if (version < 2) { ...; version = 2; }
+    campaignReadOnly = version > CAMPAIGN_VERSION;
+    return parsed;
+  }
+
+  function cleanCampaign(raw) {
+    var parsed = migrateCampaign(raw);
+    var result = freshCampaign();
+    var source = parsed.stages;
+    if (!source || typeof source !== 'object' || Array.isArray(source)) {
+      return result;
+    }
+    for (var id in source) {
+      if (!Object.prototype.hasOwnProperty.call(source, id) || !/^w\d+-s\d+$/.test(id)) {
+        continue;
+      }
+      var entry = source[id];
+      if (!entry || typeof entry !== 'object') {
+        continue;
+      }
+      result.stages[id] = {
+        completed: entry.completed === true,
+        bestScore: safeCount(entry.bestScore),
+        plays: safeCount(entry.plays)
+      };
+    }
+    return result;
+  }
+
+  function loadCampaign() {
+    campaignReadOnly = false;
+    var saved = readStorage(KEY_CAMPAIGN);
+    if (!saved) {
+      return freshCampaign();
+    }
+    try {
+      var parsed = JSON.parse(saved);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('bad campaign data');
+      }
+      return cleanCampaign(parsed);
+    } catch (error) {
+      // Keep a copy of the unreadable data instead of silently losing it
+      if (!readStorage(KEY_CAMPAIGN + 'Corrupt')) {
+        writeStorage(KEY_CAMPAIGN + 'Corrupt', saved);
+      }
+      return freshCampaign();
+    }
+  }
+
+  function saveCampaign() {
+    if (campaignReadOnly) {
+      return; // never overwrite data written by a newer version of the game
+    }
+    campaign.v = CAMPAIGN_VERSION;
+    writeStorage(KEY_CAMPAIGN, JSON.stringify(campaign));
+  }
+
+  function getStageProgress(stageId) {
+    var saved = campaign.stages[stageId];
+    return saved ? { completed: saved.completed, bestScore: saved.bestScore, plays: saved.plays } : emptyStageProgress();
+  }
+
+  function isStageCompleted(stageId) {
+    return !!(campaign.stages[stageId] && campaign.stages[stageId].completed);
+  }
+
+  function isStageUnlocked(stageId) {
+    var stage = CAMPAIGN_STAGES[stageId];
+    if (!stage) {
+      return false;
+    }
+    if (isStageCompleted(stageId)) {
+      return true;
+    }
+    if (stage.number > 1) {
+      return isStageCompleted('w' + stage.worldId + '-s' + (stage.number - 1));
+    }
+    if (stage.worldId === 1) {
+      return true; // the very first stage is always open
+    }
+    // First stage of a later world opens when the previous world's boss stage is completed
+    return isStageCompleted('w' + (stage.worldId - 1) + '-s' + STAGES_PER_WORLD);
+  }
+
+  function isWorldUnlocked(worldId) {
+    return isStageUnlocked('w' + worldId + '-s1');
+  }
+
+  // A stage can be played when it is unlocked and its world already has kanji data
+  function isStagePlayable(stageId) {
+    var stage = CAMPAIGN_STAGES[stageId];
+    return !!stage && stage.ready && isStageUnlocked(stageId);
+  }
+
+  // The stage "Continue Campaign" should open: first playable stage that is not completed yet
+  function getContinueStageId() {
+    var lastReady = null;
+    for (var i = 0; i < CAMPAIGN_ORDER.length; i++) {
+      var id = CAMPAIGN_ORDER[i];
+      if (!CAMPAIGN_STAGES[id].ready) {
+        continue;
+      }
+      lastReady = id;
+      if (isStageUnlocked(id) && !isStageCompleted(id)) {
+        return id;
+      }
+    }
+    return lastReady; // everything is completed: stay on the last stage
+  }
+
+  // Saves the result of one stage attempt. A completed stage never becomes "not completed" again.
+  function recordStageResult(stageId, stageScore, cleared) {
+    if (!CAMPAIGN_STAGES[stageId] || !isStageUnlocked(stageId)) {
+      return false;
+    }
+    var entry = campaign.stages[stageId] || emptyStageProgress();
+    entry.plays += 1;
+    var points = safeCount(stageScore);
+    if (points > entry.bestScore) {
+      entry.bestScore = points;
+    }
+    if (cleared) {
+      entry.completed = true;
+    }
+    campaign.stages[stageId] = entry;
+    saveCampaign();
+    return true;
   }
 
   // ---------- Sound (simple beeps, no sound files needed) ----------
@@ -1256,6 +1486,10 @@
     bestScore = 0;
     removeStorage(KEY_PROGRESS);
     removeStorage(KEY_BEST);
+    campaign = freshCampaign();
+    campaignReadOnly = false;
+    removeStorage(KEY_CAMPAIGN);
+    removeStorage(KEY_CAMPAIGN + 'Corrupt');
     settingsMessage.textContent = 'PROGRESS RESET';
   });
 
