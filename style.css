@@ -246,3 +246,132 @@ body {
   font-size: 0.7rem;
   color: #555566;
 }
+
+/* ---------- PANELS (COLLECTION + SETTINGS) ---------- */
+
+.screen-collection,
+.screen-settings {
+  padding: 20px 16px 12px;
+  gap: 14px;
+}
+
+.panel-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.panel-title {
+  font-size: 1.6rem;
+  letter-spacing: 3px;
+  color: #ffd21f;
+  text-shadow:
+    2px 2px 0 #b36b00,
+    4px 4px 0 #000000;
+}
+
+.panel-summary {
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: #6fb7ff;
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.panel-actions .menu-button {
+  max-width: 280px;
+}
+
+.collection-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  align-content: start;
+  overflow-y: auto;
+  touch-action: pan-y;
+  padding: 4px 2px;
+}
+
+.kanji-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  aspect-ratio: 1 / 1;
+  background-color: #14141c;
+  border: 2px solid #2a2a38;
+}
+
+.kanji-cell-char {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: #ffffff;
+  font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", "MS Gothic", sans-serif;
+}
+
+.kanji-cell-meaning {
+  font-size: 0.62rem;
+  color: #8a8aa0;
+}
+
+.kanji-cell.is-locked .kanji-cell-char {
+  color: #3a3a4a;
+}
+
+.kanji-cell.is-collected {
+  border-color: #6fb7ff;
+}
+
+.kanji-cell.is-collected .kanji-cell-meaning {
+  color: #6fb7ff;
+}
+
+.kanji-cell.is-mastered {
+  border-color: #ffd21f;
+  background-color: #1d1a0c;
+}
+
+.kanji-cell.is-mastered .kanji-cell-char,
+.kanji-cell.is-mastered .kanji-cell-meaning {
+  color: #ffd21f;
+}
+
+.settings-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding-top: 20px;
+}
+
+.settings-list .menu-button {
+  max-width: 280px;
+}
+
+.menu-button-danger {
+  color: #ff6b86;
+  border-color: #ff6b86;
+  box-shadow: 0 4px 0 #7a0a22;
+}
+
+.menu-button-danger:active {
+  box-shadow: 0 0 0 #7a0a22;
+}
+
+.settings-message {
+  min-height: 1.2em;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  color: #6fb7ff;
+  text-align: center;
+}
