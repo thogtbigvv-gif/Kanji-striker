@@ -1,4 +1,4 @@
-/* KANJI STRIKER - Phase 04
+/* KANJI STRIKER - Phase 04 (logic fixes)
    Kanji collection, saved progress, settings, sound effects and learning messages. */
 
 (function () {
@@ -55,7 +55,8 @@
     x: 0,
     y: 0,
     targetX: 0,
-    isDragging: false
+    isDragging: false,
+    pointerId: null
   };
 
   var stars = [];
@@ -122,6 +123,8 @@
 
   var ENEMY_WIDTH = 44;
   var ENEMY_HEIGHT = 54;
+  var BANNER_HEIGHT = 48;
+  var KANJI_VISIBLE_Y = 12; // an enemy can be hit only after its kanji is below the question banner
   var KANJI_FONT = '"Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", "MS Gothic", sans-serif';
 
   // ---------- Pixel ship drawing ----------
@@ -212,6 +215,16 @@
 
   function saveBestScore() {
     writeStorage(KEY_BEST, String(bestScore));
+  }
+
+  // Saves the score as the best score if it is higher. Returns true when it is a new best.
+  function commitBestScore() {
+    if (score > bestScore) {
+      bestScore = score;
+      saveBestScore();
+      return true;
+    }
+    return false;
   }
 
   function saveProgress() {
@@ -346,7 +359,7 @@
     for (var i = 0; i < KANJI_LIST.length; i++) {
       var item = KANJI_LIST[i];
       var entry = progress[item.kanji];
-      var hits = entry ? entry.hits : 0;
+      var hits = entry && typeof entry.hits === 'number' ? entry.hits : 0;
 
       var cell = document.createElement('div');
       cell.className = 'kanji-cell';
@@ -471,10 +484,14 @@
     resizeCanvas();
 
     player.isDragging = false;
+    player.pointerId = null;
     startLoop();
   }
 
   function backToMenu() {
+    if (currentState === STATE_PLAYING || currentState === STATE_PAUSED) {
+      commitBestScore();
+    }
     currentState = STATE_MENU;
     stopLoop();
     showMenu();
@@ -554,7 +571,7 @@
     }
   }
 
-  function loseHp(amount) {
+  function loseHp(amount, quiet) {
     hp -= amount;
     combo = 0;
     damageFlash = 0.25;
@@ -563,13 +580,12 @@
       currentState = STATE_GAME_OVER;
       gameOverAt = performance.now();
       player.isDragging = false;
-      if (score > bestScore) {
-        bestScore = score;
+      player.pointerId = null;
+      if (commitBestScore()) {
         newBest = true;
-        saveBestScore();
       }
       playGameOverSound();
-    } else {
+    } else if (!quiet) {
       playHurtSound();
     }
     updateHud();
@@ -589,8 +605,10 @@
   function wrongHit(data) {
     recordMiss(question.kanji);
     showToast(data.kanji + ' = ' + data.meaning.toUpperCase(), '#ff6b86');
-    playWrongSound();
-    loseHp(10);
+    loseHp(10, true);
+    if (currentState !== STATE_GAME_OVER) {
+      playWrongSound();
+    }
   }
 
   function updateGameplay(dt) {
@@ -663,6 +681,7 @@
         if (
           b.x > e.x - ENEMY_WIDTH / 2 &&
           b.x < e.x + ENEMY_WIDTH / 2 &&
+          e.y > KANJI_VISIBLE_Y &&
           b.y > e.y &&
           b.y < e.y + ENEMY_HEIGHT
         ) {
@@ -701,12 +720,17 @@
   function gameLoop(timestamp) {
     var dt = (timestamp - lastTime) / 1000;
     lastTime = timestamp;
+    if (dt < 0) {
+      dt = 0;
+    }
     if (dt > 0.05) {
       dt = 0.05;
     }
 
     if (currentState === STATE_PLAYING) {
       update(dt);
+    } else if (currentState === STATE_GAME_OVER) {
+      updateEffects(dt);
     }
     render();
 
@@ -729,8 +753,15 @@
       player.x = viewWidth - halfShip;
     }
 
-    // Scroll the stars downward
-    for (var i = 0; i < stars.length; i++) {
+    updateGameplay(dt);
+    updateEffects(dt);
+  }
+
+  // Stars, particles, red flash and learning message (these also run on the game over screen)
+  function updateEffects(dt) {
+    var i;
+
+    for (i = 0; i < stars.length; i++) {
       var star = stars[i];
       star.y += star.speed * dt;
       if (star.y > viewHeight) {
@@ -739,22 +770,20 @@
       }
     }
 
-    updateGameplay(dt);
-
-    // Particles and damage flash
     if (damageFlash > 0) {
       damageFlash -= dt;
     }
     if (toast.time > 0) {
       toast.time -= dt;
     }
-    for (var p = particles.length - 1; p >= 0; p--) {
-      var particle = particles[p];
+
+    for (i = particles.length - 1; i >= 0; i--) {
+      var particle = particles[i];
       particle.x += particle.vx * dt;
       particle.y += particle.vy * dt;
       particle.life -= dt;
       if (particle.life <= 0) {
-        particles.splice(p, 1);
+        particles.splice(i, 1);
       }
     }
   }
@@ -933,7 +962,12 @@
     if (currentState !== STATE_PLAYING) {
       return;
     }
+    // Follow only the first finger so a second finger cannot make the ship jump
+    if (player.isDragging) {
+      return;
+    }
     player.isDragging = true;
+    player.pointerId = event.pointerId;
     player.targetX = getPointerX(event);
     if (canvas.setPointerCapture) {
       try {
@@ -949,12 +983,19 @@
     if (currentState !== STATE_PLAYING || !player.isDragging) {
       return;
     }
+    if (event.pointerId !== player.pointerId) {
+      return;
+    }
     player.targetX = getPointerX(event);
     event.preventDefault();
   });
 
-  function stopDragging() {
+  function stopDragging(event) {
+    if (event && player.pointerId !== null && event.pointerId !== player.pointerId) {
+      return;
+    }
     player.isDragging = false;
+    player.pointerId = null;
   }
 
   canvas.addEventListener('pointerup', stopDragging);
