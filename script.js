@@ -1,5 +1,7 @@
-/* KANJI STRIKER - Phase 04 (logic fixes)
-   Kanji collection, saved progress, settings, sound effects and learning messages. */
+/* KANJI STRIKER - Phase 01 (core gameplay optimization)
+   Kanji collection, saved progress, settings, sound effects and learning messages.
+   Phase 01: smooth pointer control, delta-time shooting, one correct target per question,
+   safe collisions, gradual difficulty, stable game states and responsive canvas. */
 
 (function () {
   'use strict';
@@ -43,6 +45,8 @@
   var animationFrameId = null;
   var lastTime = 0;
   var totalTime = 0;
+  var questionSerial = 0; // changes for every new question, so old enemies can never match a new one
+  var answered = 0;       // correct answers in this run (drives difficulty)
 
   var viewWidth = 0;
   var viewHeight = 0;
@@ -105,6 +109,13 @@
     { kanji: '立', meaning: 'Зогсох' }
   ];
   var MASTERED_HITS = 3;
+
+  // Gameplay tuning
+  var FIRE_INTERVAL = 0.25;  // seconds between shots
+  var BULLET_SPEED = 480;    // pixels per second
+  var PLAYER_FOLLOW = 13.5;  // how fast the ship follows the finger (per second)
+  var REF_HEIGHT = 640;      // screen height the enemy speed is tuned for
+  var MAX_DPR = 3;           // limits canvas size on very dense Android screens
 
   var question = KANJI_LIST[0];
   var enemies = [];
@@ -202,7 +213,7 @@
     if (savedProgress) {
       try {
         var parsed = JSON.parse(savedProgress);
-        if (parsed && typeof parsed === 'object') {
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           progress = parsed;
         }
       } catch (error) {
@@ -232,10 +243,17 @@
   }
 
   function getEntry(kanji) {
-    if (!progress[kanji]) {
+    if (!progress[kanji] || typeof progress[kanji] !== 'object') {
       progress[kanji] = { hits: 0, misses: 0 };
     }
-    return progress[kanji];
+    var entry = progress[kanji];
+    if (typeof entry.hits !== 'number' || isNaN(entry.hits)) {
+      entry.hits = 0;
+    }
+    if (typeof entry.misses !== 'number' || isNaN(entry.misses)) {
+      entry.misses = 0;
+    }
+    return entry;
   }
 
   function recordHit(kanji) {
@@ -427,33 +445,52 @@
       return;
     }
 
-    var dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
+    var dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    var pixelWidth = Math.floor(width * dpr);
+    var pixelHeight = Math.floor(height * dpr);
+    // Changing canvas.width clears the canvas, so only do it when the size really changed
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
+    }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
 
     var oldWidth = viewWidth;
+    var oldHeight = viewHeight;
     viewWidth = width;
     viewHeight = height;
 
     player.y = viewHeight - 60;
     if (oldWidth > 0) {
-      var ratio = viewWidth / oldWidth;
-      player.x = player.x * ratio;
-      player.targetX = player.targetX * ratio;
-      for (var i = 0; i < enemies.length; i++) {
-        enemies[i].x *= ratio;
-      }
-      for (var j = 0; j < bullets.length; j++) {
-        bullets[j].x *= ratio;
+      if (oldWidth !== viewWidth) {
+        var ratio = viewWidth / oldWidth;
+        player.x = player.x * ratio;
+        player.targetX = player.targetX * ratio;
+        for (var i = 0; i < enemies.length; i++) {
+          enemies[i].x *= ratio;
+        }
+        for (var j = 0; j < bullets.length; j++) {
+          bullets[j].x *= ratio;
+        }
       }
     } else {
       player.x = viewWidth / 2;
       player.targetX = player.x;
     }
+    player.x = clampX(player.x);
+    player.targetX = clampX(player.targetX);
 
-    createStars();
+    if (oldWidth !== viewWidth || oldHeight !== viewHeight || stars.length === 0) {
+      createStars();
+    }
+  }
+
+  // Keeps the ship fully inside the playable area
+  function clampX(x) {
+    var half = SHIP_WIDTH / 2;
+    var max = Math.max(half, viewWidth - half);
+    return x < half ? half : x > max ? max : x;
   }
 
   // ---------- Game control ----------
@@ -473,6 +510,7 @@
     toast.time = 0;
     newBest = false;
     totalTime = 0;
+    answered = 0;
     pickQuestion();
 
     currentState = STATE_PLAYING;
@@ -502,6 +540,7 @@
       return;
     }
     currentState = STATE_PAUSED;
+    resetDrag();
     pauseButton.textContent = 'RESUME';
     pauseButton.setAttribute('aria-label', 'Resume game');
   }
@@ -524,34 +563,130 @@
   }
 
   // ---------- Game rules ----------
-  function pickQuestion() {
-    var next = question;
-    while (next === question) {
-      next = KANJI_LIST[Math.floor(Math.random() * KANJI_LIST.length)];
-    }
-    question = next;
+  function sizeScale() {
+    var scale = viewHeight / REF_HEIGHT;
+    return scale < 0.8 ? 0.8 : scale > 1.4 ? 1.4 : scale;
   }
 
-  function questionIsOnScreen() {
+  // 0 at the start, slowly grows to 1 with correct answers and play time
+  function difficulty() {
+    return Math.min(1, answered * 0.014 + totalTime * 0.0015);
+  }
+
+  // An enemy is the correct target only if it was spawned as the target of the CURRENT question
+  function isActiveTarget(enemy) {
+    return !enemy.dead && enemy.isTarget && enemy.qid === questionSerial;
+  }
+
+  function activeTargetOnScreen() {
     for (var i = 0; i < enemies.length; i++) {
-      if (enemies[i].data === question) {
+      if (isActiveTarget(enemies[i])) {
         return true;
       }
     }
     return false;
   }
 
-  function spawnEnemy() {
-    var data;
-    if (!questionIsOnScreen() || Math.random() < 0.3) {
-      data = question;
-    } else {
-      data = KANJI_LIST[Math.floor(Math.random() * KANJI_LIST.length)];
+  function pickQuestion() {
+    var onScreen = {};
+    var i;
+    for (i = 0; i < enemies.length; i++) {
+      if (!enemies[i].dead) {
+        onScreen[enemies[i].data.kanji] = true;
+      }
     }
+
+    // New question: not the previous one and not a kanji already flying on screen
+    var pool = [];
+    for (i = 0; i < KANJI_LIST.length; i++) {
+      if (KANJI_LIST[i] !== question && !onScreen[KANJI_LIST[i].kanji]) {
+        pool.push(KANJI_LIST[i]);
+      }
+    }
+    if (pool.length === 0) {
+      for (i = 0; i < KANJI_LIST.length; i++) {
+        if (KANJI_LIST[i] !== question) {
+          pool.push(KANJI_LIST[i]);
+        }
+      }
+    }
+    question = pool[Math.floor(Math.random() * pool.length)];
+    questionSerial += 1;
+
+    // Every enemy that already exists is now a wrong answer
+    for (i = 0; i < enemies.length; i++) {
+      enemies[i].isTarget = false;
+      if (enemies[i].data === question) {
+        enemies[i].dead = true; // safety: never show the answer kanji on a wrong enemy
+      }
+    }
+  }
+
+  // A wrong-answer kanji that is not the question and not already on screen
+  function pickDecoy() {
+    var onScreen = {};
+    var i;
+    for (i = 0; i < enemies.length; i++) {
+      if (!enemies[i].dead) {
+        onScreen[enemies[i].data.kanji] = true;
+      }
+    }
+    var pool = [];
+    for (i = 0; i < KANJI_LIST.length; i++) {
+      if (KANJI_LIST[i] !== question && !onScreen[KANJI_LIST[i].kanji]) {
+        pool.push(KANJI_LIST[i]);
+      }
+    }
+    if (pool.length === 0) {
+      for (i = 0; i < KANJI_LIST.length; i++) {
+        if (KANJI_LIST[i] !== question) {
+          pool.push(KANJI_LIST[i]);
+        }
+      }
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // Picks a spawn position that does not overlap enemies that just spawned
+  function pickSpawnX() {
     var margin = ENEMY_WIDTH / 2 + 4;
+    var span = viewWidth - margin * 2;
+    if (span <= 0) {
+      return viewWidth / 2;
+    }
+    var needed = ENEMY_WIDTH + 8;
+    var bestX = margin + Math.random() * span;
+    var bestGap = -1;
+    for (var attempt = 0; attempt < 10; attempt++) {
+      var x = margin + Math.random() * span;
+      var gap = Infinity;
+      for (var i = 0; i < enemies.length; i++) {
+        var other = enemies[i];
+        if (other.dead || other.y > 12) {
+          continue; // far below the spawn line, cannot overlap
+        }
+        gap = Math.min(gap, Math.abs(other.x - x));
+      }
+      if (gap > bestGap) {
+        bestGap = gap;
+        bestX = x;
+      }
+      if (gap >= needed) {
+        break;
+      }
+    }
+    return bestX;
+  }
+
+  function spawnEnemy() {
+    // Exactly one correct target per question: spawn it only when none is active
+    var needTarget = !activeTargetOnScreen();
     enemies.push({
-      data: data,
-      x: margin + Math.random() * (viewWidth - margin * 2),
+      data: needTarget ? question : pickDecoy(),
+      isTarget: needTarget,
+      qid: questionSerial,
+      dead: false,
+      x: pickSpawnX(),
       y: -ENEMY_HEIGHT
     });
   }
@@ -579,8 +714,7 @@
       hp = 0;
       currentState = STATE_GAME_OVER;
       gameOverAt = performance.now();
-      player.isDragging = false;
-      player.pointerId = null;
+      resetDrag();
       if (commitBestScore()) {
         newBest = true;
       }
@@ -593,12 +727,14 @@
 
   function correctHit(data) {
     combo += 1;
+    answered += 1;
     var points = 10 * combo;
     score += points;
     recordHit(data.kanji);
     showToast(data.kanji + ' = ' + data.meaning.toUpperCase() + '   +' + points, '#5dff8a');
     playCorrectSound();
     pickQuestion();
+    spawnTimer = Math.min(spawnTimer, 0.35); // bring the next target in quickly
     updateHud();
   }
 
@@ -611,96 +747,154 @@
     }
   }
 
+  // The correct target left the game without being shot (bottom of the screen or crashed into the ship)
+  function targetMissed(amount) {
+    recordMiss(question.kanji);
+    showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
+    spawnTimer = Math.min(spawnTimer, 0.35); // same question, bring a new target quickly
+    loseHp(amount);
+  }
+
+  // Removes everything that was marked dead during this frame
+  function sweepDead() {
+    var n = 0;
+    var k;
+    for (k = 0; k < enemies.length; k++) {
+      if (!enemies[k].dead) {
+        enemies[n++] = enemies[k];
+      }
+    }
+    enemies.length = n;
+    n = 0;
+    for (k = 0; k < bullets.length; k++) {
+      if (!bullets[k].dead) {
+        bullets[n++] = bullets[k];
+      }
+    }
+    bullets.length = n;
+  }
+
+  function hitsPlayer(enemy) {
+    return (
+      Math.abs(enemy.x - player.x) < (ENEMY_WIDTH + SHIP_WIDTH) / 2 - 4 &&
+      enemy.y + ENEMY_HEIGHT > player.y - SHIP_HEIGHT / 2 &&
+      enemy.y < player.y + SHIP_HEIGHT / 2
+    );
+  }
+
   function updateGameplay(dt) {
-    var enemySpeed = 60 + Math.min(score * 0.3, 90);
+    var progressLevel = difficulty();
+    var enemySpeed = (60 + 90 * progressLevel) * sizeScale();
+    var spawnInterval = 1.3 - 0.45 * progressLevel;
     var i;
     var j;
 
-    // Auto-fire
+    // Auto-fire: fixed rate, independent of the frame rate
     fireTimer -= dt;
-    if (fireTimer <= 0) {
-      fireTimer = 0.25;
-      bullets.push({ x: player.x, y: player.y - SHIP_HEIGHT / 2 });
+    while (fireTimer <= 0) {
+      fireTimer += FIRE_INTERVAL;
+      var startY = player.y - SHIP_HEIGHT / 2;
+      bullets.push({ x: player.x, y: startY, prevY: startY, dead: false });
     }
 
     // Spawn enemies
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
-      spawnTimer = 1.3;
+      spawnTimer += spawnInterval;
+      if (spawnTimer < 0.2) {
+        spawnTimer = 0.2;
+      }
       spawnEnemy();
     }
 
-    // Move bullets
-    for (i = bullets.length - 1; i >= 0; i--) {
-      bullets[i].y -= 480 * dt;
+    // Move bullets (they remember the previous position so fast bullets cannot skip an enemy)
+    for (i = 0; i < bullets.length; i++) {
+      bullets[i].prevY = bullets[i].y;
+      bullets[i].y -= BULLET_SPEED * dt;
       if (bullets[i].y < -10) {
-        bullets.splice(i, 1);
+        bullets[i].dead = true;
       }
     }
 
-    // Move enemies
-    for (i = enemies.length - 1; i >= 0; i--) {
+    // Move enemies, then check bottom edge and player collisions
+    for (i = 0; i < enemies.length; i++) {
       var enemy = enemies[i];
+      if (enemy.dead) {
+        continue;
+      }
       enemy.y += enemySpeed * dt;
 
-      // Enemy reached the bottom
       if (enemy.y > viewHeight) {
-        var wasAnswer = enemy.data === question;
-        enemies.splice(i, 1);
-        if (wasAnswer) {
-          recordMiss(question.kanji);
-          showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
-          loseHp(10);
+        var escapedTarget = isActiveTarget(enemy);
+        enemy.dead = true;
+        if (escapedTarget) {
+          targetMissed(10);
           if (currentState === STATE_GAME_OVER) {
+            sweepDead();
             return;
           }
         }
         continue;
       }
 
-      // Enemy crashed into the player
-      if (
-        Math.abs(enemy.x - player.x) < (ENEMY_WIDTH + SHIP_WIDTH) / 2 - 4 &&
-        enemy.y + ENEMY_HEIGHT > player.y - SHIP_HEIGHT / 2 &&
-        enemy.y < player.y + SHIP_HEIGHT / 2
-      ) {
-        enemies.splice(i, 1);
+      if (hitsPlayer(enemy)) {
+        var crashedTarget = isActiveTarget(enemy);
+        enemy.dead = true;
         burst(enemy.x, enemy.y + ENEMY_HEIGHT / 2, '#ff6b86');
-        loseHp(15);
+        if (crashedTarget) {
+          targetMissed(15);
+        } else {
+          loseHp(15);
+        }
         if (currentState === STATE_GAME_OVER) {
+          sweepDead();
           return;
         }
       }
     }
 
-    // Bullets hitting enemies
-    for (i = bullets.length - 1; i >= 0; i--) {
-      for (j = enemies.length - 1; j >= 0; j--) {
-        var b = bullets[i];
+    // Bullets hitting enemies: one bullet hits at most one enemy (the lowest one it reaches)
+    for (i = 0; i < bullets.length; i++) {
+      var b = bullets[i];
+      if (b.dead) {
+        continue;
+      }
+      var target = null;
+      for (j = 0; j < enemies.length; j++) {
         var e = enemies[j];
-        if (
-          b.x > e.x - ENEMY_WIDTH / 2 &&
-          b.x < e.x + ENEMY_WIDTH / 2 &&
-          e.y > KANJI_VISIBLE_Y &&
-          b.y > e.y &&
-          b.y < e.y + ENEMY_HEIGHT
-        ) {
-          bullets.splice(i, 1);
-          enemies.splice(j, 1);
-          if (e.data === question) {
-            burst(e.x, e.y + ENEMY_HEIGHT / 2, '#5dff8a');
-            correctHit(e.data);
-          } else {
-            burst(e.x, e.y + ENEMY_HEIGHT / 2, '#ff6b86');
-            wrongHit(e.data);
-            if (currentState === STATE_GAME_OVER) {
-              return;
-            }
-          }
+        if (e.dead || e.y <= KANJI_VISIBLE_Y) {
+          continue;
+        }
+        if (Math.abs(b.x - e.x) > ENEMY_WIDTH / 2) {
+          continue;
+        }
+        if (b.y > e.y + ENEMY_HEIGHT || b.prevY < e.y) {
+          continue;
+        }
+        if (target === null || e.y > target.y) {
+          target = e;
+        }
+      }
+      if (target === null) {
+        continue;
+      }
+
+      var wasCorrect = isActiveTarget(target);
+      b.dead = true;
+      target.dead = true;
+      if (wasCorrect) {
+        burst(target.x, target.y + ENEMY_HEIGHT / 2, '#5dff8a');
+        correctHit(target.data);
+      } else {
+        burst(target.x, target.y + ENEMY_HEIGHT / 2, '#ff6b86');
+        wrongHit(target.data);
+        if (currentState === STATE_GAME_OVER) {
           break;
         }
       }
     }
+
+    sweepDead();
   }
 
   // ---------- Game loop ----------
@@ -742,16 +936,10 @@
   function update(dt) {
     totalTime += dt;
 
-    // Smooth movement toward the target position
-    player.x += (player.targetX - player.x) * 0.2;
-
-    var halfShip = SHIP_WIDTH / 2;
-    if (player.x < halfShip) {
-      player.x = halfShip;
-    }
-    if (player.x > viewWidth - halfShip) {
-      player.x = viewWidth - halfShip;
-    }
+    // Smooth movement toward the target position (same feel at 30, 60 or 120 fps)
+    player.targetX = clampX(player.targetX);
+    player.x += (player.targetX - player.x) * (1 - Math.exp(-PLAYER_FOLLOW * dt));
+    player.x = clampX(player.x);
 
     updateGameplay(dt);
     updateEffects(dt);
@@ -947,10 +1135,18 @@
   // ---------- Input ----------
   function getPointerX(event) {
     var rect = canvas.getBoundingClientRect();
-    return event.clientX - rect.left;
+    return clampX(event.clientX - rect.left);
+  }
+
+  function resetDrag() {
+    player.isDragging = false;
+    player.pointerId = null;
   }
 
   canvas.addEventListener('pointerdown', function (event) {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
     if (currentState === STATE_GAME_OVER) {
       // Short delay so a finishing tap does not restart the game by accident
       if (performance.now() - gameOverAt > 700) {
@@ -990,17 +1186,36 @@
     event.preventDefault();
   });
 
+  // Finger lifted, pointer cancelled by the browser or capture lost: stop following it
   function stopDragging(event) {
     if (event && player.pointerId !== null && event.pointerId !== player.pointerId) {
       return;
     }
-    player.isDragging = false;
-    player.pointerId = null;
+    resetDrag();
   }
 
   canvas.addEventListener('pointerup', stopDragging);
   canvas.addEventListener('pointercancel', stopDragging);
+  canvas.addEventListener('lostpointercapture', stopDragging);
   window.addEventListener('pointerup', stopDragging);
+  window.addEventListener('pointercancel', stopDragging);
+
+  // Prevent page scrolling / long-press menu while playing
+  canvas.addEventListener('touchmove', function (event) {
+    event.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('contextmenu', function (event) {
+    event.preventDefault();
+  });
+
+  function lockPageScroll() {
+    try {
+      document.documentElement.style.overscrollBehavior = 'none';
+      document.body.style.overscrollBehavior = 'none';
+    } catch (error) {
+      /* ignore */
+    }
+  }
 
   // Keyboard (for computers)
   window.addEventListener('keydown', function (event) {
@@ -1008,15 +1223,9 @@
       return;
     }
     if (event.key === 'ArrowLeft') {
-      player.targetX -= 40;
+      player.targetX = clampX(player.targetX - 40);
     } else if (event.key === 'ArrowRight') {
-      player.targetX += 40;
-    }
-    if (player.targetX < 0) {
-      player.targetX = 0;
-    }
-    if (player.targetX > viewWidth) {
-      player.targetX = viewWidth;
+      player.targetX = clampX(player.targetX + 40);
     }
   });
 
@@ -1051,17 +1260,28 @@
   });
 
   // ---------- Window events ----------
-  window.addEventListener('resize', function () {
-    if (currentState !== STATE_MENU) {
-      resizeCanvas();
+  // All size changes go through one throttled function (at most one resize per frame)
+  var resizePending = false;
+  function scheduleResize() {
+    if (resizePending) {
+      return;
     }
-  });
+    resizePending = true;
+    requestAnimationFrame(function () {
+      resizePending = false;
+      if (currentState !== STATE_MENU) {
+        resizeCanvas();
+      }
+    });
+  }
 
+  window.addEventListener('resize', scheduleResize);
   window.addEventListener('orientationchange', function () {
-    if (currentState !== STATE_MENU) {
-      setTimeout(resizeCanvas, 200);
-    }
+    setTimeout(scheduleResize, 200);
   });
+  if (typeof window.ResizeObserver === 'function') {
+    new window.ResizeObserver(scheduleResize).observe(canvas.parentElement);
+  }
 
   // Pause automatically when the page is hidden
   document.addEventListener('visibilitychange', function () {
@@ -1071,6 +1291,7 @@
   });
 
   // ---------- Start ----------
+  lockPageScroll();
   loadSavedData();
   updateSoundButton();
   updateHud();
