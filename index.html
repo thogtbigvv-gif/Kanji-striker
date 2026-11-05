@@ -29,6 +29,33 @@
       </nav>
     </main>
 
+    <!-- KANJI COLLECTION -->
+    <section id="collectionSection" class="screen screen-collection" aria-labelledby="collectionTitle" hidden>
+      <header class="panel-header">
+        <h2 id="collectionTitle" class="panel-title">KANJI COLLECTION</h2>
+        <p id="collectionSummary" class="panel-summary" role="status">COLLECTED 0 / 0</p>
+      </header>
+      <div id="collectionGrid" class="collection-grid" role="list" aria-label="Kanji list"></div>
+      <div class="panel-actions">
+        <button id="collectionBackButton" class="menu-button" type="button" aria-label="Back to main menu">BACK</button>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="settingsSection" class="screen screen-settings" aria-labelledby="settingsTitle" hidden>
+      <header class="panel-header">
+        <h2 id="settingsTitle" class="panel-title">SETTINGS</h2>
+      </header>
+      <div class="settings-list">
+        <button id="soundToggleButton" class="menu-button" type="button" aria-label="Turn sound on or off">SOUND: ON</button>
+        <button id="resetProgressButton" class="menu-button menu-button-danger" type="button" aria-label="Reset all saved progress">RESET PROGRESS</button>
+        <p id="settingsMessage" class="settings-message" role="status"></p>
+      </div>
+      <div class="panel-actions">
+        <button id="settingsBackButton" class="menu-button" type="button" aria-label="Back to main menu">BACK</button>
+      </div>
+    </section>
+
     <!-- GAME SCREEN -->
     <section id="gameSection" class="screen screen-game" aria-label="Game screen" hidden>
       <header id="gameHud" class="game-hud" aria-label="Game status">
@@ -60,7 +87,7 @@
 
     <!-- APP FOOTER -->
     <footer id="appFooter" class="app-footer">
-      <small id="versionLabel">v0.1.0</small>
+      <small id="versionLabel">v0.3.0</small>
     </footer>
 
   </div>
