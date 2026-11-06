@@ -85,6 +85,95 @@
       </footer>
     </section>
 
+    <!-- STAGE CLEAR / RESULTS -->
+    <section id="resultsSection" class="screen screen-results" aria-labelledby="resultsTitle" hidden>
+      <div id="resultsScroll" class="results-scroll">
+        <header class="results-header">
+          <p id="resultsKicker" class="results-kicker">WORLD 1 - STAGE 1</p>
+          <h2 id="resultsTitle" class="results-title">STAGE CLEAR</h2>
+          <p id="resultsStageName" class="results-stage-name">NEW KANJI</p>
+          <div id="resultsStars" class="results-stars" role="img" aria-label="0 of 3 stars">
+            <span class="star-slot"><span class="star-icon">&#9733;</span></span>
+            <span class="star-slot"><span class="star-icon">&#9733;</span></span>
+            <span class="star-slot"><span class="star-icon">&#9733;</span></span>
+          </div>
+          <p id="resultsBadge" class="results-badge" role="status" hidden>NEW BEST SCORE!</p>
+        </header>
+
+        <div class="results-stats">
+          <div class="stat stat-wide">
+            <span class="stat-label">SCORE</span>
+            <span id="resStatScore" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">DEFEATED</span>
+            <span id="resStatDefeated" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">ACCURACY</span>
+            <span id="resStatAccuracy" class="stat-value">0%</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">CORRECT</span>
+            <span id="resStatCorrect" class="stat-value stat-good">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">INCORRECT</span>
+            <span id="resStatIncorrect" class="stat-value stat-bad">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">BEST COMBO</span>
+            <span id="resStatCombo" class="stat-value">x0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">HP LEFT</span>
+            <span id="resStatHp" class="stat-value">0</span>
+          </div>
+        </div>
+
+        <div class="results-block">
+          <h3 class="results-block-title">XP EARNED</h3>
+          <ul class="xp-list">
+            <li class="xp-row"><span>STAGE CLEAR</span><span id="resXpClear">+0</span></li>
+            <li class="xp-row"><span id="resXpAnswersLabel">CORRECT ANSWERS</span><span id="resXpAnswers">+0</span></li>
+            <li class="xp-row"><span id="resXpWavesLabel">WAVES CLEARED</span><span id="resXpWaves">+0</span></li>
+            <li class="xp-row"><span>3-STAR BONUS</span><span id="resXpBonus">+0</span></li>
+            <li class="xp-row xp-total"><span>TOTAL</span><span id="resXpTotal">+0 XP</span></li>
+          </ul>
+          <p id="resXpOverall" class="results-note">TOTAL XP 0</p>
+        </div>
+
+        <div class="results-block">
+          <h3 class="results-block-title">KANJI LEARNING</h3>
+          <div class="learn-group">
+            <h4 class="learn-title learn-title-new">NEW KANJI DISCOVERED</h4>
+            <div id="learnNewChips" class="chip-row"></div>
+          </div>
+          <div class="learn-group">
+            <h4 class="learn-title learn-title-good">ANSWERED CORRECTLY</h4>
+            <div id="learnCorrectChips" class="chip-row"></div>
+          </div>
+          <div class="learn-group">
+            <h4 class="learn-title learn-title-bad">ANSWERED INCORRECTLY</h4>
+            <div id="learnWrongChips" class="chip-row"></div>
+          </div>
+          <div class="learn-group">
+            <h4 class="learn-title learn-title-review">NEEDS MORE REVIEW</h4>
+            <div id="learnReviewChips" class="chip-row"></div>
+          </div>
+        </div>
+
+        <p id="resultsNext" class="results-next"></p>
+        <p id="resultsNote" class="results-note" role="status"></p>
+      </div>
+
+      <div class="results-actions">
+        <button id="resultsNextButton" class="menu-button menu-button-primary results-next-button" type="button" aria-label="Play the next stage">NEXT STAGE</button>
+        <button id="resultsRetryButton" class="menu-button" type="button" aria-label="Retry this stage">RETRY</button>
+        <button id="resultsMapButton" class="menu-button" type="button" aria-label="Back to the main menu">GALAXY MAP</button>
+      </div>
+    </section>
+
     <!-- APP FOOTER -->
     <footer id="appFooter" class="app-footer">
       <small id="versionLabel">v0.3.0</small>
