@@ -4,7 +4,10 @@
    safe collisions, gradual difficulty, stable game states and responsive canvas.
    Campaign foundation: World/Stage data and saved campaign progress (data only, no screens yet).
    Stage Wave System: a stage is played as 4 waves (Introduction, Formation Attack, Mixed Attack,
-   Final Wave). When the last wave is cleared the game enters STATE_STAGE_COMPLETE (no saving yet). */
+   Final Wave). When the last wave is cleared the game enters STATE_STAGE_COMPLETE (no saving yet).
+   Mechanics fixes: the fire cooldown now survives lifting the finger (no tap-spam), a missed
+   correct target is brought back (rescue ship) so a wave cannot end without it, and the next group
+   comes quickly when the screen is empty. */
 
 (function () {
   'use strict';
@@ -505,7 +508,8 @@
     saveCampaign();
     return true;
   }
-     // ---------- Sound (simple beeps, no sound files needed) ----------
+
+  // ---------- Sound (simple beeps, no sound files needed) ----------
   function getAudio() {
     if (!soundEnabled) {
       return null;
@@ -753,6 +757,8 @@
   var WAVE_INTRO_TIME = 1.6;  // seconds the "WAVE n" banner is shown (nothing spawns during it)
   var WAVE_GAP_TIME = 0.5;    // short quiet pause after a wave is cleared, before the next banner
   var V_FORMATION_LIFT = 40;  // how much higher the outer ships of a V start (pixels)
+  var EMPTY_SCREEN_GAP = 0.35; // when the screen is empty, the next group comes after this many seconds
+  var RESCUE_DELAY = 0.8;      // a missed correct target comes back after this many seconds (last group only)
   var STAGE_COMPLETE_EVENT = 'kanjiStriker:stageComplete';
 
   // speed = enemy speed in pixels per second (at the reference screen height), groupGap = seconds between groups
@@ -810,6 +816,8 @@
   var stageWaves = [];           // the waves of the stage being played
   var stageCompleteFired = false; // makes sure the completion happens only once per run
   var stageResult = null;        // filled when the last wave is cleared; read by the later Stage Clear step
+  var targetLost = false;        // true after the correct target was missed and no new target has spawned yet
+  var rescueTimer = -1;          // countdown for the rescue ship (-1 = not running)
   // phase: 'none' | 'intro' (banner) | 'spawning' | 'clearing' (all spawned, waiting) | 'gap' (between waves)
   var waveState = { index: 0, phase: 'none', timer: 0, groupIndex: 0, groupTimer: 0 };
 
@@ -958,6 +966,10 @@
 
     if (waveState.phase === 'spawning') {
       waveState.groupTimer -= dt;
+      // No dead time: when every ship is gone, the next group comes after a very short pause
+      if (waveState.groupTimer > EMPTY_SCREEN_GAP && waveState.groupIndex > 0 && aliveEnemyCount() === 0) {
+        waveState.groupTimer = EMPTY_SCREEN_GAP;
+      }
       if (waveState.groupTimer > 0) {
         return;
       }
@@ -981,6 +993,26 @@
     return n;
   }
 
+  // The correct target was missed and every group of the wave is already on screen, so no new target
+  // would ever come. After a short pause one rescue ship carrying the same question flies in.
+  function updateTargetRescue(dt) {
+    if (!targetLost || waveState.phase !== 'clearing' || activeTargetOnScreen()) {
+      rescueTimer = -1;
+      return;
+    }
+    if (rescueTimer < 0) {
+      rescueTimer = RESCUE_DELAY;
+    }
+    rescueTimer -= dt;
+    if (rescueTimer > 0) {
+      return;
+    }
+    rescueTimer = -1;
+    var def = stageWaves[waveState.index];
+    // spawnEnemy makes it the correct target (none is active) and clears targetLost
+    spawnEnemy(pickSpawnX(), -ENEMY_HEIGHT, def ? def.speed : 62);
+  }
+
   // Runs at the end of every playing frame (after dead enemies were removed)
   function checkWaveCleared() {
     if (currentState !== STATE_PLAYING || waveState.phase !== 'clearing') {
@@ -988,6 +1020,9 @@
     }
     if (aliveEnemyCount() > 0) {
       return; // the wave is not over: ships are still on screen
+    }
+    if (targetLost) {
+      return; // the correct target was missed: the rescue ship must come first
     }
     if (waveState.index + 1 < stageWaves.length) {
       waveState.phase = 'gap';
@@ -1035,8 +1070,9 @@
     } catch (error) {
       /* ignore: STATE_STAGE_COMPLETE and stageResult are still set */
     }
-       }
-     // ---------- Game control ----------
+  }
+
+  // ---------- Game control ----------
   // Starts one stage. Returns false (and changes nothing) when the stage cannot be played.
   function startStage(stageId) {
     if (getStageStartProblem(stageId) !== '') {
@@ -1051,6 +1087,8 @@
     stageWaves = getWavesForStage(stage);
     stageCompleteFired = false;
     stageResult = null;
+    targetLost = false;
+    rescueTimer = -1;
 
     hp = 100;
     score = 0;
@@ -1191,6 +1229,8 @@
       question = pool[Math.floor(Math.random() * pool.length)];
     }
     questionSerial += 1;
+    targetLost = false; // a new question starts: nothing is lost yet
+    rescueTimer = -1;
 
     // Every enemy that already exists is now a wrong answer, except the promoted ship
     for (i = 0; i < enemies.length; i++) {
@@ -1264,6 +1304,10 @@
   function spawnEnemy(x, y, speed) {
     // Exactly one correct target per question: spawn it only when none is active
     var needTarget = !activeTargetOnScreen();
+    if (needTarget) {
+      targetLost = false; // the correct target is back on screen
+      rescueTimer = -1;
+    }
     enemies.push({
       data: needTarget ? question : pickDecoy(),
       isTarget: needTarget,
@@ -1335,6 +1379,7 @@
   function targetMissed(amount) {
     recordMiss(question.kanji);
     showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
+    targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
     loseHp(amount);
   }
 
@@ -1372,20 +1417,23 @@
 
     // Hold-to-fire: the ship shoots only while a finger (or the mouse button) is down.
     // Lift the finger to stop shooting, so a wrong kanji in the lane can be let pass safely.
-    // Fixed rate, independent of the frame rate; the first shot comes the moment the finger touches.
+    // The cooldown keeps counting down even when the finger is lifted, so tapping quickly
+    // can never shoot faster than FIRE_INTERVAL. The first shot comes the moment the finger touches
+    // (when the cooldown is already over).
     if (player.isDragging) {
       fireTimer -= dt;
-      while (fireTimer <= 0) {
+      if (fireTimer <= 0) {
         fireTimer += FIRE_INTERVAL;
         var startY = player.y - SHIP_HEIGHT / 2;
         bullets.push({ x: player.x, y: startY, prevY: startY, dead: false });
       }
-    } else {
-      fireTimer = 0;
+    } else if (fireTimer > 0) {
+      fireTimer = Math.max(0, fireTimer - dt);
     }
 
     // Spawn enemies: the Wave System decides what appears and when
     updateWaveSpawning(dt);
+    updateTargetRescue(dt);
 
     // Move bullets (they remember the previous position so fast bullets cannot skip an enemy)
     for (i = 0; i < bullets.length; i++) {
@@ -1477,7 +1525,8 @@
     sweepDead();
     checkWaveCleared();
   }
-     // ---------- Game loop ----------
+
+  // ---------- Game loop ----------
   function startLoop() {
     stopLoop();
     lastTime = performance.now();
