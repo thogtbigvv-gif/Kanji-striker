@@ -69,7 +69,11 @@
     isDragging: false,
     pointerId: null,
     dragPointerX: 0, // finger position when the touch started (relative control)
-    dragShipX: 0     // ship target position when the touch started (relative control)
+    dragShipX: 0,    // ship target position when the touch started (relative control)
+    lastFingerX: 0,  // last finger position (used to measure the finger speed)
+    moveAccum: 0,    // finger distance moved since the last frame (pixels)
+    fingerSpeed: 0,  // smoothed finger speed (pixels per second)
+    fireHeld: false  // true while shooting is allowed (finger down and not moving fast)
   };
 
   var stars = [];
@@ -132,6 +136,11 @@
   var PLAYER_FOLLOW = 16;    // how fast the ship follows the finger (per second)
   var RELATIVE_CONTROL = true;   // true: the ship moves by how far the finger moved (finger can be anywhere)
                                  // false: the ship goes to the exact spot where the finger is
+  // Fire control: the ship shoots while the finger is down AND moving slowly. A fast swipe (dodging)
+  // pauses shooting, so a wrong kanji can be avoided without lifting the finger.
+  var FIRE_STOP_SPEED = 240;      // finger speed (pixels per second) above which shooting pauses
+  var FIRE_START_SPEED = 150;     // finger speed below which shooting starts again (lower than STOP, so it does not flicker)
+  var FIRE_SPEED_SMOOTHING = 18;  // how quickly the measured finger speed reacts (higher = faster)
   var CONTROL_SENSITIVITY = 1.2; // relative control only: 1 = ship moves as far as the finger, 1.2 = a bit more
   // Weapon power-up: the ship shoots more bullets side by side while the combo is high.
   // Any damage resets the combo, so it also drops the weapon back to a single shot.
@@ -1550,6 +1559,24 @@
     );
   }
 
+  // Measures how fast the finger moves and decides if shooting is allowed (with a small hysteresis)
+  function updateFireControl(dt) {
+    if (!player.isDragging) {
+      player.fireHeld = false;
+      player.fingerSpeed = 0;
+      player.moveAccum = 0;
+      return;
+    }
+    var instantSpeed = dt > 0 ? player.moveAccum / dt : 0;
+    player.moveAccum = 0;
+    player.fingerSpeed += (instantSpeed - player.fingerSpeed) * (1 - Math.exp(-FIRE_SPEED_SMOOTHING * dt));
+    if (player.fingerSpeed > FIRE_STOP_SPEED) {
+      player.fireHeld = false;
+    } else if (player.fingerSpeed < FIRE_START_SPEED) {
+      player.fireHeld = true;
+    }
+  }
+
   // 1 = single shot, 2 = double shot, 3 = triple shot (depends on the current combo)
   function weaponLevel() {
     if (combo >= TRIPLE_SHOT_COMBO) {
@@ -1566,12 +1593,13 @@
     var i;
     var j;
 
-    // Hold-to-fire: the ship shoots only while a finger (or the mouse button) is down.
-    // Lift the finger to stop shooting, so a wrong kanji in the lane can be let pass safely.
+    // Hold-to-fire: the ship shoots only while a finger (or the mouse button) is down and moving slowly.
+    // Swipe fast (or lift the finger) to stop shooting, so a wrong kanji in the lane can be let pass safely.
     // The cooldown keeps counting down even when the finger is lifted, so tapping quickly
     // can never shoot faster than FIRE_INTERVAL. The first shot comes the moment the finger touches
     // (when the cooldown is already over).
-    if (player.isDragging) {
+    updateFireControl(dt);
+    if (player.isDragging && player.fireHeld) {
       fireTimer -= dt;
       if (fireTimer <= 0) {
         fireTimer += FIRE_INTERVAL;
@@ -1900,6 +1928,20 @@
     ctx.globalAlpha = 1;
   }
 
+  // Small hint at the bottom while the finger is down but shooting is paused by a fast swipe
+  function drawFirePaused() {
+    if (currentState !== STATE_PLAYING || !player.isDragging || player.fireHeld) {
+      return;
+    }
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText('HOLD FIRE', viewWidth / 2 + 1, viewHeight - 11);
+    ctx.fillStyle = '#8f99a8';
+    ctx.fillText('HOLD FIRE', viewWidth / 2, viewHeight - 12);
+  }
+
   // Small label in the bottom-left corner while a power-up weapon is active
   function drawWeaponLabel() {
     var level = weaponLevel();
@@ -1972,6 +2014,7 @@
     drawToast();
     drawWaveBanner();
     drawWeaponLabel();
+    drawFirePaused();
 
     if (currentState === STATE_PAUSED) {
       drawOverlayText('PAUSED', 'Press RESUME to continue', '#ffd21f');
@@ -2004,6 +2047,9 @@
   function resetDrag() {
     player.isDragging = false;
     player.pointerId = null;
+    player.fireHeld = false;
+    player.fingerSpeed = 0;
+    player.moveAccum = 0;
   }
 
   canvas.addEventListener('pointerdown', function (event) {
@@ -2030,6 +2076,10 @@
     var touchX = event.clientX - canvas.getBoundingClientRect().left;
     player.dragPointerX = touchX;
     player.dragShipX = player.targetX;
+    player.lastFingerX = touchX;
+    player.moveAccum = 0;
+    player.fingerSpeed = 0;
+    player.fireHeld = true; // the first shot comes the moment the finger touches
     if (!RELATIVE_CONTROL) {
       player.targetX = getPointerX(event);
     }
@@ -2050,8 +2100,10 @@
     if (event.pointerId !== player.pointerId) {
       return;
     }
+    var moveX = event.clientX - canvas.getBoundingClientRect().left;
+    player.moveAccum += Math.abs(moveX - player.lastFingerX); // used to measure the finger speed
+    player.lastFingerX = moveX;
     if (RELATIVE_CONTROL) {
-      var moveX = event.clientX - canvas.getBoundingClientRect().left;
       var wantedX = player.dragShipX + (moveX - player.dragPointerX) * CONTROL_SENSITIVITY;
       var limitedX = clampX(wantedX);
       // At the screen edge the touch anchor slides along, so the ship comes back as soon as the finger does
