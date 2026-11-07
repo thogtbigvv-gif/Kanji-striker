@@ -67,7 +67,9 @@
     y: 0,
     targetX: 0,
     isDragging: false,
-    pointerId: null
+    pointerId: null,
+    dragPointerX: 0, // finger position when the touch started (relative control)
+    dragShipX: 0     // ship target position when the touch started (relative control)
   };
 
   var stars = [];
@@ -124,9 +126,35 @@
   var MASTERED_HITS = 3;
 
   // Gameplay tuning
-  var FIRE_INTERVAL = 0.25;  // seconds between shots
-  var BULLET_SPEED = 480;    // pixels per second
-  var PLAYER_FOLLOW = 13.5;  // how fast the ship follows the finger (per second)
+  var FIRE_INTERVAL = 0.2;   // seconds between shots
+  var BULLET_SPEED = 560;    // pixels per second
+  var BULLET_HIT_PADDING = 3; // extra pixels on each side of an enemy where a bullet still counts as a hit
+  var PLAYER_FOLLOW = 16;    // how fast the ship follows the finger (per second)
+  var RELATIVE_CONTROL = true;   // true: the ship moves by how far the finger moved (finger can be anywhere)
+                                 // false: the ship goes to the exact spot where the finger is
+  var CONTROL_SENSITIVITY = 1.2; // relative control only: 1 = ship moves as far as the finger, 1.2 = a bit more
+  // Weapon power-up: the ship shoots more bullets side by side while the combo is high.
+  // Any damage resets the combo, so it also drops the weapon back to a single shot.
+  var DOUBLE_SHOT_COMBO = 5;  // combo needed for 2 bullets
+  var TRIPLE_SHOT_COMBO = 10; // combo needed for 3 bullets
+  var BULLET_SPREAD = 7;      // pixels between bullets that are fired side by side
+
+  // Smart questions: kanji the player struggles with are asked and shown more often,
+  // new kanji sooner, and well-known kanji less often.
+  var WEIGHT_PER_STRUGGLE = 0.8; // extra chance for each time (misses - hits) the player got a kanji wrong
+  var MAX_STRUGGLE = 5;          // limit of that bonus, so one hard kanji cannot take over the game
+  var NEW_KANJI_WEIGHT = 2;      // a kanji the player has never seen yet
+  var MASTERED_WEIGHT = 0.5;     // a kanji answered correctly many times without trouble
+
+  // Score / HP balance
+  var MAX_HP = 100;
+  var MAX_SCORE_MULTIPLIER = 5; // points = 10 x min(combo, this), so a long streak cannot make the score explode
+  var COMBO_HEAL_EVERY = 5;     // every this many correct answers in a row heal the ship
+  var HEAL_AMOUNT = 5;          // HP restored by one streak reward (never above MAX_HP)
+  var WRONG_HIT_DAMAGE = 10;    // shooting a wrong kanji
+  var TARGET_ESCAPE_DAMAGE = 10; // the correct kanji reached the bottom
+  var TARGET_CRASH_DAMAGE = 15;  // the correct kanji crashed into the ship
+  var DECOY_CRASH_DAMAGE = 15;   // a wrong kanji crashed into the ship
   var REF_HEIGHT = 640;      // screen height the enemy speed is tuned for
   var MAX_DPR = 3;           // limits canvas size on very dense Android screens
 
@@ -724,6 +752,8 @@
         player.targetX = player.targetX * ratio;
         for (var i = 0; i < enemies.length; i++) {
           enemies[i].x *= ratio;
+          enemies[i].baseX *= ratio;
+          enemies[i].swayAmp *= ratio;
         }
         for (var j = 0; j < bullets.length; j++) {
           bullets[j].x *= ratio;
@@ -788,6 +818,7 @@
       name: 'Mixed Attack',
       speed: 86,
       groupGap: 2.0,
+      sway: { chance: 0.5, amplitude: 26, period: 2.6 }, // half of the groups sway left and right
       groups: [
         { count: 1, shape: 'single' },
         { count: 2, shape: 'row' },
@@ -800,6 +831,7 @@
       name: 'Final Wave',
       speed: 98,
       groupGap: 1.7,
+      sway: { chance: 0.7, amplitude: 34, period: 2.2 }, // most groups sway left and right
       groups: [
         { count: 2, shape: 'row' },
         { count: 3, shape: 'v' },
@@ -824,9 +856,38 @@
   var START_BUTTON_LABEL = startGameButton.textContent;
   var startLabelTimer = null;
 
-  // Every stage uses the same wave plan for now (a later step can return a different plan per stage)
+  // Difficulty per stage number (1-4). speed and gap multiply the wave values above:
+  // speed 1.1 = enemies 10% faster, gap 0.9 = the next group comes 10% sooner.
+  // sway multiplies how far swaying groups move sideways (0 = no swaying in that stage).
+  // extraGroups are added to the end of every wave of that stage.
+  var STAGE_TUNING = {
+    1: { speed: 0.9, gap: 1.15, sway: 0, extraGroups: [] },                                  // New Kanji: gentle start
+    2: { speed: 1.0, gap: 1.0, sway: 0.6, extraGroups: [] },                                   // Review Run: normal speed, but old kanji are mixed in
+    3: { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [{ count: 2, shape: 'row' }] },         // Big Waves: one more group per wave
+    4: { speed: 1.2, gap: 0.8, sway: 1.3, extraGroups: [{ count: 3, shape: 'v' }, { count: 1, shape: 'single' }] } // Hard Fight
+  };
+  var DEFAULT_TUNING = { speed: 1.0, gap: 1.0, sway: 1.0, extraGroups: [] };
+
+  // The wave plan of a stage: the base waves, made faster / longer depending on the stage number
   function getWavesForStage(stage) {
-    return stage ? WAVE_DEFS : [];
+    if (!stage) {
+      return [];
+    }
+    var tuning = STAGE_TUNING[stage.number] || DEFAULT_TUNING;
+    var waves = [];
+    for (var i = 0; i < WAVE_DEFS.length; i++) {
+      var base = WAVE_DEFS[i];
+      waves.push({
+        name: base.name,
+        speed: Math.round(base.speed * tuning.speed),
+        groupGap: Math.round(base.groupGap * tuning.gap * 100) / 100,
+        sway: base.sway && tuning.sway > 0
+          ? { chance: base.sway.chance, amplitude: base.sway.amplitude * tuning.sway, period: base.sway.period }
+          : null,
+        groups: base.groups.concat(tuning.extraGroups)
+      });
+    }
+    return waves;
   }
 
   function kanjiItemsFor(chars) {
@@ -923,11 +984,34 @@
 
   // Spawns every ship of a group at once. The ships are created in random order, so the correct
   // target (the first ship created while no target is on screen) is not always on the same side.
-  function spawnGroup(group, speed) {
+  function spawnGroup(group, speed, sway) {
     var slots = shuffle(formationSlots(group));
+    var motion = pickMotion(sway, slots);
     for (var i = 0; i < slots.length; i++) {
-      spawnEnemy(slots[i].x, -ENEMY_HEIGHT - slots[i].lift, speed);
+      spawnEnemy(slots[i].x, -ENEMY_HEIGHT - slots[i].lift, speed, motion);
     }
+  }
+
+  // Decides if a group sways left and right. The whole group moves together, so a row or V keeps its
+  // shape. The swing is limited so no ship leaves the screen. Returns null for a straight group.
+  function pickMotion(sway, slots) {
+    if (!sway || sway.amplitude <= 0 || Math.random() >= sway.chance) {
+      return null;
+    }
+    var minX = ENEMY_WIDTH / 2 + 2;
+    var maxX = viewWidth - ENEMY_WIDTH / 2 - 2;
+    var room = Infinity;
+    for (var i = 0; i < slots.length; i++) {
+      room = Math.min(room, slots[i].x - minX, maxX - slots[i].x);
+    }
+    var amplitude = Math.min(sway.amplitude, room);
+    if (amplitude < 6) {
+      return null; // too close to the screen edge: this group flies straight
+    }
+    return {
+      amp: Math.random() < 0.5 ? -amplitude : amplitude, // the sign decides which way it swings first
+      freq: (Math.PI * 2) / sway.period
+    };
   }
 
   function beginWave(index) {
@@ -973,7 +1057,7 @@
       if (waveState.groupTimer > 0) {
         return;
       }
-      spawnGroup(def.groups[waveState.groupIndex], def.speed);
+      spawnGroup(def.groups[waveState.groupIndex], def.speed, def.sway);
       waveState.groupIndex += 1;
       if (waveState.groupIndex >= def.groups.length) {
         waveState.phase = 'clearing'; // everything of this wave is on screen now
@@ -1090,7 +1174,7 @@
     targetLost = false;
     rescueTimer = -1;
 
-    hp = 100;
+    hp = MAX_HP;
     score = 0;
     combo = 0;
     updateHud();
@@ -1193,6 +1277,38 @@
     return false;
   }
 
+  // How likely a kanji is to be chosen: 1 = normal. Uses the saved hits/misses of the player.
+  function kanjiWeight(item) {
+    var entry = progress[item.kanji];
+    var hits = entry && typeof entry.hits === 'number' ? entry.hits : 0;
+    var misses = entry && typeof entry.misses === 'number' ? entry.misses : 0;
+    if (hits + misses === 0) {
+      return NEW_KANJI_WEIGHT;
+    }
+    var struggle = Math.max(0, misses - hits);
+    if (struggle === 0 && hits >= MASTERED_HITS) {
+      return MASTERED_WEIGHT;
+    }
+    return 1 + Math.min(struggle, MAX_STRUGGLE) * WEIGHT_PER_STRUGGLE;
+  }
+
+  // Random pick from a list of kanji entries, favouring the ones with a higher weight
+  function weightedPick(list) {
+    var total = 0;
+    var i;
+    for (i = 0; i < list.length; i++) {
+      total += kanjiWeight(list[i]);
+    }
+    var roll = Math.random() * total;
+    for (i = 0; i < list.length; i++) {
+      roll -= kanjiWeight(list[i]);
+      if (roll <= 0) {
+        return list[i];
+      }
+    }
+    return list[list.length - 1];
+  }
+
   function pickQuestion() {
     var onScreen = {};
     var promote = null; // a ship already flying that becomes the new correct target (no empty waiting time)
@@ -1226,7 +1342,7 @@
           }
         }
       }
-      question = pool[Math.floor(Math.random() * pool.length)];
+      question = weightedPick(pool);
     }
     questionSerial += 1;
     targetLost = false; // a new question starts: nothing is lost yet
@@ -1267,7 +1383,7 @@
         }
       }
     }
-    return pool[Math.floor(Math.random() * pool.length)];
+    return weightedPick(pool);
   }
 
   // Picks a spawn position that does not overlap enemies that just spawned
@@ -1301,7 +1417,7 @@
     return bestX;
   }
 
-  function spawnEnemy(x, y, speed) {
+  function spawnEnemy(x, y, speed, motion) {
     // Exactly one correct target per question: spawn it only when none is active
     var needTarget = !activeTargetOnScreen();
     if (needTarget) {
@@ -1314,6 +1430,10 @@
       qid: questionSerial,
       dead: false,
       x: x,
+      baseX: x,                       // centre line the ship sways around
+      swayAmp: motion ? motion.amp : 0, // 0 = flies straight
+      swayFreq: motion ? motion.freq : 0,
+      age: 0,
       y: y,
       speed: speed,         // pixels per second at the reference screen height (set by the wave)
       wave: waveState.index // which wave this ship belongs to
@@ -1355,13 +1475,33 @@
   }
 
   function correctHit(data) {
+    var levelBefore = weaponLevel();
     combo += 1;
     answered += 1;
-    var points = 10 * combo;
+    var points = 10 * Math.min(combo, MAX_SCORE_MULTIPLIER);
     score += points;
     recordHit(data.kanji);
-    showToast(data.kanji + ' = ' + data.meaning.toUpperCase() + '   +' + points, '#5dff8a');
+
+    // Streak reward: every COMBO_HEAL_EVERY correct answers in a row restore a little HP
+    var healed = 0;
+    if (combo % COMBO_HEAL_EVERY === 0 && hp < MAX_HP) {
+      healed = Math.min(HEAL_AMOUNT, MAX_HP - hp);
+      hp += healed;
+    }
+
+    showToast(
+      data.kanji + ' = ' + data.meaning.toUpperCase() + '   +' + points + (healed > 0 ? '   +' + healed + ' HP' : ''),
+      '#5dff8a'
+    );
     playCorrectSound();
+    if (healed > 0) {
+      playTone(1320, 0.12, 'square', 0.06, 0.2);
+    }
+    if (weaponLevel() > levelBefore) {
+      playTone(880, 0.08, 'square', 0.06, 0.1);
+      playTone(1175, 0.08, 'square', 0.06, 0.18);
+      playTone(1568, 0.14, 'square', 0.06, 0.26);
+    }
     pickQuestion();
     updateHud();
   }
@@ -1369,7 +1509,7 @@
   function wrongHit(data) {
     recordMiss(question.kanji);
     showToast(data.kanji + ' = ' + data.meaning.toUpperCase(), '#ff6b86');
-    loseHp(10, true);
+    loseHp(WRONG_HIT_DAMAGE, true);
     if (currentState !== STATE_GAME_OVER) {
       playWrongSound();
     }
@@ -1410,6 +1550,17 @@
     );
   }
 
+  // 1 = single shot, 2 = double shot, 3 = triple shot (depends on the current combo)
+  function weaponLevel() {
+    if (combo >= TRIPLE_SHOT_COMBO) {
+      return 3;
+    }
+    if (combo >= DOUBLE_SHOT_COMBO) {
+      return 2;
+    }
+    return 1;
+  }
+
   function updateGameplay(dt) {
     var scale = sizeScale();
     var i;
@@ -1425,7 +1576,12 @@
       if (fireTimer <= 0) {
         fireTimer += FIRE_INTERVAL;
         var startY = player.y - SHIP_HEIGHT / 2;
-        bullets.push({ x: player.x, y: startY, prevY: startY, dead: false });
+        var level = weaponLevel();
+        var offsets = level === 3 ? [-BULLET_SPREAD, 0, BULLET_SPREAD] :
+          level === 2 ? [-BULLET_SPREAD / 2, BULLET_SPREAD / 2] : [0];
+        for (var o = 0; o < offsets.length; o++) {
+          bullets.push({ x: player.x + offsets[o], y: startY, prevY: startY, dead: false });
+        }
       }
     } else if (fireTimer > 0) {
       fireTimer = Math.max(0, fireTimer - dt);
@@ -1450,13 +1606,17 @@
       if (enemy.dead) {
         continue;
       }
+      if (enemy.swayAmp !== 0) {
+        enemy.age += dt;
+        enemy.x = enemy.baseX + enemy.swayAmp * Math.sin(enemy.age * enemy.swayFreq);
+      }
       enemy.y += enemy.speed * scale * dt;
 
       if (enemy.y > viewHeight) {
         var escapedTarget = isActiveTarget(enemy);
         enemy.dead = true;
         if (escapedTarget) {
-          targetMissed(10);
+          targetMissed(TARGET_ESCAPE_DAMAGE);
           if (currentState === STATE_GAME_OVER) {
             sweepDead();
             return;
@@ -1470,9 +1630,9 @@
         enemy.dead = true;
         burst(enemy.x, enemy.y + ENEMY_HEIGHT / 2, '#ff6b86');
         if (crashedTarget) {
-          targetMissed(15);
+          targetMissed(TARGET_CRASH_DAMAGE);
         } else {
-          loseHp(15);
+          loseHp(DECOY_CRASH_DAMAGE);
         }
         if (currentState === STATE_GAME_OVER) {
           sweepDead();
@@ -1493,7 +1653,7 @@
         if (e.dead || e.y <= KANJI_VISIBLE_Y) {
           continue;
         }
-        if (Math.abs(b.x - e.x) > ENEMY_WIDTH / 2) {
+        if (Math.abs(b.x - e.x) > ENEMY_WIDTH / 2 + BULLET_HIT_PADDING) {
           continue;
         }
         if (b.y > e.y + ENEMY_HEIGHT || b.prevY < e.y) {
@@ -1740,6 +1900,21 @@
     ctx.globalAlpha = 1;
   }
 
+  // Small label in the bottom-left corner while a power-up weapon is active
+  function drawWeaponLabel() {
+    var level = weaponLevel();
+    if (level < 2 || currentState === STATE_GAME_OVER) {
+      return;
+    }
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText(level === 3 ? 'TRIPLE SHOT' : 'DOUBLE SHOT', 9, viewHeight - 11);
+    ctx.fillStyle = level === 3 ? '#ff6b86' : '#ffd21f';
+    ctx.fillText(level === 3 ? 'TRIPLE SHOT' : 'DOUBLE SHOT', 8, viewHeight - 12);
+  }
+
   function drawOverlayText(title, subtitle, color) {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(0, 0, viewWidth, viewHeight);
@@ -1796,6 +1971,7 @@
     drawQuestion();
     drawToast();
     drawWaveBanner();
+    drawWeaponLabel();
 
     if (currentState === STATE_PAUSED) {
       drawOverlayText('PAUSED', 'Press RESUME to continue', '#ffd21f');
@@ -1851,7 +2027,12 @@
     }
     player.isDragging = true;
     player.pointerId = event.pointerId;
-    player.targetX = getPointerX(event);
+    var touchX = event.clientX - canvas.getBoundingClientRect().left;
+    player.dragPointerX = touchX;
+    player.dragShipX = player.targetX;
+    if (!RELATIVE_CONTROL) {
+      player.targetX = getPointerX(event);
+    }
     if (canvas.setPointerCapture) {
       try {
         canvas.setPointerCapture(event.pointerId);
@@ -1869,7 +2050,16 @@
     if (event.pointerId !== player.pointerId) {
       return;
     }
-    player.targetX = getPointerX(event);
+    if (RELATIVE_CONTROL) {
+      var moveX = event.clientX - canvas.getBoundingClientRect().left;
+      var wantedX = player.dragShipX + (moveX - player.dragPointerX) * CONTROL_SENSITIVITY;
+      var limitedX = clampX(wantedX);
+      // At the screen edge the touch anchor slides along, so the ship comes back as soon as the finger does
+      player.dragShipX += limitedX - wantedX;
+      player.targetX = limitedX;
+    } else {
+      player.targetX = getPointerX(event);
+    }
     event.preventDefault();
   });
 
