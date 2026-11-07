@@ -505,8 +505,7 @@
     saveCampaign();
     return true;
   }
-
-  // ---------- Sound (simple beeps, no sound files needed) ----------
+     // ---------- Sound (simple beeps, no sound files needed) ----------
   function getAudio() {
     if (!soundEnabled) {
       return null;
@@ -1036,9 +1035,8 @@
     } catch (error) {
       /* ignore: STATE_STAGE_COMPLETE and stageResult are still set */
     }
-  }
-
-  // ---------- Game control ----------
+       }
+     // ---------- Game control ----------
   // Starts one stage. Returns false (and changes nothing) when the stage cannot be played.
   function startStage(stageId) {
     if (getStageStartProblem(stageId) !== '') {
@@ -1159,36 +1157,51 @@
 
   function pickQuestion() {
     var onScreen = {};
+    var promote = null; // a ship already flying that becomes the new correct target (no empty waiting time)
     var i;
     for (i = 0; i < enemies.length; i++) {
-      if (!enemies[i].dead) {
-        onScreen[enemies[i].data.kanji] = true;
+      var en = enemies[i];
+      if (en.dead) {
+        continue;
+      }
+      onScreen[en.data.kanji] = true;
+      // Prefer a ship of this stage's own kanji that is not the old question; the highest one gives the most time
+      if (en.data !== question && questionPool.indexOf(en.data) !== -1 && (promote === null || en.y < promote.y)) {
+        promote = en;
       }
     }
 
-    // New question: not the previous one and not a kanji already flying on screen
-    var pool = [];
-    for (i = 0; i < questionPool.length; i++) {
-      if (questionPool[i] !== question && !onScreen[questionPool[i].kanji]) {
-        pool.push(questionPool[i]);
-      }
-    }
-    if (pool.length === 0) {
+    if (promote !== null) {
+      question = promote.data;
+    } else {
+      // Nothing usable on screen: new question, not the previous one and not a kanji already flying
+      var pool = [];
       for (i = 0; i < questionPool.length; i++) {
-        if (questionPool[i] !== question) {
+        if (questionPool[i] !== question && !onScreen[questionPool[i].kanji]) {
           pool.push(questionPool[i]);
         }
       }
+      if (pool.length === 0) {
+        for (i = 0; i < questionPool.length; i++) {
+          if (questionPool[i] !== question) {
+            pool.push(questionPool[i]);
+          }
+        }
+      }
+      question = pool[Math.floor(Math.random() * pool.length)];
     }
-    question = pool[Math.floor(Math.random() * pool.length)];
     questionSerial += 1;
 
-    // Every enemy that already exists is now a wrong answer
+    // Every enemy that already exists is now a wrong answer, except the promoted ship
     for (i = 0; i < enemies.length; i++) {
       enemies[i].isTarget = false;
-      if (enemies[i].data === question) {
+      if (enemies[i] !== promote && enemies[i].data === question) {
         enemies[i].dead = true; // safety: never show the answer kanji on a wrong enemy
       }
+    }
+    if (promote !== null) {
+      promote.isTarget = true;
+      promote.qid = questionSerial;
     }
   }
 
@@ -1357,12 +1370,18 @@
     var i;
     var j;
 
-    // Auto-fire: fixed rate, independent of the frame rate
-    fireTimer -= dt;
-    while (fireTimer <= 0) {
-      fireTimer += FIRE_INTERVAL;
-      var startY = player.y - SHIP_HEIGHT / 2;
-      bullets.push({ x: player.x, y: startY, prevY: startY, dead: false });
+    // Hold-to-fire: the ship shoots only while a finger (or the mouse button) is down.
+    // Lift the finger to stop shooting, so a wrong kanji in the lane can be let pass safely.
+    // Fixed rate, independent of the frame rate; the first shot comes the moment the finger touches.
+    if (player.isDragging) {
+      fireTimer -= dt;
+      while (fireTimer <= 0) {
+        fireTimer += FIRE_INTERVAL;
+        var startY = player.y - SHIP_HEIGHT / 2;
+        bullets.push({ x: player.x, y: startY, prevY: startY, dead: false });
+      }
+    } else {
+      fireTimer = 0;
     }
 
     // Spawn enemies: the Wave System decides what appears and when
@@ -1458,8 +1477,7 @@
     sweepDead();
     checkWaveCleared();
   }
-
-  // ---------- Game loop ----------
+     // ---------- Game loop ----------
   function startLoop() {
     stopLoop();
     lastTime = performance.now();
