@@ -13,6 +13,7 @@ function resetDrag() {
   player.pointerId = null;
   player.fireHeld = false;
   player.aimTimer = 0;
+  flickTrail = [];
 }
 
 canvas.addEventListener('pointerdown', function (event) {
@@ -40,6 +41,8 @@ canvas.addEventListener('pointerdown', function (event) {
   player.dragPointerX = touchX;
   player.dragShipX = player.targetX;
   player.aimX = touchX;
+  player.lastPointerX = touchX;
+  flickTrail = [{ t: performance.now() / 1000, x: touchX }];
   player.aimTimer = 0;
   player.fireHeld = false; // no instant shot: the finger must rest for AIM_DELAY first
   tapStart = { id: event.pointerId, t: performance.now() / 1000, x: touchX }; // may become a tap (double tap = bomb)
@@ -73,6 +76,21 @@ canvas.addEventListener('pointermove', function (event) {
     player.aimX = moveX;
     player.aimTimer = 0;
     player.fireHeld = false;
+  }
+  player.lastPointerX = moveX;
+  // Flick: a fast move of DASH_FLICK_DIST pixels within DASH_FLICK_TIME seconds throws the ship sideways
+  var nowSec = performance.now() / 1000;
+  flickTrail.push({ t: nowSec, x: moveX });
+  while (flickTrail.length > 1 && nowSec - flickTrail[0].t > DASH_FLICK_TIME) {
+    flickTrail.shift();
+  }
+  var flickMove = moveX - flickTrail[0].x;
+  if (Math.abs(flickMove) >= DASH_FLICK_DIST && startDash(flickMove > 0 ? 1 : -1)) {
+    flickTrail = [{ t: nowSec, x: moveX }];
+  }
+  if (dashTimer > 0) {
+    event.preventDefault(); // the ship is dashing: the finger does not steer it until the dash is over
+    return;
   }
   if (RELATIVE_CONTROL) {
     var wantedX = player.dragShipX + (moveX - player.dragPointerX) * CONTROL_SENSITIVITY;
@@ -148,9 +166,14 @@ window.addEventListener('keydown', function (event) {
     return;
   }
   if (event.key === 'ArrowLeft') {
+    lastKeyDir = -1;
     player.targetX = clampX(player.targetX - 40);
   } else if (event.key === 'ArrowRight') {
+    lastKeyDir = 1;
     player.targetX = clampX(player.targetX + 40);
+  } else if (event.key === ' ' || event.key === 'Shift') {
+    startDash(lastKeyDir); // keyboard dash: in the direction of the last arrow key
+    event.preventDefault();
   } else if (event.key === 'b' || event.key === 'B') {
     useBomb();
   }
