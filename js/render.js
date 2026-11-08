@@ -175,9 +175,45 @@ function clampX(x) {
 }
 
 // ---------- Drawing ----------
+// Afterimages of a dash: blue silhouettes of the ship that fade out
+function drawDashGhosts() {
+  for (var g = 0; g < dashGhosts.length; g++) {
+    var ghost = dashGhosts[g];
+    var ghostLeft = Math.round(ghost.x - SHIP_WIDTH / 2);
+    var ghostTop = Math.round(ghost.y - SHIP_HEIGHT / 2);
+    ctx.globalAlpha = Math.max(0, ghost.life / 0.25) * 0.4;
+    ctx.fillStyle = '#66e0ff';
+    for (var row = 0; row < SHIP_PIXELS.length; row++) {
+      for (var col = 0; col < SHIP_PIXELS[row].length; col++) {
+        if (SHIP_PIXELS[row][col] !== '.') {
+          ctx.fillRect(ghostLeft + col * PIXEL, ghostTop + row * PIXEL, PIXEL, PIXEL);
+        }
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Thin bar under the ship that fills up while the dash recharges (nothing is shown when the dash is ready)
+function drawDashCooldown() {
+  if (dashCooldown <= 0 || currentState === STATE_GAME_OVER) {
+    return;
+  }
+  var barWidth = SHIP_WIDTH + 8;
+  var barLeft = Math.round(player.x - barWidth / 2);
+  var barTop = Math.round(player.y + SHIP_HEIGHT / 2 + 12);
+  ctx.fillStyle = 'rgba(143, 153, 168, 0.35)';
+  ctx.fillRect(barLeft, barTop, barWidth, 2);
+  ctx.fillStyle = '#66e0ff';
+  ctx.fillRect(barLeft, barTop, Math.round(barWidth * (1 - dashCooldown / DASH_COOLDOWN)), 2);
+}
+
 function drawShip() {
   var left = Math.round(player.x - SHIP_WIDTH / 2);
   var top = Math.round(player.y - SHIP_HEIGHT / 2);
+  if (dashInvuln > 0) {
+    ctx.globalAlpha = 0.55; // a see-through ship = a ghost: nothing can hurt it
+  }
 
   for (var row = 0; row < SHIP_PIXELS.length; row++) {
     for (var col = 0; col < SHIP_PIXELS[row].length; col++) {
@@ -195,6 +231,7 @@ function drawShip() {
   ctx.fillStyle = '#ffd21f';
   ctx.fillRect(left + 3 * PIXEL, top + SHIP_HEIGHT, PIXEL, PIXEL * flameLength);
   ctx.fillRect(left + 7 * PIXEL, top + SHIP_HEIGHT, PIXEL, PIXEL * flameLength);
+  ctx.globalAlpha = 1;
 }
 
 // Shield bubble around the ship
@@ -554,8 +591,10 @@ function render() {
   drawPowerups();
 
   if (currentState !== STATE_GAME_OVER) {
+    drawDashGhosts();
     drawShip();
     drawShield();
+    drawDashCooldown();
   }
 
   // Particles
