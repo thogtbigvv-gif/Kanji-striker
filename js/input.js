@@ -189,6 +189,16 @@ settingsButton.addEventListener('click', showSettings);
 collectionBackButton.addEventListener('click', showMenu);
 settingsBackButton.addEventListener('click', showMenu);
 
+// Stage results buttons
+resultsNextButton.addEventListener('click', function () {
+  var nextId = getNextStageId(currentStageId);
+  if (!nextId || !startStage(nextId)) {
+    backToMenu();
+  }
+});
+resultsRetryButton.addEventListener('click', restartCurrentStage);
+resultsMapButton.addEventListener('click', backToMenu);
+
 soundToggleButton.addEventListener('click', function () {
   soundEnabled = !soundEnabled;
   writeStorage(KEY_SOUND, soundEnabled ? 'on' : 'off');
@@ -206,6 +216,8 @@ resetProgressButton.addEventListener('click', function () {
   bestScore = 0;
   removeStorage(KEY_PROGRESS);
   removeStorage(KEY_BEST);
+  totalXp = 0;
+  removeStorage(KEY_XP);
   campaign = freshCampaign();
   campaignReadOnly = false;
   removeStorage(KEY_CAMPAIGN);
