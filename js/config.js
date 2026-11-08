@@ -35,6 +35,17 @@ var DOUBLE_SHOT_COMBO = 5;  // combo needed for 2 bullets
 var TRIPLE_SHOT_COMBO = 10; // combo needed for 3 bullets
 var BULLET_SPREAD = 7;      // pixels between bullets that are fired side by side
 
+// Dash: a quick flick of the finger (touch / mouse) or Space / Shift (keyboard) throws the ship sideways.
+// While the dash lasts (and a moment after it) the ship is a ghost: enemy ships and enemy bullets pass through it
+// without any damage. Dashing is a pure dodge: it does not shoot, and it needs DASH_COOLDOWN seconds to recharge.
+var DASH_DISTANCE = 130;      // pixels the ship travels during one dash
+var DASH_TIME = 0.16;         // seconds the dash movement lasts
+var DASH_GRACE = 0.1;         // extra seconds of ghost time after the movement ends
+var DASH_COOLDOWN = 1.2;      // seconds from the start of a dash until the next dash is possible
+var DASH_FLICK_DIST = 70;     // the finger must move this many pixels ...
+var DASH_FLICK_TIME = 0.1;    // ... within this many seconds to count as a flick
+var DASH_MIN_ROOM = 25;       // no dash when the screen edge is closer than this in the flick direction (pixels)
+
 // Smart questions: kanji the player struggles with are asked and shown more often,
 // new kanji sooner, and well-known kanji less often.
 var WEIGHT_PER_STRUGGLE = 0.8; // extra chance for each time (misses - hits) the player got a kanji wrong
