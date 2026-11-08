@@ -218,8 +218,31 @@ function updateGameplay(dt) {
       enemy.hitFlash -= dt;
     }
     if (enemy.swayAmp !== 0) {
-      enemy.age += dt;
-      enemy.x = enemy.baseX + enemy.swayAmp * Math.sin(enemy.age * enemy.swayFreq);
+      enemy.age += dt * speedFactor; // the SLOW power-up slows the sideways motion too
+      var phase = enemy.age * enemy.swayFreq;
+      if (enemy.path === 'zigzag') {
+        // triangle wave: straight sideways runs with sharp turns
+        enemy.x = enemy.baseX + enemy.swayAmp * (2 / Math.PI) * Math.asin(Math.sin(phase));
+      } else {
+        enemy.x = enemy.baseX + enemy.swayAmp * Math.sin(phase);
+      }
+      if (enemy.orbitY !== 0) {
+        // circle path: the vertical part of the loop is added on top of the normal fall
+        var orbitNow = enemy.orbitY * (Math.cos(phase) - 1);
+        enemy.y += orbitNow - enemy.orbitOff;
+        enemy.orbitOff = orbitNow;
+      }
+    }
+    if (enemy.entering) {
+      // side path: fly in from the screen edge to the lane, then fall straight
+      var enterStep = PATH_SIDE_SPEED * dt * speedFactor;
+      var enterDiff = enemy.baseX - enemy.x;
+      if (Math.abs(enterDiff) <= enterStep) {
+        enemy.x = enemy.baseX;
+        enemy.entering = false;
+      } else {
+        enemy.x += enterDiff > 0 ? enterStep : -enterStep;
+      }
     }
     if (enemy.vx !== 0) {
       // Mini ships drift sideways and bounce off the screen edges
