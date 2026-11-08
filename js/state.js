@@ -56,7 +56,8 @@ var player = {
   dragShipX: 0,    // ship target position when the touch started (relative control)
   aimX: 0,         // finger position where it last rested (anchor of the aim lock)
   aimTimer: 0,     // seconds the finger has rested on the anchor
-  fireHeld: false  // true while shooting is allowed (finger resting for at least AIM_DELAY)
+  fireHeld: false, // true while shooting is allowed (finger resting for at least AIM_DELAY)
+  lastPointerX: 0  // latest finger position (used to re-anchor the control after a dash)
 };
 
 var stars = [];
@@ -86,6 +87,13 @@ var enemyBullets = [];    // shots of the enemies and the boss: { x, y, vx, vy, 
 var boss = null;          // the boss of a Boss Gate stage (null = none): see spawnBoss()
 var tapStart = null;      // the touch that may become a tap: { id, t, x }
 var lastTapAt = 0;        // time of the last tap (0 = none), for the double tap bomb
+var dashTimer = 0;        // seconds of dash movement left (0 = not dashing)
+var dashInvuln = 0;       // seconds of ghost time left (dash + grace): nothing can hurt the ship
+var dashCooldown = 0;     // seconds until the next dash is possible
+var dashDir = 0;          // -1 = left, 1 = right
+var dashGhosts = [];      // afterimages of the dash: { x, y, life }
+var flickTrail = [];      // recent finger positions: { t, x } (to detect a flick)
+var lastKeyDir = 1;       // last direction pressed on the keyboard (a Space dash goes this way)
 var fireTimer = 0;
 var damageFlash = 0;
 var gameOverAt = 0;
