@@ -41,6 +41,8 @@ function buildBossWave(tuning, fire) {
     groupGap: Math.round(2.6 * tuning.gap * 100) / 100,
     sway: tuning.sway > 0 ? { chance: 0.4, amplitude: 26 * tuning.sway, period: 2.6 } : null,
     fire: fire,
+    paths: tuning.paths || [],
+    pathChance: tuning.pathChance || 0,
     groups: [
       { count: 1, shape: 'single' },
       { count: 2, shape: 'row' },
@@ -70,6 +72,8 @@ function getWavesForStage(stage) {
         ? { chance: base.sway.chance, amplitude: base.sway.amplitude * tuning.sway, period: base.sway.period }
         : null,
       fire: i >= 1 ? fire : 0, // the first wave never shoots
+      paths: i >= 1 ? (tuning.paths || []) : [], // the first wave has no special movement paths either
+      pathChance: tuning.pathChance || 0,
       groups: i >= 1
         ? withSpecialGroups(base.groups.concat(tuning.extraGroups), tuning.specials, i === WAVE_DEFS.length - 1 ? 2 : 1)
         : base.groups.concat(tuning.extraGroups)
@@ -174,17 +178,56 @@ function formationSlots(group) {
 
 // Spawns every ship of a group at once. The ships are created in random order, so the correct
 // target (the first ship created while no target is on screen) is not always on the same side.
-function spawnGroup(group, speed, sway) {
+function spawnGroup(group, speed, sway, waveDef) {
   // A splitter is always a wrong answer, so when no correct target is on screen yet, a normal ship
   // carrying the target comes first
   if (group.kind === 'split' && !activeTargetOnScreen()) {
     spawnEnemy(pickSpawnX(), -ENEMY_HEIGHT, speed, null, 'normal');
   }
   var slots = shuffle(formationSlots(group));
-  var motion = pickMotion(sway, slots);
+  var motion = pickPath(group, waveDef, slots) || pickMotion(sway, slots);
   for (var i = 0; i < slots.length; i++) {
     spawnEnemy(slots[i].x, -ENEMY_HEIGHT - slots[i].lift, speed, motion, group.kind);
   }
+}
+
+// Decides if a single normal ship flies a special path (zigzag / circle / side entry). Returns null otherwise.
+// The lane of the ship is moved inward when needed, so the whole path stays on the screen.
+function pickPath(group, waveDef, slots) {
+  if (!waveDef || !waveDef.paths || waveDef.paths.length === 0 || waveDef.pathChance <= 0) {
+    return null;
+  }
+  if (group.count !== 1 || (group.kind && group.kind !== 'normal') || slots.length !== 1) {
+    return null;
+  }
+  if (Math.random() >= waveDef.pathChance) {
+    return null;
+  }
+  var type = waveDef.paths[Math.floor(Math.random() * waveDef.paths.length)];
+  var minX = ENEMY_WIDTH / 2 + 2;
+  var maxX = viewWidth - ENEMY_WIDTH / 2 - 2;
+  var sign = Math.random() < 0.5 ? -1 : 1;
+  var reach;
+  if (type === 'side') {
+    return {
+      type: 'side',
+      fromLeft: Math.random() < 0.5,
+      startY: PATH_SIDE_START_MIN + Math.random() * PATH_SIDE_START_RANGE
+    };
+  }
+  if (type === 'zigzag') {
+    reach = PATH_ZIGZAG_AMP;
+  } else if (type === 'circle') {
+    reach = PATH_CIRCLE_RADIUS;
+  } else {
+    return null;
+  }
+  reach = Math.min(reach, (maxX - minX) / 2);
+  slots[0].x = Math.max(minX + reach, Math.min(maxX - reach, slots[0].x));
+  if (type === 'zigzag') {
+    return { type: 'zigzag', amp: sign * reach, freq: (Math.PI * 2) / PATH_ZIGZAG_PERIOD };
+  }
+  return { type: 'circle', amp: sign * reach, orbitY: reach, freq: (Math.PI * 2) / PATH_CIRCLE_PERIOD };
 }
 
 // Decides if a group sways left and right. The whole group moves together, so a row or V keeps its
@@ -257,7 +300,7 @@ function updateWaveSpawning(dt) {
     if (waveState.groupTimer > 0) {
       return;
     }
-    spawnGroup(def.groups[waveState.groupIndex], def.speed, def.sway);
+    spawnGroup(def.groups[waveState.groupIndex], def.speed, def.sway, def);
     waveState.groupIndex += 1;
     if (waveState.groupIndex >= def.groups.length) {
       if (def.loop) {
