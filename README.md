@@ -108,6 +108,13 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+## 🗺️ v0.5.0 changes
+
+- New **Galaxy Map** screen: START GAME opens it. All worlds and stages are listed with stars, the next stage is highlighted, locked stages are greyed, worlds without kanji show COMING SOON. Tap a stage to play it, or press CONTINUE.
+- The results screen's GALAXY MAP button now opens this screen.
+
+---
+
 ## 📌 Version
 
-Current version: **v0.4.0** (shown in the footer of the menu).
+Current version: **v0.5.0** (shown in the footer of the menu).
