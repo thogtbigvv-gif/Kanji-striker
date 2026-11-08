@@ -44,6 +44,7 @@ function loadSavedData() {
   }
 
   soundEnabled = readStorage(KEY_SOUND) !== 'off';
+  totalXp = safeCount(readStorage(KEY_XP));
 
   campaign = loadCampaign();
 }
@@ -60,6 +61,10 @@ function commitBestScore() {
     return true;
   }
   return false;
+}
+
+function saveXp() {
+  writeStorage(KEY_XP, String(totalXp));
 }
 
 function saveProgress() {
@@ -91,14 +96,15 @@ function recordMiss(kanji) {
 }
 
 // ---------- Campaign progress (saved in the browser) ----------
-// Saved shape: { v: 1, stages: { "w1-s1": { completed: true, bestScore: 120, plays: 3 } } }
+// Saved shape: { v: 1, stages: { "w1-s1": { completed: true, bestScore: 120, plays: 3, stars: 2 } } }
+// ("stars" was added in v0.4.0; older saves without it simply count as 0 stars.)
 // Unlocks are calculated from "completed", so saved data can never disagree with itself.
 function freshCampaign() {
   return { v: CAMPAIGN_VERSION, stages: {} };
 }
 
 function emptyStageProgress() {
-  return { completed: false, bestScore: 0, plays: 0 };
+  return { completed: false, bestScore: 0, plays: 0, stars: 0 };
 }
 
 function safeCount(value) {
@@ -135,7 +141,8 @@ function cleanCampaign(raw) {
     result.stages[id] = {
       completed: entry.completed === true,
       bestScore: safeCount(entry.bestScore),
-      plays: safeCount(entry.plays)
+      plays: safeCount(entry.plays),
+      stars: Math.min(3, safeCount(entry.stars))
     };
   }
   return result;
@@ -172,7 +179,7 @@ function saveCampaign() {
 
 function getStageProgress(stageId) {
   var saved = campaign.stages[stageId];
-  return saved ? { completed: saved.completed, bestScore: saved.bestScore, plays: saved.plays } : emptyStageProgress();
+  return saved ? { completed: saved.completed, bestScore: saved.bestScore, plays: saved.plays, stars: saved.stars || 0 } : emptyStageProgress();
 }
 
 function isStageCompleted(stageId) {
@@ -224,7 +231,7 @@ function getContinueStageId() {
 }
 
 // Saves the result of one stage attempt. A completed stage never becomes "not completed" again.
-function recordStageResult(stageId, stageScore, cleared) {
+function recordStageResult(stageId, stageScore, cleared, stars) {
   if (!CAMPAIGN_STAGES[stageId] || !isStageUnlocked(stageId)) {
     return false;
   }
@@ -236,6 +243,10 @@ function recordStageResult(stageId, stageScore, cleared) {
   }
   if (cleared) {
     entry.completed = true;
+    var earned = Math.min(3, safeCount(stars));
+    if (earned > (entry.stars || 0)) {
+      entry.stars = earned; // the best star rating is kept
+    }
   }
   campaign.stages[stageId] = entry;
   saveCampaign();
