@@ -14,6 +14,7 @@ var KEY_BEST = 'kanjiStrikerBestScore';
 var KEY_PROGRESS = 'kanjiStrikerProgress';
 var KEY_SOUND = 'kanjiStrikerSound';
 var KEY_CAMPAIGN = 'kanjiStrikerCampaign'; // new key; the keys above are never changed
+var KEY_XP = 'kanjiStrikerXp';             // total XP earned from stage results (added in v0.4.0)
 
 // ---------- Gameplay tuning ----------
 var FIRE_INTERVAL = 0.2;   // seconds between shots
@@ -255,6 +256,16 @@ var V_FORMATION_LIFT = 40;  // how much higher the outer ships of a V start (pix
 var EMPTY_SCREEN_GAP = 0.35; // when the screen is empty, the next group comes after this many seconds
 var RESCUE_DELAY = 0.8;      // a missed correct target comes back after this many seconds (last group only)
 var STAGE_COMPLETE_EVENT = 'kanjiStriker:stageComplete';
+
+// Stage result screen: stars and XP
+var STAGE_RESULTS_DELAY = 1.3; // seconds the STAGE COMPLETE text stays on the canvas before the results screen opens
+var STAR_2_ACCURACY = 70;      // 2 stars: accuracy at least this many percent
+var STAR_3_ACCURACY = 90;      // 3 stars: accuracy at least this many percent ...
+var STAR_3_MIN_HP = 50;        // ... and at least this much HP left
+var XP_STAGE_CLEAR = 50;       // XP for clearing a stage
+var XP_PER_ANSWER = 5;         // XP for each correct answer
+var XP_PER_WAVE = 10;          // XP for each wave cleared
+var XP_THREE_STAR_BONUS = 25;  // extra XP for 3 stars
 
 // speed = enemy speed in pixels per second (at the reference screen height), groupGap = seconds between groups
 var WAVE_DEFS = [
