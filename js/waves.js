@@ -391,6 +391,45 @@ function checkWaveCleared() {
   }
 }
 
+// Stars (1-3) for a cleared stage: 1 = cleared, 2 = accuracy >= STAR_2_ACCURACY,
+// 3 = accuracy >= STAR_3_ACCURACY and at least STAR_3_MIN_HP left
+function calcStars(accuracy, hpLeft) {
+  if (accuracy >= STAR_3_ACCURACY && hpLeft >= STAR_3_MIN_HP) {
+    return 3;
+  }
+  return accuracy >= STAR_2_ACCURACY ? 2 : 1;
+}
+
+// Works out stars and XP, saves the stage result (this is what unlocks the next stage)
+function finishStageRewards() {
+  var stars = calcStars(stageResult.accuracy, stageResult.hp);
+  var xpAnswers = stageResult.correct * XP_PER_ANSWER;
+  var xpWaves = stageResult.wavesCleared * XP_PER_WAVE;
+  var xpBonus = stars === 3 ? XP_THREE_STAR_BONUS : 0;
+  var xpTotal = XP_STAGE_CLEAR + xpAnswers + xpWaves + xpBonus;
+  stageResult.stars = stars;
+  stageResult.xpClear = XP_STAGE_CLEAR;
+  stageResult.xpAnswers = xpAnswers;
+  stageResult.xpWaves = xpWaves;
+  stageResult.xpBonus = xpBonus;
+  stageResult.xpTotal = xpTotal;
+  stageResult.saved = recordStageResult(currentStageId, score, true, stars);
+  if (stageResult.saved) {
+    totalXp += xpTotal;
+    saveXp();
+  }
+}
+
+// The stage that NEXT STAGE should open (null = nothing playable comes next)
+function getNextStageId(stageId) {
+  var index = CAMPAIGN_ORDER.indexOf(stageId);
+  if (index === -1 || index + 1 >= CAMPAIGN_ORDER.length) {
+    return null;
+  }
+  var nextId = CAMPAIGN_ORDER[index + 1];
+  return getStageStartProblem(nextId) === '' ? nextId : null;
+}
+
 // The last wave was cleared while the player was still alive
 function completeStage() {
   if (currentState !== STATE_PLAYING || stageCompleteFired) {
@@ -427,7 +466,15 @@ function completeStage() {
     bombsUsed: runStats.bombsUsed,
     time: Math.round(totalTime * 10) / 10 // seconds played (pauses are not counted)
   };
+  finishStageRewards();
   playStageCompleteSound();
+  var finishedStageId = currentStageId;
+  resultsTimer = setTimeout(function () {
+    resultsTimer = null;
+    if (currentState === STATE_STAGE_COMPLETE && currentStageId === finishedStageId) {
+      showResults();
+    }
+  }, STAGE_RESULTS_DELAY * 1000);
   try {
     window.dispatchEvent(new CustomEvent(STAGE_COMPLETE_EVENT, {
       detail: {
@@ -449,7 +496,9 @@ function completeStage() {
         bonusScore: stageResult.bonusScore,
         boss: stageResult.boss,
         bombsUsed: stageResult.bombsUsed,
-        time: stageResult.time
+        time: stageResult.time,
+        stars: stageResult.stars,
+        xp: stageResult.xpTotal
       }
     }));
   } catch (error) {
