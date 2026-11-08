@@ -16,12 +16,49 @@ function showOnly(section, showFooter) {
   settingsSection.hidden = section !== settingsSection;
   resultsSection.hidden = section !== resultsSection;
   galaxySection.hidden = section !== galaxySection;
+  howSection.hidden = section !== howSection;
   gameSection.hidden = section !== gameSection;
   appFooter.hidden = !showFooter;
 }
 
 function showMenu() {
+  updateMenuInfo();
   showOnly(mainMenuSection, true);
+}
+
+// Progress strip and the "next stage" line on the main menu
+function updateMenuInfo() {
+  var stars = 0;
+  var maxStars = 0;
+  for (var w = 0; w < CAMPAIGN_WORLDS.length; w++) {
+    if (!CAMPAIGN_WORLDS[w].ready) {
+      continue;
+    }
+    for (var s = 0; s < CAMPAIGN_WORLDS[w].stages.length; s++) {
+      stars += getStageProgress(CAMPAIGN_WORLDS[w].stages[s].id).stars;
+      maxStars += 3;
+    }
+  }
+  menuStars.textContent = stars + '/' + maxStars;
+  menuXp.textContent = String(totalXp);
+  menuBest.textContent = String(bestScore);
+
+  var nextId = getContinueStageId();
+  var next = nextId ? CAMPAIGN_STAGES[nextId] : null;
+  if (!next) {
+    menuNext.textContent = '';
+  } else if (isStageCompleted(nextId)) {
+    menuNext.textContent = 'All ready stages cleared. Replay any stage from the map.';
+  } else {
+    menuNext.textContent = 'Next: World ' + next.worldId + ', stage ' + next.number + ' - ' + next.name;
+  }
+}
+
+// HOW TO PLAY. playAfter = true: the GOT IT button also starts the game (first time only)
+function showHowTo(playAfter) {
+  howPlayAfter = !!playAfter;
+  howBackButton.textContent = howPlayAfter ? 'GOT IT - PLAY' : 'GOT IT';
+  showOnly(howSection, true);
 }
 
 function showGame() {
@@ -70,7 +107,12 @@ function makeStageRow(stage, continueId) {
   num.textContent = stage.boss ? 'B' : String(stage.number);
   var name = document.createElement('span');
   name.className = 'stage-name';
-  name.textContent = stage.name.toUpperCase();
+  name.textContent = stage.name;
+  var subLine = document.createElement('span');
+  subLine.className = 'stage-sub';
+  var info = getStageProgress(stage.id);
+  subLine.textContent = done ? 'Best ' + info.bestScore : stage.boss ? 'Boss fight' : stage.kanji.length + ' new kanji';
+  name.appendChild(subLine);
   var status = document.createElement('span');
   status.className = 'stage-status';
   var progressInfo = getStageProgress(stage.id);
@@ -325,6 +367,17 @@ function buildCollection() {
 // ---------- HUD ----------
 function updateHud() {
   hpDisplay.textContent = String(hp);
+  var hpPercent = Math.max(0, Math.min(100, Math.round((hp / MAX_HP) * 100)));
+  hpBarFill.style.width = hpPercent + '%';
+  hpBarFill.className = 'hp-fill' + (hpPercent <= 30 ? ' is-low' : hpPercent <= 60 ? ' is-mid' : '');
+  var meaningText = question ? question.meaning.toUpperCase() : '-';
+  if (meaningText !== lastQuestionText) {
+    lastQuestionText = meaningText;
+    questionMeaning.textContent = meaningText;
+    questionBar.classList.remove('is-new');
+    void questionBar.offsetWidth; // restarts the short highlight animation
+    questionBar.classList.add('is-new');
+  }
   scoreDisplay.textContent = String(score);
   comboDisplay.textContent = 'x' + combo;
 }
@@ -591,31 +644,27 @@ function drawEnemy(enemy) {
   ctx.restore();
 }
 
+// The question itself is shown in the HTML question bar above the canvas (see updateHud).
+// Here only the small wave and stage labels are drawn in the top corners.
 function drawQuestion() {
-  ctx.fillStyle = 'rgba(11, 11, 16, 0.85)';
-  ctx.fillRect(0, 0, viewWidth, 46);
-  ctx.fillStyle = '#ff6b86';
-  ctx.fillRect(0, 46, viewWidth, 2);
-
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#6fb7ff';
-  ctx.font = 'bold 11px "Courier New", monospace';
-  ctx.fillText('SHOOT THE KANJI FOR:', viewWidth / 2, 13);
-  ctx.fillStyle = '#ffd21f';
-  ctx.font = 'bold 22px "Courier New", monospace';
-  ctx.fillText(question.meaning.toUpperCase(), viewWidth / 2, 32);
-
-  // Small wave and stage labels in the corners of the banner
-  if (currentStage) {
-    ctx.fillStyle = '#8f99a8';
-    ctx.font = 'bold 10px "Courier New", monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(stageWaves[waveState.index] && stageWaves[waveState.index].boss ? 'BOSS BATTLE' : 'WAVE ' + (waveState.index + 1) + '/' + stageWaves.length, 8, 13);
-    ctx.textAlign = 'right';
-    ctx.fillText('STAGE ' + currentStage.worldId + '-' + currentStage.number, viewWidth - 8, 13);
-    ctx.textAlign = 'center';
+  if (!currentStage) {
+    return;
   }
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 10px "Courier New", monospace';
+  var waveText = stageWaves[waveState.index] && stageWaves[waveState.index].boss ? 'BOSS BATTLE' : 'WAVE ' + (waveState.index + 1) + '/' + stageWaves.length;
+  var stageText = 'STAGE ' + currentStage.worldId + '-' + currentStage.number;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#000000';
+  ctx.fillText(waveText, 9, 12);
+  ctx.fillStyle = '#b4bccb';
+  ctx.fillText(waveText, 8, 11);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#000000';
+  ctx.fillText(stageText, viewWidth - 7, 12);
+  ctx.fillStyle = '#b4bccb';
+  ctx.fillText(stageText, viewWidth - 8, 11);
+  ctx.textAlign = 'center';
 }
 
 // Big "WAVE n" announcement that fades in and out when a wave begins
@@ -666,9 +715,9 @@ function drawToast() {
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 18px ' + KANJI_FONT;
   ctx.fillStyle = '#000000';
-  ctx.fillText(toast.text, viewWidth / 2 + 1, 71);
+  ctx.fillText(toast.text, viewWidth / 2 + 1, 51);
   ctx.fillStyle = toast.color;
-  ctx.fillText(toast.text, viewWidth / 2, 70);
+  ctx.fillText(toast.text, viewWidth / 2, 50);
   ctx.globalAlpha = 1;
 }
 
@@ -740,7 +789,7 @@ function drawBossBar() {
   }
   var left = 52;
   var width = viewWidth - left - 10;
-  var top = 53;
+  var top = 24;
   var height = 8;
   ctx.fillStyle = 'rgba(11, 11, 16, 0.85)';
   ctx.fillRect(left - 1, top - 1, width + 2, height + 2);
