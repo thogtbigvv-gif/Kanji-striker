@@ -167,12 +167,26 @@
   var REF_HEIGHT = 640;      // screen height the enemy speed is tuned for
   var MAX_DPR = 3;           // limits canvas size on very dense Android screens
 
+  // Power-up capsules: every POWERUP_EVERY-th correct answer drops a capsule where the target was destroyed.
+  // Fly the ship into it to collect it. Bullets pass through capsules, and missed capsules just fall away.
+  //   SHIELD = blocks the next damage completely (HP and combo are both kept)
+  //   SLOW   = every enemy moves slower for SLOW_DURATION seconds
+  var POWERUP_EVERY = 4;       // a capsule drops every this many correct answers (answered counter of the run)
+  var POWERUP_FALL_SPEED = 90; // pixels per second (at the reference screen height)
+  var POWERUP_SIZE = 22;       // capsule size in pixels
+  var SLOW_DURATION = 5;       // seconds the SLOW effect lasts
+  var SLOW_FACTOR = 0.5;       // enemy speed while SLOW is active (0.5 = half speed)
+  var POWERUP_TYPES = ['shield', 'slow'];
+
   var question = KANJI_LIST[0];
   var questionPool = KANJI_LIST; // kanji that can become the question (replaced by the stage's own kanji)
   var decoyPool = KANJI_LIST;    // kanji that can appear as wrong answers (stage kanji + its review kanji)
   var enemies = [];
   var bullets = [];
   var particles = [];
+  var powerups = [];      // falling capsules: { type, x, y, dead }
+  var shieldActive = false; // true while the ship carries a shield
+  var slowTimer = 0;        // seconds of SLOW left (0 = not active)
   var fireTimer = 0;
   var damageFlash = 0;
   var gameOverAt = 0;
@@ -767,6 +781,9 @@
         for (var j = 0; j < bullets.length; j++) {
           bullets[j].x *= ratio;
         }
+        for (var q = 0; q < powerups.length; q++) {
+          powerups[q].x *= ratio;
+        }
       }
     } else {
       player.x = viewWidth / 2;
@@ -1192,6 +1209,9 @@
     enemies = [];
     bullets = [];
     particles = [];
+    powerups = [];
+    shieldActive = false;
+    slowTimer = 0;
     fireTimer = 0;
     damageFlash = 0;
     toast.time = 0;
@@ -1465,6 +1485,15 @@
   }
 
   function loseHp(amount, quiet) {
+    // A shield blocks the whole hit: no HP loss and the combo stays
+    if (shieldActive) {
+      shieldActive = false;
+      damageFlash = 0.1;
+      showToast('SHIELD BLOCKED THE HIT', '#66e0ff');
+      playTone(520, 0.1, 'square', 0.07);
+      playTone(390, 0.14, 'square', 0.07, 0.08);
+      return;
+    }
     hp -= amount;
     combo = 0;
     damageFlash = 0.25;
@@ -1483,7 +1512,7 @@
     updateHud();
   }
 
-  function correctHit(data) {
+  function correctHit(data, x, y) {
     var levelBefore = weaponLevel();
     combo += 1;
     answered += 1;
@@ -1511,6 +1540,9 @@
       playTone(1175, 0.08, 'square', 0.06, 0.18);
       playTone(1568, 0.14, 'square', 0.06, 0.26);
     }
+    if (answered % POWERUP_EVERY === 0) {
+      dropPowerup(x, y);
+    }
     pickQuestion();
     updateHud();
   }
@@ -1530,6 +1562,60 @@
     showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
     targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
     loseHp(amount);
+  }
+
+  // ---------- Power-up capsules ----------
+  function dropPowerup(x, y) {
+    var type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+    var half = POWERUP_SIZE / 2;
+    var px = Math.max(half, Math.min(viewWidth - half, x));
+    powerups.push({ type: type, x: px, y: y, dead: false });
+  }
+
+  function collectPowerup(item) {
+    item.dead = true;
+    burst(item.x, item.y, item.type === 'shield' ? '#66e0ff' : '#c58bff');
+    if (item.type === 'shield') {
+      shieldActive = true;
+      showToast('SHIELD READY', '#66e0ff');
+    } else {
+      slowTimer = SLOW_DURATION;
+      showToast('SLOW TIME ' + SLOW_DURATION + 's', '#c58bff');
+    }
+    playTone(880, 0.08, 'square', 0.06);
+    playTone(1320, 0.12, 'square', 0.06, 0.08);
+  }
+
+  function updatePowerups(dt, scale) {
+    if (slowTimer > 0) {
+      slowTimer = Math.max(0, slowTimer - dt);
+    }
+    var half = POWERUP_SIZE / 2;
+    for (var i = 0; i < powerups.length; i++) {
+      var item = powerups[i];
+      if (item.dead) {
+        continue;
+      }
+      item.y += POWERUP_FALL_SPEED * scale * dt;
+      if (item.y - half > viewHeight) {
+        item.dead = true;
+        continue;
+      }
+      if (
+        Math.abs(item.x - player.x) < (POWERUP_SIZE + SHIP_WIDTH) / 2 &&
+        item.y + half > player.y - SHIP_HEIGHT / 2 &&
+        item.y - half < player.y + SHIP_HEIGHT / 2
+      ) {
+        collectPowerup(item);
+      }
+    }
+    var n = 0;
+    for (var k = 0; k < powerups.length; k++) {
+      if (!powerups[k].dead) {
+        powerups[n++] = powerups[k];
+      }
+    }
+    powerups.length = n;
   }
 
   // Removes everything that was marked dead during this frame
@@ -1615,6 +1701,9 @@
       fireTimer = Math.max(0, fireTimer - dt);
     }
 
+    updatePowerups(dt, scale);
+    var speedFactor = slowTimer > 0 ? SLOW_FACTOR : 1;
+
     // Spawn enemies: the Wave System decides what appears and when
     updateWaveSpawning(dt);
     updateTargetRescue(dt);
@@ -1638,7 +1727,7 @@
         enemy.age += dt;
         enemy.x = enemy.baseX + enemy.swayAmp * Math.sin(enemy.age * enemy.swayFreq);
       }
-      enemy.y += enemy.speed * scale * dt;
+      enemy.y += enemy.speed * scale * speedFactor * dt;
 
       if (enemy.y > viewHeight) {
         var escapedTarget = isActiveTarget(enemy);
@@ -1700,7 +1789,7 @@
       target.dead = true;
       if (wasCorrect) {
         burst(target.x, target.y + ENEMY_HEIGHT / 2, '#5dff8a');
-        correctHit(target.data);
+        correctHit(target.data, target.x, target.y);
       } else {
         burst(target.x, target.y + ENEMY_HEIGHT / 2, '#ff6b86');
         wrongHit(target.data);
@@ -1814,6 +1903,63 @@
     ctx.fillStyle = '#ffd21f';
     ctx.fillRect(left + 3 * PIXEL, top + SHIP_HEIGHT, PIXEL, PIXEL * flameLength);
     ctx.fillRect(left + 7 * PIXEL, top + SHIP_HEIGHT, PIXEL, PIXEL * flameLength);
+  }
+
+  // Shield bubble around the ship
+  function drawShield() {
+    if (!shieldActive || currentState === STATE_GAME_OVER) {
+      return;
+    }
+    var pulse = 0.55 + 0.25 * Math.sin(totalTime * 8);
+    ctx.strokeStyle = 'rgba(102, 224, 255, ' + pulse + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, SHIP_WIDTH * 0.85, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  function drawPowerups() {
+    var half = POWERUP_SIZE / 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 14px "Courier New", monospace';
+    for (var i = 0; i < powerups.length; i++) {
+      var item = powerups[i];
+      var isShield = item.type === 'shield';
+      var left = Math.round(item.x - half);
+      var top = Math.round(item.y - half);
+      ctx.fillStyle = isShield ? '#66e0ff' : '#c58bff';
+      ctx.fillRect(left, top, POWERUP_SIZE, POWERUP_SIZE);
+      ctx.fillStyle = '#0b0b10';
+      ctx.fillRect(left + 2, top + 2, POWERUP_SIZE - 4, POWERUP_SIZE - 4);
+      ctx.fillStyle = isShield ? '#66e0ff' : '#c58bff';
+      ctx.fillText(isShield ? 'S' : 'T', Math.round(item.x), Math.round(item.y) + 1);
+    }
+  }
+
+  // Bottom-right status label while SHIELD or SLOW is active
+  function drawPowerupStatus() {
+    if (currentState === STATE_GAME_OVER) {
+      return;
+    }
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    var y = viewHeight - 12;
+    if (slowTimer > 0) {
+      var text = 'SLOW ' + Math.ceil(slowTimer) + 's';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(text, viewWidth - 7, y + 1);
+      ctx.fillStyle = '#c58bff';
+      ctx.fillText(text, viewWidth - 8, y);
+      y -= 14;
+    }
+    if (shieldActive) {
+      ctx.fillStyle = '#000000';
+      ctx.fillText('SHIELD', viewWidth - 7, y + 1);
+      ctx.fillStyle = '#66e0ff';
+      ctx.fillText('SHIELD', viewWidth - 8, y);
+    }
   }
 
   function drawEnemy(enemy) {
@@ -1994,8 +2140,11 @@
       drawEnemy(enemies[e]);
     }
 
+    drawPowerups();
+
     if (currentState !== STATE_GAME_OVER) {
       drawShip();
+      drawShield();
     }
 
     // Particles
@@ -2014,6 +2163,7 @@
     drawToast();
     drawWaveBanner();
     drawWeaponLabel();
+    drawPowerupStatus();
     drawFirePaused();
 
     if (currentState === STATE_PAUSED) {
