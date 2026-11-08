@@ -15,6 +15,7 @@ function showOnly(section, showFooter) {
   collectionSection.hidden = section !== collectionSection;
   settingsSection.hidden = section !== settingsSection;
   resultsSection.hidden = section !== resultsSection;
+  galaxySection.hidden = section !== galaxySection;
   gameSection.hidden = section !== gameSection;
   appFooter.hidden = !showFooter;
 }
@@ -36,6 +37,121 @@ function showSettings() {
   settingsMessage.textContent = '';
   updateSoundButton();
   showOnly(settingsSection, true);
+}
+
+// ---------- Galaxy map screen ----------
+function starText(count) {
+  var text = '';
+  for (var i = 0; i < 3; i++) {
+    text += i < count ? '\u2605' : '\u2606';
+  }
+  return text;
+}
+
+function makeStageRow(stage, continueId) {
+  var done = isStageCompleted(stage.id);
+  var playable = isStagePlayable(stage.id) || (stage.id === debugStageId && stage.ready);
+  var row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'stage-row';
+  if (done) {
+    row.className += ' is-done';
+  }
+  if (stage.id === continueId && playable) {
+    row.className += ' is-current';
+  }
+  if (!playable) {
+    row.className += ' is-locked';
+    row.disabled = true;
+  }
+
+  var num = document.createElement('span');
+  num.className = 'stage-num';
+  num.textContent = stage.boss ? 'B' : String(stage.number);
+  var name = document.createElement('span');
+  name.className = 'stage-name';
+  name.textContent = stage.name.toUpperCase();
+  var status = document.createElement('span');
+  status.className = 'stage-status';
+  var progressInfo = getStageProgress(stage.id);
+  if (done) {
+    status.textContent = starText(progressInfo.stars);
+  } else {
+    status.textContent = playable ? 'PLAY' : 'LOCKED';
+  }
+  row.appendChild(num);
+  row.appendChild(name);
+  row.appendChild(status);
+  row.setAttribute('aria-label', 'World ' + stage.worldId + ' stage ' + stage.number + ' ' + stage.name +
+    (playable ? '' : ' (locked)'));
+
+  if (playable) {
+    row.addEventListener('click', function () {
+      startStage(stage.id);
+    });
+  }
+  return row;
+}
+
+function buildGalaxyMap() {
+  while (galaxyList.firstChild) {
+    galaxyList.removeChild(galaxyList.firstChild);
+  }
+  var continueId = getContinueStageId();
+  var totalStars = 0;
+  var maxStars = 0;
+
+  for (var w = 0; w < CAMPAIGN_WORLDS.length; w++) {
+    var world = CAMPAIGN_WORLDS[w];
+    var unlocked = world.ready && isWorldUnlocked(world.id);
+    var worldStars = 0;
+    var card = document.createElement('div');
+    card.className = 'world-card' + (unlocked ? '' : ' is-locked');
+
+    var head = document.createElement('div');
+    head.className = 'world-head';
+    var title = document.createElement('span');
+    title.className = 'world-title';
+    title.textContent = 'WORLD ' + world.id + ' - ' + world.name.toUpperCase();
+    var level = document.createElement('span');
+    level.className = 'world-level';
+    level.textContent = world.jlpt;
+    head.appendChild(title);
+    head.appendChild(level);
+    card.appendChild(head);
+
+    var info = document.createElement('p');
+    info.className = 'world-info';
+    card.appendChild(info);
+
+    if (!world.ready) {
+      info.textContent = 'COMING SOON';
+    } else {
+      for (var s = 0; s < world.stages.length; s++) {
+        var stage = world.stages[s];
+        worldStars += getStageProgress(stage.id).stars;
+        maxStars += 3;
+        card.appendChild(makeStageRow(stage, continueId));
+      }
+      totalStars += worldStars;
+      info.textContent = unlocked
+        ? worldStars + ' / ' + (world.stages.length * 3) + ' STARS'
+        : 'LOCKED - CLEAR WORLD ' + (world.id - 1) + ' FIRST';
+    }
+    galaxyList.appendChild(card);
+  }
+  galaxySummary.textContent = 'STARS ' + totalStars + ' / ' + maxStars;
+}
+
+function showGalaxyMap() {
+  buildGalaxyMap();
+  showOnly(galaxySection, true);
+  var current = galaxyList.querySelector('.stage-row.is-current');
+  galaxyList.scrollTop = 0;
+  if (current) {
+    // put the stage the player should play next in the middle of the list
+    galaxyList.scrollTop = Math.max(0, current.offsetTop - galaxyList.clientHeight / 2 + current.offsetHeight / 2);
+  }
 }
 
 // ---------- Stage results screen ----------
