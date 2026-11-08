@@ -115,6 +115,17 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+## 🎨 v0.6.0 changes (UX / UI)
+
+- Main menu: progress strip (stars, XP, best score), a "next stage" line, **PLAY** continues straight into the next stage, separate **GALAXY MAP**, **KANJI**, **HELP**, **SETTINGS**. Slow starfield drift.
+- **How to play** screen (Mongolian text). Shown automatically the first time you press PLAY. New key `kanjiStrikerHelpSeen`.
+- Game screen: the question is now a large bar above the playfield (new highlight when it changes). HP is a bar that turns yellow and red (pulsing) when low.
+- **MENU** during a stage needs a second tap (the first tap pauses), so a slip cannot throw away a run.
+- Galaxy Map rows show kanji count or best score. Collection screen has a legend.
+- Accessibility: visible keyboard focus, touch targets at least 48px, brighter small text, reduced-motion support.
+
+---
+
 ## 📌 Version
 
-Current version: **v0.5.0** (shown in the footer of the menu).
+Current version: **v0.6.0** (shown in the footer of the menu).
