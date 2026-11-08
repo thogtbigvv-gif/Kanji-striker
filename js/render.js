@@ -14,6 +14,7 @@ function showOnly(section, showFooter) {
   mainMenuSection.hidden = section !== mainMenuSection;
   collectionSection.hidden = section !== collectionSection;
   settingsSection.hidden = section !== settingsSection;
+  resultsSection.hidden = section !== resultsSection;
   gameSection.hidden = section !== gameSection;
   appFooter.hidden = !showFooter;
 }
@@ -35,6 +36,125 @@ function showSettings() {
   settingsMessage.textContent = '';
   updateSoundButton();
   showOnly(settingsSection, true);
+}
+
+// ---------- Stage results screen ----------
+function fillChips(container, kanjiList) {
+  while (container.firstChild) {
+    container.removeChild(container.firstChild);
+  }
+  if (kanjiList.length === 0) {
+    var none = document.createElement('span');
+    none.className = 'chip-empty';
+    none.textContent = '-';
+    container.appendChild(none);
+    return;
+  }
+  for (var i = 0; i < kanjiList.length; i++) {
+    var item = KANJI_BY_CHAR[kanjiList[i]];
+    var chip = document.createElement('span');
+    chip.className = 'chip';
+    var charSpan = document.createElement('span');
+    charSpan.className = 'chip-char';
+    charSpan.textContent = kanjiList[i];
+    var meaningSpan = document.createElement('span');
+    meaningSpan.className = 'chip-meaning';
+    meaningSpan.textContent = item ? item.meaning : '';
+    chip.appendChild(charSpan);
+    chip.appendChild(meaningSpan);
+    container.appendChild(chip);
+  }
+}
+
+function showResults() {
+  if (!stageResult || !currentStage) {
+    backToMenu();
+    return;
+  }
+  var r = stageResult;
+  var slots = resultsStars.querySelectorAll('.star-slot');
+  for (var s = 0; s < slots.length; s++) {
+    slots[s].className = s < r.stars ? 'star-slot is-earned' : 'star-slot';
+  }
+  resultsStars.setAttribute('aria-label', r.stars + ' of 3 stars');
+
+  resultsKicker.textContent = 'WORLD ' + r.worldId + ' - STAGE ' + r.stageNumber;
+  resultsTitle.textContent = r.boss ? 'BOSS DEFEATED' : 'STAGE CLEAR';
+  resultsStageName.textContent = currentStage.name.toUpperCase();
+  resultsBadge.hidden = !newBest;
+
+  resStatScore.textContent = String(r.score);
+  resStatDefeated.textContent = String(r.correct + r.wrong);
+  resStatAccuracy.textContent = r.accuracy + '%';
+  resStatCorrect.textContent = String(r.correct);
+  resStatIncorrect.textContent = String(r.wrong + r.missed);
+  resStatCombo.textContent = 'x' + r.maxCombo;
+  resStatHp.textContent = String(r.hp);
+
+  resXpClear.textContent = '+' + r.xpClear;
+  resXpAnswersLabel.textContent = 'CORRECT ANSWERS x' + r.correct;
+  resXpAnswers.textContent = '+' + r.xpAnswers;
+  resXpWavesLabel.textContent = 'WAVES CLEARED x' + r.wavesCleared;
+  resXpWaves.textContent = '+' + r.xpWaves;
+  resXpBonus.textContent = '+' + r.xpBonus;
+  resXpTotal.textContent = '+' + r.xpTotal + ' XP';
+  resXpOverall.textContent = 'TOTAL XP ' + totalXp;
+
+  // Kanji learning summary
+  var newList = [];
+  var correctList = [];
+  var wrongList = [];
+  var reviewList = [];
+  var k;
+  for (k in runKanji) {
+    if (!Object.prototype.hasOwnProperty.call(runKanji, k)) {
+      continue;
+    }
+    if (runKanji[k].correct > 0) {
+      correctList.push(k);
+      if (!priorHits[k]) {
+        newList.push(k);
+      }
+    }
+    if (runKanji[k].wrong > 0) {
+      wrongList.push(k);
+    }
+  }
+  for (var q = 0; q < questionPool.length; q++) {
+    var entry = progress[questionPool[q].kanji];
+    if (entry && entry.misses > entry.hits) {
+      reviewList.push(questionPool[q].kanji);
+    }
+  }
+  fillChips(learnNewChips, newList);
+  fillChips(learnCorrectChips, correctList);
+  fillChips(learnWrongChips, wrongList);
+  fillChips(learnReviewChips, reviewList);
+
+  // What comes next
+  var nextId = getNextStageId(r.stageId);
+  resultsNextButton.hidden = nextId === null;
+  if (nextId !== null) {
+    var nextStage = CAMPAIGN_STAGES[nextId];
+    resultsNext.textContent = 'NEXT: WORLD ' + nextStage.worldId + ' - STAGE ' + nextStage.number + '  ' + nextStage.name.toUpperCase();
+  } else {
+    resultsNext.textContent = 'NO MORE STAGES READY YET. NEW GALAXIES ARE COMING SOON!';
+  }
+  if (!r.saved) {
+    resultsNote.textContent = 'TEST STAGE: PROGRESS WAS NOT SAVED';
+  } else if (campaignReadOnly) {
+    resultsNote.textContent = 'PROGRESS IS READ-ONLY (SAVED BY A NEWER VERSION)';
+  } else {
+    resultsNote.textContent = '';
+  }
+
+  showOnly(resultsSection, false);
+  resultsSection.scrollTop = 0;
+  var scroller = document.getElementById('resultsScroll');
+  if (scroller) {
+    scroller.scrollTop = 0;
+  }
+  stopLoop(); // nothing is drawn behind the results screen
 }
 
 // ---------- Kanji collection screen ----------
@@ -627,7 +747,7 @@ function render() {
   if (currentState === STATE_PAUSED) {
     drawOverlayText('PAUSED', 'Press RESUME to continue', '#ffd21f');
   } else if (currentState === STATE_STAGE_COMPLETE) {
-    // Temporary text only: the real Stage Clear screen is built in a later step
+    // Short celebration text; the results screen opens after STAGE_RESULTS_DELAY seconds
     drawOverlayText(stageResult && stageResult.boss ? 'BOSS DEFEATED' : 'STAGE COMPLETE',
       'ALL ' + stageWaves.length + ' WAVES CLEARED', '#5dff8a');
     ctx.fillStyle = '#ffffff';
@@ -637,8 +757,6 @@ function render() {
       ctx.fillText('ACCURACY ' + stageResult.accuracy + '%   MAX COMBO x' + stageResult.maxCombo,
         viewWidth / 2, viewHeight / 2 + 66);
     }
-    ctx.fillStyle = '#6fb7ff';
-    ctx.fillText('PRESS MENU TO EXIT', viewWidth / 2, viewHeight / 2 + 90);
   } else if (currentState === STATE_GAME_OVER) {
     drawOverlayText('GAME OVER', 'SCORE ' + score + '   BEST ' + bestScore, '#ff6b86');
     ctx.fillStyle = '#6fb7ff';
