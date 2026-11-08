@@ -260,6 +260,20 @@ function burst(x, y, color) {
   }
 }
 
+// Remembers what happened to each asked kanji during this run (used by the results screen)
+function noteRunKanji(kanji, wasCorrect) {
+  var entry = runKanji[kanji];
+  if (!entry) {
+    entry = { correct: 0, wrong: 0 };
+    runKanji[kanji] = entry;
+  }
+  if (wasCorrect) {
+    entry.correct += 1;
+  } else {
+    entry.wrong += 1;
+  }
+}
+
 function loseHp(amount, quiet) {
   // A shield blocks the whole hit: no HP loss and the combo stays
   if (shieldActive) {
@@ -283,6 +297,9 @@ function loseHp(amount, quiet) {
     if (commitBestScore()) {
       newBest = true;
     }
+    if (currentStageId) {
+      recordStageResult(currentStageId, score, false, 0); // counts the attempt and keeps the stage best score
+    }
     playGameOverSound();
   } else if (!quiet) {
     playHurtSound();
@@ -302,6 +319,7 @@ function correctHit(data, x, y, kind) {
   var points = Math.round(10 * Math.min(combo, MAX_SCORE_MULTIPLIER) * kindScore);
   score += points;
   recordHit(data.kanji);
+  noteRunKanji(data.kanji, true);
 
   // Streak reward: every COMBO_HEAL_EVERY correct answers in a row restore a little HP
   var healed = 0;
@@ -336,6 +354,7 @@ function correctHit(data, x, y, kind) {
 function wrongHit(data) {
   runStats.wrong += 1;
   recordMiss(question.kanji);
+  noteRunKanji(question.kanji, false);
   showToast(data.kanji + ' = ' + data.meaning.toUpperCase(), '#ff6b86');
   loseHp(WRONG_HIT_DAMAGE, true);
   if (currentState !== STATE_GAME_OVER) {
@@ -347,6 +366,7 @@ function wrongHit(data) {
 function targetMissed(amount) {
   runStats.missed += 1;
   recordMiss(question.kanji);
+  noteRunKanji(question.kanji, false);
   showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
   targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
   loseHp(amount);
