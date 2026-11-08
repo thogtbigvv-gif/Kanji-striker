@@ -7,7 +7,13 @@
    Final Wave). When the last wave is cleared the game enters STATE_STAGE_COMPLETE (no saving yet).
    Mechanics fixes: the fire cooldown now survives lifting the finger (no tap-spam), a missed
    correct target is brought back (rescue ship) so a wave cannot end without it, and the next group
-   comes quickly when the screen is empty. */
+   comes quickly when the screen is empty.
+   Mechanics update: run statistics (correct / wrong / missed / best combo / shots) that are added to
+   the stage result, wave / perfect-wave / stage clear score bonuses, and a smarter power-up system
+   (new REPAIR capsule, capsule type chosen by what the player needs).
+   Arcade update: P capsules raise the weapon level (up to 5 bullets), B capsules give bombs (double tap
+   or key B), some ships shoot back (dodge by moving), and the Boss Gate stage has a real boss fight.
+   Test links: add ?stage=w1-s4 (shooters) or ?stage=w1-s5 (boss) to the page address. */
 
 (function () {
   'use strict';
@@ -171,12 +177,99 @@
   // Fly the ship into it to collect it. Bullets pass through capsules, and missed capsules just fall away.
   //   SHIELD = blocks the next damage completely (HP and combo are both kept)
   //   SLOW   = every enemy moves slower for SLOW_DURATION seconds
-  var POWERUP_EVERY = 4;       // a capsule drops every this many correct answers (answered counter of the run)
+  //   REPAIR = restores REPAIR_AMOUNT HP (at full HP it gives bonus points instead)
+  // The capsule type is not fully random: REPAIR is likely when HP is low, SHIELD never drops while a
+  // shield is already carried, SLOW is rare while it is still running.
+  var POWERUP_EVERY = 3;       // a capsule drops every this many correct answers (answered counter of the run)
   var POWERUP_FALL_SPEED = 90; // pixels per second (at the reference screen height)
   var POWERUP_SIZE = 22;       // capsule size in pixels
   var SLOW_DURATION = 5;       // seconds the SLOW effect lasts
   var SLOW_FACTOR = 0.5;       // enemy speed while SLOW is active (0.5 = half speed)
-  var POWERUP_TYPES = ['shield', 'slow'];
+  var REPAIR_AMOUNT = 20;      // HP restored by a REPAIR capsule (never above MAX_HP)
+  var REPAIR_FULL_HP_SCORE = 50; // points given when a REPAIR capsule is collected at full HP
+  var LOW_HP_LIMIT = 50;       // at or below this HP, REPAIR capsules become much more likely
+  var REPAIR_LOW_HP_WEIGHT = 3;  // chance weight of REPAIR when HP is low (SHIELD = 1)
+  var REPAIR_HURT_WEIGHT = 0.5;  // chance weight of REPAIR when HP is below max but not low (0 at full HP)
+  var SLOW_ACTIVE_WEIGHT = 0.3;  // chance weight of SLOW while a SLOW is still running
+  var POWERUP_TYPES = ['shield', 'slow', 'repair', 'power', 'bomb'];
+  var POWERUP_STYLE = {
+    shield: { color: '#66e0ff', letter: 'S' },
+    slow:   { color: '#c58bff', letter: 'T' },
+    repair: { color: '#5dff8a', letter: 'R' },
+    power:  { color: '#ffb347', letter: 'P' },
+    bomb:   { color: '#ff6b86', letter: 'B' }
+  };
+
+  // ---------- Arcade update: weapon power, bombs, shooting enemies, boss ----------
+  // POWER (P) = +1 weapon level (max MAX_POWER_LEVEL from capsules). The weapon level is the combo bonus
+  // (1 / 2 / 3 bullets) plus the power level, at most MAX_WEAPON_LEVEL bullets. Real damage costs one power level.
+  // BOMB (B) = +1 bomb (max MAX_BOMBS). Double tap the screen (or press B) to use one: every WRONG ship and every
+  // enemy bullet is destroyed, the boss takes damage, but the CORRECT kanji ship survives (you still have to answer).
+  var MAX_WEAPON_LEVEL = 5;
+  var MAX_POWER_LEVEL = 2;
+  var POWER_WEIGHT = 1.5;      // capsule chance weight of POWER (SHIELD = 1); 0 when the power level is already max
+  var BOMB_WEIGHT = 0.6;       // capsule chance weight of BOMB; 0 when the bomb stock is full
+  var MAX_BOMBS = 3;
+  var BOMB_START = 1;          // bombs at the start of every stage
+  var BOMB_SCORE_PER_SHIP = 10;
+  var BOMB_BOSS_DAMAGE = 12;
+  var TAP_MAX_TIME = 0.18;     // a touch shorter than this (and without moving) is a tap; below AIM_DELAY so a tap never shoots
+  var TAP_MAX_MOVE = 14;       // pixels the finger may move during a tap
+  var DOUBLE_TAP_TIME = 0.35;  // two taps within this many seconds = bomb
+  var WEAPON_NAMES = ['', 'SINGLE SHOT', 'DOUBLE SHOT', 'TRIPLE SHOT', 'QUAD SHOT', 'MAX SHOT'];
+  var WEAPON_COLORS = ['', '#ffd21f', '#ffd21f', '#ff6b86', '#ff9a3c', '#c58bff'];
+
+  // Enemy fire: ships of the shooting kinds (normal / fast / big) may carry a gun (a small red bar under the kanji plate,
+  // it flashes white just before the shot). STAGE_FIRE = chance per ship, only from wave 2 on. Bullets fly straight down.
+  var ENEMY_BULLET_SPEED = 190;   // pixels per second at the reference screen height
+  var ENEMY_BULLET_DAMAGE = 10;
+  var ENEMY_FIRE_INTERVAL = 2.4;  // seconds between two shots of one ship
+  var ENEMY_FIRE_FIRST_MIN = 0.5; // first shot comes this many seconds after the ship is in the firing zone (random up to MAX)
+  var ENEMY_FIRE_FIRST_MAX = 1.3;
+  var ENEMY_FIRE_MIN_Y = 30;      // ships shoot only when their top is below this y ...
+  var ENEMY_FIRE_MAX_Y = 0.55;    // ... and above this part of the screen height (so a shot can always be dodged)
+  var ENEMY_BULLET_W = 6;
+  var ENEMY_BULLET_H = 12;
+  var STAGE_FIRE = { 1: 0, 2: 0.2, 3: 0.3, 4: 0.4, 5: 0.3 };
+
+  // Boss (the Boss Gate stage, stage 5 of every world): a boss fight is the last wave. Kanji ships keep coming
+  // while the boss shoots. Damage: a correct answer = BOSS_ANSWER_DAMAGE, one bullet = BOSS_SHOT_DAMAGE, bomb = BOMB_BOSS_DAMAGE.
+  var BOSS_PIXEL = 6;
+  var BOSS_HP = 100;
+  var BOSS_ANSWER_DAMAGE = 8;
+  var BOSS_SHOT_DAMAGE = 0.12;
+  var BOSS_DEFEAT_BONUS = 1000;
+  var BOSS_REST_Y = 70;           // top of the boss when it is in position
+  var BOSS_ENTER_SPEED = 80;      // pixels per second while it flies in
+  var BOSS_DYING_TIME = 1.4;      // seconds of explosions before the stage is complete
+  var BOSS_FIRE_INTERVAL = [2.1, 1.8, 1.4]; // seconds between volleys in phase 1 / 2 / 3
+  var BOSS_SWAY_SPEED = [0.7, 1.0, 1.35];   // sideways speed (radians per second) in phase 1 / 2 / 3
+  var BOSS_WAVE_SPEED = 70;       // speed of the kanji ships during the boss fight (slower: you also have to dodge)
+  var BOSS_FIRST_GROUP_DELAY = 2.2;
+  var BOSS_PIXELS = [
+    'R.....RRR.....R',
+    'RR...RRRRR...RR',
+    'RRRRRRRRRRRRRRR',
+    'RRDRRWRRRWRRDRR',
+    'RRDDRRRRRRRDDRR',
+    '.RRRRRDDDRRRRR.',
+    '..RRRR...RRRR..',
+    '...RR.....RR...',
+    '...D.......D...'
+  ];
+  var BOSS_W = BOSS_PIXELS[0].length * BOSS_PIXEL;
+  var BOSS_H = BOSS_PIXELS.length * BOSS_PIXEL;
+  var BOSS_COLORS = [
+    { R: '#9b6bff', D: '#4b2a9a', W: '#ffffff' },   // phase 1
+    { R: '#ff7a1f', D: '#8a3a0a', W: '#ffe36b' },   // phase 2
+    { R: '#ff4d6d', D: '#8a0a26', W: '#ffffff' }    // phase 3
+  ];
+  var BOSS_FLASH_COLORS = { R: '#ffffff', D: '#cfd6e6', W: '#ffffff' };
+
+  // Score bonuses (added to the score when the wave / stage is cleared)
+  var WAVE_CLEAR_BONUS = 200;    // every cleared wave
+  var PERFECT_WAVE_BONUS = 100;  // extra, when the ship lost no HP during that wave
+  var STAGE_CLEAR_BONUS = 500;   // extra, for clearing the last wave of the stage
 
   var question = KANJI_LIST[0];
   var questionPool = KANJI_LIST; // kanji that can become the question (replaced by the stage's own kanji)
@@ -187,6 +280,17 @@
   var powerups = [];      // falling capsules: { type, x, y, dead }
   var shieldActive = false; // true while the ship carries a shield
   var slowTimer = 0;        // seconds of SLOW left (0 = not active)
+  var runStats = newRunStats(); // numbers of the current run (see newRunStats)
+  var waveHpLost = false;   // true when the ship took damage during the current wave (no PERFECT bonus)
+  var perfectWaves = 0;     // waves of this run cleared without losing HP
+  var bonusScore = 0;       // total points of wave / stage bonuses in this run
+  var powerLevel = 0;       // weapon levels from P capsules (one is lost when the ship takes real damage)
+  var bombs = 0;            // bombs in stock
+  var bombFlash = 0;        // seconds left of the white bomb flash
+  var enemyBullets = [];    // shots of the enemies and the boss: { x, y, vx, vy, dead }
+  var boss = null;          // the boss of a Boss Gate stage (null = none): see spawnBoss()
+  var tapStart = null;      // the touch that may become a tap: { id, t, x }
+  var lastTapAt = 0;        // time of the last tap (0 = none), for the double tap bomb
   var fireTimer = 0;
   var damageFlash = 0;
   var gameOverAt = 0;
@@ -808,6 +912,12 @@
         for (var q = 0; q < powerups.length; q++) {
           powerups[q].x *= ratio;
         }
+        for (var r = 0; r < enemyBullets.length; r++) {
+          enemyBullets[r].x *= ratio;
+        }
+        if (boss) {
+          boss.x *= ratio;
+        }
       }
     } else {
       player.x = viewWidth / 2;
@@ -903,6 +1013,17 @@
   // phase: 'none' | 'intro' (banner) | 'spawning' | 'clearing' (all spawned, waiting) | 'gap' (between waves)
   var waveState = { index: 0, phase: 'none', timer: 0, groupIndex: 0, groupTimer: 0 };
 
+  // Test hook: open the page with ?stage=w1-s5 and START GAME plays that stage even if it is still locked
+  var debugStageId = null;
+  try {
+    var debugParam = new URLSearchParams(window.location.search).get('stage');
+    if (debugParam && CAMPAIGN_STAGES[debugParam]) {
+      debugStageId = debugParam;
+    }
+  } catch (error) {
+    /* ignore: no test hook */
+  }
+
   var START_BUTTON_LABEL = startGameButton.textContent;
   var startLabelTimer = null;
 
@@ -919,6 +1040,8 @@
     4: { speed: 1.2, gap: 0.8, sway: 1.3, extraGroups: [{ count: 3, shape: 'v' }, { count: 1, shape: 'single' }],
          specials: ['fast', 'big', 'split'] }                                                              // Hard Fight: + splitters
   };
+  // The Boss Gate stage (5): normal waves 1-2 with these values, then the boss fight
+  STAGE_TUNING[5] = { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [], specials: ['fast', 'big'] };
   var DEFAULT_TUNING = { speed: 1.0, gap: 1.0, sway: 1.0, extraGroups: [], specials: [] };
 
   // The wave plan of a stage: the base waves, made faster / longer depending on the stage number
@@ -950,13 +1073,36 @@
     return out;
   }
 
+  // The boss fight wave: the boss comes in, kanji ships keep coming (the groups repeat) until the boss is defeated
+  function buildBossWave(tuning, fire) {
+    return {
+      name: 'Boss Battle',
+      boss: true,
+      loop: true,
+      speed: Math.round(BOSS_WAVE_SPEED * tuning.speed),
+      groupGap: Math.round(2.6 * tuning.gap * 100) / 100,
+      sway: tuning.sway > 0 ? { chance: 0.4, amplitude: 26 * tuning.sway, period: 2.6 } : null,
+      fire: fire,
+      groups: [
+        { count: 1, shape: 'single' },
+        { count: 2, shape: 'row' },
+        { count: 1, shape: 'single', kind: 'fast' },
+        { count: 1, shape: 'single' },
+        { count: 2, shape: 'row' },
+        { count: 1, shape: 'single', kind: 'big' }
+      ]
+    };
+  }
+
   function getWavesForStage(stage) {
     if (!stage) {
       return [];
     }
     var tuning = STAGE_TUNING[stage.number] || DEFAULT_TUNING;
+    var fire = STAGE_FIRE[stage.number] || 0;
     var waves = [];
-    for (var i = 0; i < WAVE_DEFS.length; i++) {
+    var baseCount = stage.boss ? 2 : WAVE_DEFS.length; // a boss stage: two normal waves, then the boss
+    for (var i = 0; i < baseCount; i++) {
       var base = WAVE_DEFS[i];
       waves.push({
         name: base.name,
@@ -965,10 +1111,14 @@
         sway: base.sway && tuning.sway > 0
           ? { chance: base.sway.chance, amplitude: base.sway.amplitude * tuning.sway, period: base.sway.period }
           : null,
+        fire: i >= 1 ? fire : 0, // the first wave never shoots
         groups: i >= 1
           ? withSpecialGroups(base.groups.concat(tuning.extraGroups), tuning.specials, i === WAVE_DEFS.length - 1 ? 2 : 1)
           : base.groups.concat(tuning.extraGroups)
       });
+    }
+    if (stage.boss) {
+      waves.push(buildBossWave(tuning, fire));
     }
     return waves;
   }
@@ -985,9 +1135,11 @@
   }
 
   // Questions come from the stage's own kanji. Wrong answers may also use the stage's review kanji.
+  // The Boss Gate has no new kanji of its own: its questions come from everything learned in the world before.
   function buildStagePools(stage) {
+    var own = stage.kanji.length > 0 ? stage.kanji : stage.review;
     return {
-      targets: kanjiItemsFor(stage.kanji),
+      targets: kanjiItemsFor(own),
       decoys: kanjiItemsFor(stage.kanji.concat(stage.review))
     };
   }
@@ -1001,11 +1153,8 @@
     if (!stage.ready) {
       return 'not ready (no kanji data yet)';
     }
-    if (!isStageUnlocked(stageId)) {
+    if (!isStageUnlocked(stageId) && stageId !== debugStageId) {
       return 'locked';
-    }
-    if (stage.boss) {
-      return 'boss battle is not built yet';
     }
     if (getWavesForStage(stage).length === 0) {
       return 'no waves';
@@ -1108,6 +1257,7 @@
     waveState.timer = WAVE_INTRO_TIME;
     waveState.groupIndex = 0;
     waveState.groupTimer = 0;
+    waveHpLost = false; // every wave starts "perfect"
     playWaveSound();
   }
 
@@ -1134,6 +1284,10 @@
       waveState.phase = 'spawning';
       waveState.groupIndex = 0;
       waveState.groupTimer = 0;
+      if (def.boss && !boss) {
+        spawnBoss();
+        waveState.groupTimer = BOSS_FIRST_GROUP_DELAY; // the boss comes in first
+      }
     }
 
     if (waveState.phase === 'spawning') {
@@ -1148,7 +1302,13 @@
       spawnGroup(def.groups[waveState.groupIndex], def.speed, def.sway);
       waveState.groupIndex += 1;
       if (waveState.groupIndex >= def.groups.length) {
-        waveState.phase = 'clearing'; // everything of this wave is on screen now
+        if (def.loop) {
+          // The boss wave never runs out of kanji ships: the groups start again
+          waveState.groupIndex = 0;
+          waveState.groupTimer = def.groupGap;
+        } else {
+          waveState.phase = 'clearing'; // everything of this wave is on screen now
+        }
       } else {
         waveState.groupTimer = def.groupGap;
       }
@@ -1185,6 +1345,34 @@
     spawnEnemy(pickSpawnX(), -ENEMY_HEIGHT, def ? def.speed : 62);
   }
 
+  function newRunStats() {
+    return { correct: 0, wrong: 0, missed: 0, maxCombo: 0, shotsFired: 0, shotsHit: 0, bombsUsed: 0 };
+  }
+
+  // Answer accuracy of the run in percent: correct answers / (correct + wrong shots + missed targets)
+  function answerAccuracy() {
+    var total = runStats.correct + runStats.wrong + runStats.missed;
+    return total === 0 ? 0 : Math.round((runStats.correct / total) * 100);
+  }
+
+  // Points for clearing a wave (more when no HP was lost); the last wave also gives the stage bonus
+  function awardWaveBonus(isLastWave) {
+    var perfect = !waveHpLost;
+    var bonus = WAVE_CLEAR_BONUS;
+    if (perfect) {
+      bonus += PERFECT_WAVE_BONUS;
+      perfectWaves += 1;
+    }
+    if (isLastWave) {
+      bonus += STAGE_CLEAR_BONUS;
+    }
+    score += bonus;
+    bonusScore += bonus;
+    showToast((isLastWave ? 'STAGE CLEAR' : 'WAVE CLEAR') + (perfect ? '  PERFECT' : '') + '   +' + bonus,
+      perfect ? '#ffd21f' : '#5dff8a');
+    updateHud();
+  }
+
   // Runs at the end of every playing frame (after dead enemies were removed)
   function checkWaveCleared() {
     if (currentState !== STATE_PLAYING || waveState.phase !== 'clearing') {
@@ -1196,7 +1384,9 @@
     if (targetLost) {
       return; // the correct target was missed: the rescue ship must come first
     }
-    if (waveState.index + 1 < stageWaves.length) {
+    var isLastWave = waveState.index + 1 >= stageWaves.length;
+    awardWaveBonus(isLastWave); // the bonus is part of the score before the stage result is made
+    if (!isLastWave) {
       waveState.phase = 'gap';
       waveState.timer = WAVE_GAP_TIME;
     } else {
@@ -1214,6 +1404,8 @@
     currentState = STATE_STAGE_COMPLETE;
     resetDrag();
     bullets = [];
+    enemyBullets = [];
+    boss = null;
     if (commitBestScore()) {
       newBest = true;
     }
@@ -1224,7 +1416,19 @@
       cleared: true,
       wavesCleared: stageWaves.length,
       score: score,
-      hp: hp
+      hp: hp,
+      correct: runStats.correct,
+      wrong: runStats.wrong,
+      missed: runStats.missed,
+      maxCombo: runStats.maxCombo,
+      accuracy: answerAccuracy(),   // percent, see answerAccuracy()
+      shotsFired: runStats.shotsFired,
+      shotsHit: runStats.shotsHit,
+      perfectWaves: perfectWaves,
+      bonusScore: bonusScore,
+      boss: !!(currentStage && currentStage.boss),
+      bombsUsed: runStats.bombsUsed,
+      time: Math.round(totalTime * 10) / 10 // seconds played (pauses are not counted)
     };
     playStageCompleteSound();
     try {
@@ -1236,7 +1440,19 @@
           cleared: true,
           wavesCleared: stageResult.wavesCleared,
           score: stageResult.score,
-          hp: stageResult.hp
+          hp: stageResult.hp,
+          correct: stageResult.correct,
+          wrong: stageResult.wrong,
+          missed: stageResult.missed,
+          maxCombo: stageResult.maxCombo,
+          accuracy: stageResult.accuracy,
+          shotsFired: stageResult.shotsFired,
+          shotsHit: stageResult.shotsHit,
+          perfectWaves: stageResult.perfectWaves,
+          bonusScore: stageResult.bonusScore,
+          boss: stageResult.boss,
+          bombsUsed: stageResult.bombsUsed,
+          time: stageResult.time
         }
       }));
     } catch (error) {
@@ -1272,8 +1488,19 @@
     bullets = [];
     particles = [];
     powerups = [];
+    enemyBullets = [];
+    boss = null;
     shieldActive = false;
     slowTimer = 0;
+    powerLevel = 0;
+    bombs = BOMB_START;
+    bombFlash = 0;
+    tapStart = null;
+    lastTapAt = 0;
+    runStats = newRunStats();
+    waveHpLost = false;
+    perfectWaves = 0;
+    bonusScore = 0;
     fireTimer = 0;
     damageFlash = 0;
     toast.time = 0;
@@ -1299,7 +1526,7 @@
 
   // START GAME: plays the stage the campaign says is next
   function startGame() {
-    var stageId = getContinueStageId();
+    var stageId = debugStageId || getContinueStageId();
     if (!stageId || !startStage(stageId)) {
       showStageNotReady();
     }
@@ -1540,7 +1767,9 @@
       age: 0,
       y: y - (h - ENEMY_HEIGHT),        // a bigger ship starts higher, so it still enters from above the screen
       speed: finalSpeed,    // pixels per second at the reference screen height (set by the wave)
-      wave: waveState.index // which wave this ship belongs to
+      wave: waveState.index, // which wave this ship belongs to
+      shooter: false,        // true = carries a gun (see Enemy fire)
+      fireTimer: 0           // seconds until the next shot (counts down only inside the firing zone)
     };
   }
 
@@ -1554,7 +1783,13 @@
     if (!ENEMY_KINDS[kind] || (needTarget && (kind === 'split' || kind === 'mini'))) {
       kind = 'normal'; // these two kinds are always wrong answers and can never be the target
     }
-    enemies.push(buildEnemy(needTarget ? question : pickDecoy(), needTarget, x, y, speed, motion, kind));
+    var made = buildEnemy(needTarget ? question : pickDecoy(), needTarget, x, y, speed, motion, kind);
+    var waveDef = stageWaves[waveState.index];
+    if (waveDef && waveDef.fire > 0 && (kind === 'normal' || kind === 'fast' || kind === 'big') && Math.random() < waveDef.fire) {
+      made.shooter = true;
+      made.fireTimer = ENEMY_FIRE_FIRST_MIN + Math.random() * (ENEMY_FIRE_FIRST_MAX - ENEMY_FIRE_FIRST_MIN);
+    }
+    enemies.push(made);
   }
 
   // The splitter breaks into two mini ships that drift apart (always wrong answers)
@@ -1597,6 +1832,8 @@
       return;
     }
     hp -= amount;
+    waveHpLost = true;
+    powerLevel = Math.max(0, powerLevel - 1); // real damage costs one weapon level
     combo = 0;
     damageFlash = 0.25;
     if (hp <= 0) {
@@ -1618,6 +1855,10 @@
     var levelBefore = weaponLevel();
     combo += 1;
     answered += 1;
+    runStats.correct += 1;
+    if (combo > runStats.maxCombo) {
+      runStats.maxCombo = combo;
+    }
     var kindScore = (ENEMY_KINDS[kind] || ENEMY_KINDS.normal).score; // fast x1.5, big x2
     var points = Math.round(10 * Math.min(combo, MAX_SCORE_MULTIPLIER) * kindScore);
     score += points;
@@ -1643,6 +1884,9 @@
       playTone(1175, 0.08, 'square', 0.06, 0.18);
       playTone(1568, 0.14, 'square', 0.06, 0.26);
     }
+    if (boss && boss.state === 'fight') {
+      damageBoss(BOSS_ANSWER_DAMAGE, true); // KANJI STRIKE: a correct answer hits the boss hard
+    }
     if (answered % POWERUP_EVERY === 0) {
       dropPowerup(x, y);
     }
@@ -1651,6 +1895,7 @@
   }
 
   function wrongHit(data) {
+    runStats.wrong += 1;
     recordMiss(question.kanji);
     showToast(data.kanji + ' = ' + data.meaning.toUpperCase(), '#ff6b86');
     loseHp(WRONG_HIT_DAMAGE, true);
@@ -1661,15 +1906,264 @@
 
   // The correct target left the game without being shot (bottom of the screen or crashed into the ship)
   function targetMissed(amount) {
+    runStats.missed += 1;
     recordMiss(question.kanji);
     showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
     targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
     loseHp(amount);
   }
 
+  // ---------- Enemy fire, boss and bomb ----------
+  function playEnemyShotSound() {
+    playTone(190, 0.06, 'square', 0.035);
+  }
+
+  function addEnemyBullet(x, y, vx) {
+    enemyBullets.push({ x: x, y: y, vx: vx, vy: ENEMY_BULLET_SPEED, dead: false });
+  }
+
+  // Ships with a gun shoot one straight bullet downward every ENEMY_FIRE_INTERVAL seconds
+  function updateEnemyFire(dt, speedFactor) {
+    for (var i = 0; i < enemies.length; i++) {
+      var en = enemies[i];
+      if (en.dead || !en.shooter) {
+        continue;
+      }
+      if (en.y < ENEMY_FIRE_MIN_Y || en.y > viewHeight * ENEMY_FIRE_MAX_Y) {
+        continue; // outside the firing zone the timer waits
+      }
+      en.fireTimer -= dt * speedFactor;
+      if (en.fireTimer <= 0) {
+        en.fireTimer = ENEMY_FIRE_INTERVAL;
+        addEnemyBullet(en.x, en.y + en.h, 0);
+        playEnemyShotSound();
+      }
+    }
+  }
+
+  // Moves the enemy bullets; a bullet that touches the ship is real damage (a shield blocks it)
+  function updateEnemyBullets(dt, scale, speedFactor) {
+    var n = 0;
+    for (var i = 0; i < enemyBullets.length; i++) {
+      var eb = enemyBullets[i];
+      eb.y += eb.vy * scale * speedFactor * dt;
+      eb.x += eb.vx * speedFactor * dt;
+      if (eb.y > viewHeight + 12 || eb.x < -12 || eb.x > viewWidth + 12) {
+        eb.dead = true;
+      } else if (
+        Math.abs(eb.x - player.x) < SHIP_WIDTH * 0.35 + ENEMY_BULLET_W / 2 &&
+        Math.abs(eb.y - player.y) < SHIP_HEIGHT / 2 + ENEMY_BULLET_H / 2 - 4
+      ) {
+        eb.dead = true;
+        burst(player.x, player.y, '#ff6b86');
+        loseHp(ENEMY_BULLET_DAMAGE);
+        if (currentState === STATE_GAME_OVER) {
+          return;
+        }
+      }
+      if (!eb.dead) {
+        enemyBullets[n++] = eb;
+      }
+    }
+    enemyBullets.length = n;
+  }
+
+  // Bullets of a volley: vxList = sideways speeds, one bullet for each
+  function bossFan(vxList) {
+    for (var i = 0; i < vxList.length; i++) {
+      addEnemyBullet(boss.x, boss.y + BOSS_H, vxList[i]);
+    }
+  }
+
+  // Sideways speed that makes a bullet fired from (x, y) fly toward the ship's current position
+  function aimedVx(x, y) {
+    var flightTime = Math.max(0.3, (player.y - y) / (ENEMY_BULLET_SPEED * sizeScale()));
+    return Math.max(-220, Math.min(220, (player.x - x) / flightTime));
+  }
+
+  // Phase 1: 3-way fan. Phase 2: 5-way fan. Phase 3: 5-way fan and an aimed triple shot, one after the other.
+  function bossFire() {
+    if (boss.phase === 1) {
+      bossFan([-60, 0, 60]);
+    } else if (boss.phase === 2) {
+      bossFan([-100, -50, 0, 50, 100]);
+    } else {
+      boss.volley += 1;
+      if (boss.volley % 2 === 1) {
+        bossFan([-110, -55, 0, 55, 110]);
+      } else {
+        var aim = aimedVx(boss.x, boss.y + BOSS_H);
+        bossFan([aim - 45, aim, aim + 45]);
+      }
+    }
+    playTone(140, 0.12, 'sawtooth', 0.05);
+  }
+
+  function spawnBoss() {
+    boss = {
+      x: viewWidth / 2,
+      y: -BOSS_H,
+      hp: BOSS_HP,
+      maxHp: BOSS_HP,
+      phase: 1,
+      state: 'enter', // enter -> fight -> dying
+      fireTimer: 1,
+      swayPhase: 0,
+      flash: 0,
+      volley: 0,
+      dyingTimer: 0
+    };
+    showToast('WARNING: BOSS APPROACHING', '#ff6b86');
+  }
+
+  function updateBoss(dt, speedFactor) {
+    if (!boss) {
+      return;
+    }
+    if (boss.flash > 0) {
+      boss.flash -= dt;
+    }
+    if (boss.state === 'enter') {
+      boss.y += BOSS_ENTER_SPEED * dt;
+      if (boss.y >= BOSS_REST_Y) {
+        boss.y = BOSS_REST_Y;
+        boss.state = 'fight';
+        boss.fireTimer = 1.2;
+      }
+      return;
+    }
+    if (boss.state === 'dying') {
+      boss.dyingTimer -= dt;
+      if (Math.random() < 0.5) {
+        burst(boss.x + (Math.random() - 0.5) * BOSS_W, boss.y + Math.random() * BOSS_H, Math.random() < 0.5 ? '#ffd21f' : '#ff9a3c');
+      }
+      if (boss.dyingTimer <= 0) {
+        boss = null;
+        waveState.phase = 'clearing'; // nothing is left on screen: checkWaveCleared completes the stage
+      }
+      return;
+    }
+    // fight: sway left and right, shoot volleys
+    var amplitude = Math.max(0, (viewWidth - BOSS_W) / 2 - 6);
+    boss.swayPhase += dt * speedFactor * BOSS_SWAY_SPEED[boss.phase - 1];
+    boss.x = viewWidth / 2 + amplitude * Math.sin(boss.swayPhase);
+    boss.fireTimer -= dt * speedFactor;
+    if (boss.fireTimer <= 0) {
+      bossFire();
+      boss.fireTimer = BOSS_FIRE_INTERVAL[boss.phase - 1];
+    }
+  }
+
+  // big = true for answers and bombs (sparks + sound), false for ordinary bullets
+  function damageBoss(amount, big) {
+    if (!boss || boss.state !== 'fight') {
+      return;
+    }
+    boss.hp -= amount;
+    boss.flash = 0.08;
+    if (big) {
+      burst(boss.x, boss.y + BOSS_H / 2, '#ff9a3c');
+      playTone(220, 0.08, 'square', 0.06);
+    }
+    if (boss.hp <= 0) {
+      boss.hp = 0;
+      defeatBoss();
+      return;
+    }
+    var ratio = boss.hp / boss.maxHp;
+    var phase = ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3;
+    if (phase > boss.phase) {
+      boss.phase = phase;
+      boss.fireTimer = Math.min(boss.fireTimer, 1);
+      showToast('BOSS PHASE ' + phase, '#ff6b86');
+      playTone(110, 0.25, 'sawtooth', 0.07);
+    }
+  }
+
+  function defeatBoss() {
+    boss.state = 'dying';
+    boss.dyingTimer = BOSS_DYING_TIME;
+    waveState.phase = 'bossdown'; // no more ships spawn while the boss explodes
+    score += BOSS_DEFEAT_BONUS;
+    bonusScore += BOSS_DEFEAT_BONUS;
+    enemyBullets = [];
+    for (var i = 0; i < enemies.length; i++) {
+      if (!enemies[i].dead) {
+        enemies[i].dead = true;
+        burst(enemies[i].x, enemies[i].y + enemies[i].h / 2, '#ffd21f');
+      }
+    }
+    targetLost = false;
+    rescueTimer = -1;
+    showToast('BOSS DEFEATED   +' + BOSS_DEFEAT_BONUS, '#ffd21f');
+    playTone(523, 0.12, 'square', 0.07);
+    playTone(659, 0.12, 'square', 0.07, 0.12);
+    playTone(784, 0.12, 'square', 0.07, 0.24);
+    playTone(1047, 0.3, 'square', 0.07, 0.36);
+    updateHud();
+  }
+
+  // Bomb: every wrong ship and every enemy bullet is destroyed, the boss is hurt, the correct kanji ship survives
+  function useBomb() {
+    if (currentState !== STATE_PLAYING || bombs <= 0) {
+      return;
+    }
+    bombs -= 1;
+    runStats.bombsUsed += 1;
+    bombFlash = 0.4;
+    var cleared = 0;
+    for (var i = 0; i < enemies.length; i++) {
+      var en = enemies[i];
+      if (en.dead) {
+        continue;
+      }
+      if (isActiveTarget(en)) {
+        en.hitFlash = 0.3; // the correct answer stays: the player still has to shoot it
+        continue;
+      }
+      en.dead = true;
+      cleared += 1;
+      burst(en.x, en.y + en.h / 2, '#ffb347');
+    }
+    score += cleared * BOMB_SCORE_PER_SHIP;
+    enemyBullets = [];
+    if (boss && boss.state === 'fight') {
+      damageBoss(BOMB_BOSS_DAMAGE, true);
+    }
+    sweepDead();
+    showToast('BOMB!   ' + cleared + ' SHIPS CLEARED', '#ff6b86');
+    playTone(120, 0.35, 'sawtooth', 0.09);
+    playTone(80, 0.4, 'square', 0.08, 0.05);
+    updateHud();
+  }
+
   // ---------- Power-up capsules ----------
+  // Chooses the capsule type by what the player needs right now (see the Power-up comment above)
+  function pickPowerupType() {
+    var weights = {
+      shield: shieldActive ? 0 : 1,
+      slow: slowTimer > 0 ? SLOW_ACTIVE_WEIGHT : 1,
+      repair: hp <= LOW_HP_LIMIT ? REPAIR_LOW_HP_WEIGHT : (hp < MAX_HP ? REPAIR_HURT_WEIGHT : 0),
+      power: powerLevel >= MAX_POWER_LEVEL ? 0 : POWER_WEIGHT,
+      bomb: bombs >= MAX_BOMBS ? 0 : BOMB_WEIGHT
+    };
+    var total = 0;
+    var i;
+    for (i = 0; i < POWERUP_TYPES.length; i++) {
+      total += weights[POWERUP_TYPES[i]];
+    }
+    var roll = Math.random() * total;
+    for (i = 0; i < POWERUP_TYPES.length; i++) {
+      roll -= weights[POWERUP_TYPES[i]];
+      if (roll <= 0 && weights[POWERUP_TYPES[i]] > 0) {
+        return POWERUP_TYPES[i];
+      }
+    }
+    return 'slow'; // slow always has a weight above 0, so this is only a safety net
+  }
+
   function dropPowerup(x, y) {
-    var type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+    var type = pickPowerupType();
     var half = POWERUP_SIZE / 2;
     var px = Math.max(half, Math.min(viewWidth - half, x));
     powerups.push({ type: type, x: px, y: y, dead: false });
@@ -1677,13 +2171,30 @@
 
   function collectPowerup(item) {
     item.dead = true;
-    burst(item.x, item.y, item.type === 'shield' ? '#66e0ff' : '#c58bff');
+    var style = POWERUP_STYLE[item.type] || POWERUP_STYLE.slow;
+    burst(item.x, item.y, style.color);
     if (item.type === 'shield') {
       shieldActive = true;
-      showToast('SHIELD READY', '#66e0ff');
+      showToast('SHIELD READY', style.color);
+    } else if (item.type === 'repair') {
+      var healed = Math.min(REPAIR_AMOUNT, MAX_HP - hp);
+      if (healed > 0) {
+        hp += healed;
+        showToast('REPAIR +' + healed + ' HP', style.color);
+      } else {
+        score += REPAIR_FULL_HP_SCORE;
+        showToast('REPAIR   +' + REPAIR_FULL_HP_SCORE, style.color);
+      }
+      updateHud();
+    } else if (item.type === 'power') {
+      powerLevel = Math.min(MAX_POWER_LEVEL, powerLevel + 1);
+      showToast('WEAPON UP  ' + WEAPON_NAMES[weaponLevel()], style.color);
+    } else if (item.type === 'bomb') {
+      bombs = Math.min(MAX_BOMBS, bombs + 1);
+      showToast('BOMB +1   DOUBLE TAP TO USE', style.color);
     } else {
       slowTimer = SLOW_DURATION;
-      showToast('SLOW TIME ' + SLOW_DURATION + 's', '#c58bff');
+      showToast('SLOW TIME ' + SLOW_DURATION + 's', style.color);
     }
     playTone(880, 0.08, 'square', 0.06);
     playTone(1320, 0.12, 'square', 0.06, 0.08);
@@ -1760,15 +2271,10 @@
     player.fireHeld = player.aimTimer >= AIM_DELAY;
   }
 
-  // 1 = single shot, 2 = double shot, 3 = triple shot (depends on the current combo)
+  // Number of bullets per shot (1-5): 1 / 2 / 3 from the current combo, plus the levels from P capsules
   function weaponLevel() {
-    if (combo >= TRIPLE_SHOT_COMBO) {
-      return 3;
-    }
-    if (combo >= DOUBLE_SHOT_COMBO) {
-      return 2;
-    }
-    return 1;
+    var base = combo >= TRIPLE_SHOT_COMBO ? 3 : combo >= DOUBLE_SHOT_COMBO ? 2 : 1;
+    return Math.min(MAX_WEAPON_LEVEL, base + powerLevel);
   }
 
   function updateGameplay(dt) {
@@ -1787,10 +2293,13 @@
         fireTimer += FIRE_INTERVAL;
         var startY = player.y - SHIP_HEIGHT / 2;
         var level = weaponLevel();
-        var offsets = level === 3 ? [-BULLET_SPREAD, 0, BULLET_SPREAD] :
-          level === 2 ? [-BULLET_SPREAD / 2, BULLET_SPREAD / 2] : [0];
+        var offsets = [];
+        for (var n = 0; n < level; n++) {
+          offsets.push((n - (level - 1) / 2) * BULLET_SPREAD); // bullets side by side, centred on the ship
+        }
         for (var o = 0; o < offsets.length; o++) {
           bullets.push({ x: player.x + offsets[o], y: startY, prevY: startY, dead: false });
+          runStats.shotsFired += 1;
         }
       }
     } else if (fireTimer > 0) {
@@ -1874,6 +2383,15 @@
       }
     }
 
+    // Shooting ships, the boss and the shots they fire
+    updateEnemyFire(dt, speedFactor);
+    updateBoss(dt, speedFactor);
+    updateEnemyBullets(dt, scale, speedFactor);
+    if (currentState === STATE_GAME_OVER) {
+      sweepDead();
+      return;
+    }
+
     // Bullets hitting enemies: one bullet hits at most one enemy (the lowest one it reaches)
     for (i = 0; i < bullets.length; i++) {
       var b = bullets[i];
@@ -1897,10 +2415,18 @@
         }
       }
       if (target === null) {
+        // No ship in the way: the bullet may hit the boss
+        if (boss && boss.state === 'fight' && Math.abs(b.x - boss.x) < BOSS_W / 2 &&
+            b.y <= boss.y + BOSS_H && b.prevY >= boss.y) {
+          b.dead = true;
+          runStats.shotsHit += 1;
+          damageBoss(BOSS_SHOT_DAMAGE, false);
+        }
         continue;
       }
 
       b.dead = true;
+      runStats.shotsHit += 1;
       // Armored ship (big): the first hit only cracks the armor, the answer counts when it is destroyed
       if (target.armor > 1) {
         target.armor -= 1;
@@ -1992,6 +2518,9 @@
     if (damageFlash > 0) {
       damageFlash -= dt;
     }
+    if (bombFlash > 0) {
+      bombFlash -= dt;
+    }
     if (toast.time > 0) {
       toast.time -= dt;
     }
@@ -2050,15 +2579,15 @@
     ctx.font = 'bold 14px "Courier New", monospace';
     for (var i = 0; i < powerups.length; i++) {
       var item = powerups[i];
-      var isShield = item.type === 'shield';
+      var style = POWERUP_STYLE[item.type] || POWERUP_STYLE.slow;
       var left = Math.round(item.x - half);
       var top = Math.round(item.y - half);
-      ctx.fillStyle = isShield ? '#66e0ff' : '#c58bff';
+      ctx.fillStyle = style.color;
       ctx.fillRect(left, top, POWERUP_SIZE, POWERUP_SIZE);
       ctx.fillStyle = '#0b0b10';
       ctx.fillRect(left + 2, top + 2, POWERUP_SIZE - 4, POWERUP_SIZE - 4);
-      ctx.fillStyle = isShield ? '#66e0ff' : '#c58bff';
-      ctx.fillText(isShield ? 'S' : 'T', Math.round(item.x), Math.round(item.y) + 1);
+      ctx.fillStyle = style.color;
+      ctx.fillText(style.letter, Math.round(item.x), Math.round(item.y) + 1);
     }
   }
 
@@ -2141,6 +2670,13 @@
         ctx.fillRect(-9 + p * 11, -7, 8, 3);
       }
     }
+
+    // Gun under the plate of a shooting ship; it flashes white just before the shot
+    if (enemy.shooter) {
+      var aboutToFire = enemy.fireTimer < 0.35 && enemy.y >= ENEMY_FIRE_MIN_Y;
+      ctx.fillStyle = aboutToFire ? '#ffffff' : '#ff4d6d';
+      ctx.fillRect(-6, ENEMY_HEIGHT, 12, aboutToFire ? 6 : 3);
+    }
     ctx.restore();
   }
 
@@ -2164,7 +2700,7 @@
       ctx.fillStyle = '#8f99a8';
       ctx.font = 'bold 10px "Courier New", monospace';
       ctx.textAlign = 'left';
-      ctx.fillText('WAVE ' + (waveState.index + 1) + '/' + stageWaves.length, 8, 13);
+      ctx.fillText(stageWaves[waveState.index] && stageWaves[waveState.index].boss ? 'BOSS BATTLE' : 'WAVE ' + (waveState.index + 1) + '/' + stageWaves.length, 8, 13);
       ctx.textAlign = 'right';
       ctx.fillText('STAGE ' + currentStage.worldId + '-' + currentStage.number, viewWidth - 8, 13);
       ctx.textAlign = 'center';
@@ -2184,6 +2720,7 @@
     }
     var centerX = viewWidth / 2;
     var centerY = viewHeight * 0.4;
+    var title = def.boss ? 'WARNING!' : 'WAVE ' + (waveState.index + 1);
 
     ctx.globalAlpha = alpha;
     ctx.textAlign = 'center';
@@ -2191,9 +2728,9 @@
 
     ctx.font = 'bold 34px "Courier New", monospace';
     ctx.fillStyle = '#000000';
-    ctx.fillText('WAVE ' + (waveState.index + 1), centerX + 2, centerY + 2);
-    ctx.fillStyle = '#ffd21f';
-    ctx.fillText('WAVE ' + (waveState.index + 1), centerX, centerY);
+    ctx.fillText(title, centerX + 2, centerY + 2);
+    ctx.fillStyle = def.boss ? '#ff4d6d' : '#ffd21f';
+    ctx.fillText(title, centerX, centerY);
 
     ctx.font = 'bold 16px "Courier New", monospace';
     ctx.fillStyle = '#000000';
@@ -2254,291 +2791,46 @@
     if (level < 2 || currentState === STATE_GAME_OVER) {
       return;
     }
+    var text = WEAPON_NAMES[level] + (powerLevel > 0 ? ' +P' + powerLevel : '');
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 11px "Courier New", monospace';
     ctx.fillStyle = '#000000';
-    ctx.fillText(level === 3 ? 'TRIPLE SHOT' : 'DOUBLE SHOT', 9, viewHeight - 11);
-    ctx.fillStyle = level === 3 ? '#ff6b86' : '#ffd21f';
-    ctx.fillText(level === 3 ? 'TRIPLE SHOT' : 'DOUBLE SHOT', 8, viewHeight - 12);
+    ctx.fillText(text, 9, viewHeight - 11);
+    ctx.fillStyle = WEAPON_COLORS[level];
+    ctx.fillText(text, 8, viewHeight - 12);
   }
 
-  function drawOverlayText(title, subtitle, color) {
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, viewWidth, viewHeight);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = color;
-    ctx.font = 'bold 32px "Courier New", monospace';
-    ctx.fillText(title, viewWidth / 2, viewHeight / 2 - 20);
-    if (subtitle) {
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px "Courier New", monospace';
-      ctx.fillText(subtitle, viewWidth / 2, viewHeight / 2 + 16);
+  function drawBoss() {
+    if (!boss) {
+      return;
     }
-  }
-
-  function render() {
-    ctx.fillStyle = '#050508';
-    ctx.fillRect(0, 0, viewWidth, viewHeight);
-
-    // Stars
-    ctx.fillStyle = '#ffffff';
-    for (var i = 0; i < stars.length; i++) {
-      var star = stars[i];
-      ctx.fillRect(Math.round(star.x), Math.round(star.y), star.size, star.size);
+    if (boss.state === 'dying' && Math.floor(totalTime * 20) % 2 === 0) {
+      return; // blinks while it explodes
     }
-
-    // Bullets
-    ctx.fillStyle = '#ffd21f';
-    for (var b = 0; b < bullets.length; b++) {
-      ctx.fillRect(Math.round(bullets[b].x) - 1, Math.round(bullets[b].y), 3, 10);
-    }
-
-    // Enemies
-    for (var e = 0; e < enemies.length; e++) {
-      drawEnemy(enemies[e]);
-    }
-
-    drawPowerups();
-
-    if (currentState !== STATE_GAME_OVER) {
-      drawShip();
-      drawShield();
-    }
-
-    // Particles
-    for (var p = 0; p < particles.length; p++) {
-      ctx.fillStyle = particles[p].color;
-      ctx.fillRect(Math.round(particles[p].x), Math.round(particles[p].y), 3, 3);
-    }
-
-    // Red flash when hurt
-    if (damageFlash > 0) {
-      ctx.fillStyle = 'rgba(255, 30, 70, ' + Math.min(damageFlash * 1.2, 0.3) + ')';
-      ctx.fillRect(0, 0, viewWidth, viewHeight);
-    }
-
-    drawQuestion();
-    drawToast();
-    drawWaveBanner();
-    drawWeaponLabel();
-    drawPowerupStatus();
-    drawFirePaused();
-
-    if (currentState === STATE_PAUSED) {
-      drawOverlayText('PAUSED', 'Press RESUME to continue', '#ffd21f');
-    } else if (currentState === STATE_STAGE_COMPLETE) {
-      // Temporary text only: the real Stage Clear screen is built in a later step
-      drawOverlayText('STAGE COMPLETE', 'ALL ' + stageWaves.length + ' WAVES CLEARED', '#5dff8a');
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px "Courier New", monospace';
-      ctx.fillText('SCORE ' + score + '   BEST ' + bestScore, viewWidth / 2, viewHeight / 2 + 44);
-      ctx.fillStyle = '#6fb7ff';
-      ctx.fillText('PRESS MENU TO EXIT', viewWidth / 2, viewHeight / 2 + 68);
-    } else if (currentState === STATE_GAME_OVER) {
-      drawOverlayText('GAME OVER', 'SCORE ' + score + '   BEST ' + bestScore, '#ff6b86');
-      ctx.fillStyle = '#6fb7ff';
-      ctx.font = 'bold 14px "Courier New", monospace';
-      ctx.fillText('TAP THE SCREEN TO PLAY AGAIN', viewWidth / 2, viewHeight / 2 + 48);
-      if (newBest) {
-        ctx.fillStyle = '#ffd21f';
-        ctx.fillText('NEW BEST SCORE!', viewWidth / 2, viewHeight / 2 + 72);
+    var colors = boss.flash > 0 ? BOSS_FLASH_COLORS : BOSS_COLORS[boss.phase - 1];
+    var left = Math.round(boss.x - BOSS_W / 2);
+    var top = Math.round(boss.y);
+    for (var row = 0; row < BOSS_PIXELS.length; row++) {
+      for (var col = 0; col < BOSS_PIXELS[row].length; col++) {
+        var key = BOSS_PIXELS[row][col];
+        if (key === '.') {
+          continue;
+        }
+        ctx.fillStyle = colors[key];
+        ctx.fillRect(left + col * BOSS_PIXEL, top + row * BOSS_PIXEL, BOSS_PIXEL, BOSS_PIXEL);
       }
     }
   }
 
-  // ---------- Input ----------
-  function getPointerX(event) {
-    var rect = canvas.getBoundingClientRect();
-    return clampX(event.clientX - rect.left);
-  }
-
-  function resetDrag() {
-    player.isDragging = false;
-    player.pointerId = null;
-    player.fireHeld = false;
-    player.aimTimer = 0;
-  }
-
-  canvas.addEventListener('pointerdown', function (event) {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
+  // Boss life bar under the question banner
+  function drawBossBar() {
+    if (!boss) {
       return;
     }
-    if (currentState === STATE_GAME_OVER) {
-      // Short delay so a finishing tap does not restart the game by accident
-      if (performance.now() - gameOverAt > 700) {
-        restartCurrentStage();
-      }
-      event.preventDefault();
-      return;
-    }
-    if (currentState !== STATE_PLAYING) {
-      return;
-    }
-    // Follow only the first finger so a second finger cannot make the ship jump
-    if (player.isDragging) {
-      return;
-    }
-    player.isDragging = true;
-    player.pointerId = event.pointerId;
-    var touchX = event.clientX - canvas.getBoundingClientRect().left;
-    player.dragPointerX = touchX;
-    player.dragShipX = player.targetX;
-    player.aimX = touchX;
-    player.aimTimer = 0;
-    player.fireHeld = false; // no instant shot: the finger must rest for AIM_DELAY first
-    if (!RELATIVE_CONTROL) {
-      player.targetX = getPointerX(event);
-    }
-    if (canvas.setPointerCapture) {
-      try {
-        canvas.setPointerCapture(event.pointerId);
-      } catch (error) {
-        /* ignore */
-      }
-    }
-    event.preventDefault();
-  });
-
-  canvas.addEventListener('pointermove', function (event) {
-    if (currentState !== STATE_PLAYING || !player.isDragging) {
-      return;
-    }
-    if (event.pointerId !== player.pointerId) {
-      return;
-    }
-    var moveX = event.clientX - canvas.getBoundingClientRect().left;
-    // Moved further than the tolerance: shooting stops and the aim lock starts again from this spot
-    if (Math.abs(moveX - player.aimX) > AIM_TOLERANCE) {
-      player.aimX = moveX;
-      player.aimTimer = 0;
-      player.fireHeld = false;
-    }
-    if (RELATIVE_CONTROL) {
-      var wantedX = player.dragShipX + (moveX - player.dragPointerX) * CONTROL_SENSITIVITY;
-      var limitedX = clampX(wantedX);
-      // At the screen edge the touch anchor slides along, so the ship comes back as soon as the finger does
-      player.dragShipX += limitedX - wantedX;
-      player.targetX = limitedX;
-    } else {
-      player.targetX = getPointerX(event);
-    }
-    event.preventDefault();
-  });
-
-  // Finger lifted, pointer cancelled by the browser or capture lost: stop following it
-  function stopDragging(event) {
-    if (event && player.pointerId !== null && event.pointerId !== player.pointerId) {
-      return;
-    }
-    resetDrag();
-  }
-
-  canvas.addEventListener('pointerup', stopDragging);
-  canvas.addEventListener('pointercancel', stopDragging);
-  canvas.addEventListener('lostpointercapture', stopDragging);
-  window.addEventListener('pointerup', stopDragging);
-  window.addEventListener('pointercancel', stopDragging);
-
-  // Prevent page scrolling / long-press menu while playing
-  canvas.addEventListener('touchmove', function (event) {
-    event.preventDefault();
-  }, { passive: false });
-  canvas.addEventListener('contextmenu', function (event) {
-    event.preventDefault();
-  });
-
-  function lockPageScroll() {
-    try {
-      document.documentElement.style.overscrollBehavior = 'none';
-      document.body.style.overscrollBehavior = 'none';
-    } catch (error) {
-      /* ignore */
-    }
-  }
-
-  // Keyboard (for computers)
-  window.addEventListener('keydown', function (event) {
-    if (currentState !== STATE_PLAYING) {
-      return;
-    }
-    if (event.key === 'ArrowLeft') {
-      player.targetX = clampX(player.targetX - 40);
-    } else if (event.key === 'ArrowRight') {
-      player.targetX = clampX(player.targetX + 40);
-    }
-  });
-
-  // ---------- Buttons ----------
-  startGameButton.addEventListener('click', startGame);
-  backToMenuButton.addEventListener('click', backToMenu);
-  pauseButton.addEventListener('click', togglePause);
-
-  kanjiCollectionButton.addEventListener('click', showCollection);
-  settingsButton.addEventListener('click', showSettings);
-  collectionBackButton.addEventListener('click', showMenu);
-  settingsBackButton.addEventListener('click', showMenu);
-
-  soundToggleButton.addEventListener('click', function () {
-    soundEnabled = !soundEnabled;
-    writeStorage(KEY_SOUND, soundEnabled ? 'on' : 'off');
-    updateSoundButton();
-    if (soundEnabled) {
-      playCorrectSound();
-    }
-  });
-
-  resetProgressButton.addEventListener('click', function () {
-    if (!window.confirm('Бүх хадгалсан ахиц болон дээд оноог устгах уу?')) {
-      return;
-    }
-    progress = {};
-    bestScore = 0;
-    removeStorage(KEY_PROGRESS);
-    removeStorage(KEY_BEST);
-    campaign = freshCampaign();
-    campaignReadOnly = false;
-    removeStorage(KEY_CAMPAIGN);
-    removeStorage(KEY_CAMPAIGN + 'Corrupt');
-    settingsMessage.textContent = 'PROGRESS RESET';
-  });
-
-  // ---------- Window events ----------
-  // All size changes go through one throttled function (at most one resize per frame)
-  var resizePending = false;
-  function scheduleResize() {
-    if (resizePending) {
-      return;
-    }
-    resizePending = true;
-    requestAnimationFrame(function () {
-      resizePending = false;
-      if (currentState !== STATE_MENU) {
-        resizeCanvas();
-      }
-    });
-  }
-
-  window.addEventListener('resize', scheduleResize);
-  window.addEventListener('orientationchange', function () {
-    setTimeout(scheduleResize, 200);
-  });
-  if (typeof window.ResizeObserver === 'function') {
-    new window.ResizeObserver(scheduleResize).observe(canvas.parentElement);
-  }
-
-  // Pause automatically when the page is hidden
-  document.addEventListener('visibilitychange', function () {
-    if (document.hidden) {
-      pauseGame();
-    }
-  });
-
-  // ---------- Start ----------
-  lockPageScroll();
-  loadSavedData();
-  updateSoundButton();
-  updateHud();
-  showMenu();
-})();
+    var left = 52;
+    var width = viewWidth - left - 10;
+    var top = 53;
+    var height = 8;
+    ctx.fillStyle = 'rgba(11, 11, 16, 0.85)';
+    ctx.fillRect(left - 
