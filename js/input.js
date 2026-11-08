@@ -180,8 +180,51 @@ window.addEventListener('keydown', function (event) {
 });
 
 // ---------- Buttons ----------
-startGameButton.addEventListener('click', showGalaxyMap);
-backToMenuButton.addEventListener('click', backToMenu);
+// PLAY goes straight into the next stage (the very first time the help screen comes first)
+startGameButton.addEventListener('click', function () {
+  if (!readStorage(KEY_HELP)) {
+    showHowTo(true);
+  } else {
+    startGame();
+  }
+});
+galaxyMapButton.addEventListener('click', showGalaxyMap);
+howToButton.addEventListener('click', function () {
+  showHowTo(false);
+});
+howBackButton.addEventListener('click', function () {
+  writeStorage(KEY_HELP, '1');
+  if (howPlayAfter) {
+    howPlayAfter = false;
+    startGame();
+  } else {
+    showMenu();
+  }
+});
+// MENU during a stage needs two taps, so one slip cannot throw away a run. The first tap also pauses.
+function resetQuitButton() {
+  quitArmed = false;
+  if (quitTimer !== null) {
+    clearTimeout(quitTimer);
+    quitTimer = null;
+  }
+  backToMenuButton.textContent = 'MENU';
+}
+
+backToMenuButton.addEventListener('click', function () {
+  if (currentState !== STATE_PLAYING && currentState !== STATE_PAUSED) {
+    backToMenu();
+    return;
+  }
+  if (quitArmed) {
+    backToMenu();
+    return;
+  }
+  pauseGame();
+  quitArmed = true;
+  backToMenuButton.textContent = 'TAP AGAIN TO QUIT';
+  quitTimer = setTimeout(resetQuitButton, 2500);
+});
 pauseButton.addEventListener('click', togglePause);
 
 kanjiCollectionButton.addEventListener('click', showCollection);
@@ -225,6 +268,7 @@ resetProgressButton.addEventListener('click', function () {
   bestScore = 0;
   removeStorage(KEY_PROGRESS);
   removeStorage(KEY_BEST);
+  removeStorage(KEY_HELP);
   totalXp = 0;
   removeStorage(KEY_XP);
   campaign = freshCampaign();
@@ -232,6 +276,7 @@ resetProgressButton.addEventListener('click', function () {
   removeStorage(KEY_CAMPAIGN);
   removeStorage(KEY_CAMPAIGN + 'Corrupt');
   settingsMessage.textContent = 'PROGRESS RESET';
+  updateMenuInfo();
 });
 
 // ---------- Window events ----------
