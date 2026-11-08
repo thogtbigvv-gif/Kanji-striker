@@ -14,6 +14,7 @@ var KEY_BEST = 'kanjiStrikerBestScore';
 var KEY_PROGRESS = 'kanjiStrikerProgress';
 var KEY_SOUND = 'kanjiStrikerSound';
 var KEY_CAMPAIGN = 'kanjiStrikerCampaign'; // new key; the keys above are never changed
+var KEY_HELP = 'kanjiStrikerHelpSeen';       // set after the HOW TO PLAY screen was shown once
 var KEY_XP = 'kanjiStrikerXp';             // total XP earned from stage results (added in v0.4.0)
 
 // ---------- Gameplay tuning ----------
