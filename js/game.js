@@ -39,6 +39,12 @@ function startStage(stageId) {
   bombFlash = 0;
   tapStart = null;
   lastTapAt = 0;
+  dashTimer = 0;
+  dashInvuln = 0;
+  dashCooldown = 0;
+  dashDir = 0;
+  dashGhosts = [];
+  flickTrail = [];
   runStats = newRunStats();
   waveHpLost = false;
   perfectWaves = 0;
@@ -138,6 +144,9 @@ function sweepDead() {
 }
 
 function hitsPlayer(enemy) {
+  if (dashInvuln > 0) {
+    return false; // the ship is a ghost while it dashes
+  }
   return (
     Math.abs(enemy.x - player.x) < (enemy.w + SHIP_WIDTH) / 2 - 4 &&
     enemy.y + enemy.h > player.y - SHIP_HEIGHT / 2 &&
@@ -399,13 +408,59 @@ function gameLoop(timestamp) {
   }
 }
 
+// Tries to start a dash (dir = -1 left, 1 right). Returns true when the dash started.
+function startDash(dir) {
+  if (currentState !== STATE_PLAYING || dashTimer > 0 || dashCooldown > 0 || (dir !== -1 && dir !== 1)) {
+    return false;
+  }
+  var room = dir > 0 ? viewWidth - SHIP_WIDTH / 2 - player.x : player.x - SHIP_WIDTH / 2;
+  if (room < DASH_MIN_ROOM) {
+    return false; // the ship is already at the screen edge on that side
+  }
+  dashDir = dir;
+  dashTimer = DASH_TIME;
+  dashInvuln = DASH_TIME + DASH_GRACE;
+  dashCooldown = DASH_COOLDOWN;
+  playTone(300, 0.12, 'sawtooth', 0.06, 0, 900);
+  return true;
+}
+
+// Moves the ship during a dash, and counts down the ghost time and the cooldown
+function updateDash(dt) {
+  if (dashCooldown > 0) {
+    dashCooldown = Math.max(0, dashCooldown - dt);
+  }
+  if (dashInvuln > 0) {
+    dashInvuln = Math.max(0, dashInvuln - dt);
+  }
+  if (dashTimer <= 0) {
+    return;
+  }
+  var step = Math.min(dt, dashTimer);
+  dashGhosts.push({ x: player.x, y: player.y, life: 0.25 });
+  player.x = clampX(player.x + dashDir * (DASH_DISTANCE / DASH_TIME) * step);
+  dashTimer -= dt;
+  if (dashTimer <= 0) {
+    // The dash is over: the control starts again from where the ship is now
+    dashTimer = 0;
+    player.targetX = player.x;
+    if (player.isDragging) {
+      player.dragShipX = player.x;
+      player.dragPointerX = player.lastPointerX;
+    }
+  }
+}
+
 function update(dt) {
   totalTime += dt;
 
-  // Smooth movement toward the target position (same feel at 30, 60 or 120 fps)
-  player.targetX = clampX(player.targetX);
-  player.x += (player.targetX - player.x) * (1 - Math.exp(-PLAYER_FOLLOW * dt));
-  player.x = clampX(player.x);
+  updateDash(dt);
+  if (dashTimer <= 0) {
+    // Smooth movement toward the target position (same feel at 30, 60 or 120 fps)
+    player.targetX = clampX(player.targetX);
+    player.x += (player.targetX - player.x) * (1 - Math.exp(-PLAYER_FOLLOW * dt));
+    player.x = clampX(player.x);
+  }
 
   updateGameplay(dt);
   updateEffects(dt);
@@ -421,6 +476,13 @@ function updateEffects(dt) {
     if (star.y > viewHeight) {
       star.y = 0;
       star.x = Math.random() * viewWidth;
+    }
+  }
+
+  for (i = dashGhosts.length - 1; i >= 0; i--) {
+    dashGhosts[i].life -= dt;
+    if (dashGhosts[i].life <= 0) {
+      dashGhosts.splice(i, 1);
     }
   }
 
