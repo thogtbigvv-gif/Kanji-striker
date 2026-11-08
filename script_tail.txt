@@ -1,0 +1,368 @@
+    ctx.fillRect(left - 1, top - 1, width + 2, height + 2);
+    var ratio = Math.max(0, boss.hp / boss.maxHp);
+    ctx.fillStyle = BOSS_COLORS[boss.phase - 1].R;
+    ctx.fillRect(left, top, Math.round(width * ratio), height);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    ctx.fillStyle = '#000000';
+    ctx.fillText('BOSS', 11, top + height / 2 + 1);
+    ctx.fillStyle = '#ff6b86';
+    ctx.fillText('BOSS', 10, top + height / 2);
+  }
+
+  // Shots of the enemies and the boss
+  function drawEnemyBullets() {
+    for (var i = 0; i < enemyBullets.length; i++) {
+      var eb = enemyBullets[i];
+      var x = Math.round(eb.x);
+      var y = Math.round(eb.y);
+      ctx.fillStyle = '#ff2d55';
+      ctx.fillRect(x - ENEMY_BULLET_W / 2, y, ENEMY_BULLET_W, ENEMY_BULLET_H);
+      ctx.fillStyle = '#ffd1d9';
+      ctx.fillRect(x - 1, y + 2, 2, ENEMY_BULLET_H - 4);
+    }
+  }
+
+  // Bomb stock in the bottom-left corner (above the weapon label)
+  function drawBombStock() {
+    if (currentState === STATE_GAME_OVER || currentState === STATE_STAGE_COMPLETE) {
+      return;
+    }
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 11px "Courier New", monospace';
+    var text = 'BOMB x' + bombs + (bombs > 0 ? '  (DOUBLE TAP)' : '');
+    ctx.fillStyle = '#000000';
+    ctx.fillText(text, 9, viewHeight - 27);
+    ctx.fillStyle = bombs > 0 ? '#ff6b86' : '#8f99a8';
+    ctx.fillText(text, 8, viewHeight - 28);
+  }
+
+  function drawOverlayText(title, subtitle, color) {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(0, 0, viewWidth, viewHeight);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = color;
+    ctx.font = 'bold 32px "Courier New", monospace';
+    ctx.fillText(title, viewWidth / 2, viewHeight / 2 - 20);
+    if (subtitle) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px "Courier New", monospace';
+      ctx.fillText(subtitle, viewWidth / 2, viewHeight / 2 + 16);
+    }
+  }
+
+  function render() {
+    ctx.fillStyle = '#050508';
+    ctx.fillRect(0, 0, viewWidth, viewHeight);
+
+    // Stars
+    ctx.fillStyle = '#ffffff';
+    for (var i = 0; i < stars.length; i++) {
+      var star = stars[i];
+      ctx.fillRect(Math.round(star.x), Math.round(star.y), star.size, star.size);
+    }
+
+    drawBoss();
+
+    // Bullets
+    ctx.fillStyle = '#ffd21f';
+    for (var b = 0; b < bullets.length; b++) {
+      ctx.fillRect(Math.round(bullets[b].x) - 1, Math.round(bullets[b].y), 3, 10);
+    }
+
+    // Enemies
+    for (var e = 0; e < enemies.length; e++) {
+      drawEnemy(enemies[e]);
+    }
+
+    drawEnemyBullets();
+    drawPowerups();
+
+    if (currentState !== STATE_GAME_OVER) {
+      drawShip();
+      drawShield();
+    }
+
+    // Particles
+    for (var p = 0; p < particles.length; p++) {
+      ctx.fillStyle = particles[p].color;
+      ctx.fillRect(Math.round(particles[p].x), Math.round(particles[p].y), 3, 3);
+    }
+
+    // Red flash when hurt
+    if (damageFlash > 0) {
+      ctx.fillStyle = 'rgba(255, 30, 70, ' + Math.min(damageFlash * 1.2, 0.3) + ')';
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+    }
+
+    // White flash of a bomb
+    if (bombFlash > 0) {
+      ctx.fillStyle = 'rgba(255, 255, 255, ' + Math.min(bombFlash / 0.4, 1) * 0.6 + ')';
+      ctx.fillRect(0, 0, viewWidth, viewHeight);
+    }
+
+    drawQuestion();
+    drawBossBar();
+    drawToast();
+    drawWaveBanner();
+    drawWeaponLabel();
+    drawBombStock();
+    drawPowerupStatus();
+    drawFirePaused();
+
+    if (currentState === STATE_PAUSED) {
+      drawOverlayText('PAUSED', 'Press RESUME to continue', '#ffd21f');
+    } else if (currentState === STATE_STAGE_COMPLETE) {
+      // Temporary text only: the real Stage Clear screen is built in a later step
+      drawOverlayText(stageResult && stageResult.boss ? 'BOSS DEFEATED' : 'STAGE COMPLETE',
+        'ALL ' + stageWaves.length + ' WAVES CLEARED', '#5dff8a');
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px "Courier New", monospace';
+      ctx.fillText('SCORE ' + score + '   BEST ' + bestScore, viewWidth / 2, viewHeight / 2 + 44);
+      if (stageResult) {
+        ctx.fillText('ACCURACY ' + stageResult.accuracy + '%   MAX COMBO x' + stageResult.maxCombo,
+          viewWidth / 2, viewHeight / 2 + 66);
+      }
+      ctx.fillStyle = '#6fb7ff';
+      ctx.fillText('PRESS MENU TO EXIT', viewWidth / 2, viewHeight / 2 + 90);
+    } else if (currentState === STATE_GAME_OVER) {
+      drawOverlayText('GAME OVER', 'SCORE ' + score + '   BEST ' + bestScore, '#ff6b86');
+      ctx.fillStyle = '#6fb7ff';
+      ctx.font = 'bold 14px "Courier New", monospace';
+      ctx.fillText('TAP THE SCREEN TO PLAY AGAIN', viewWidth / 2, viewHeight / 2 + 48);
+      if (newBest) {
+        ctx.fillStyle = '#ffd21f';
+        ctx.fillText('NEW BEST SCORE!', viewWidth / 2, viewHeight / 2 + 72);
+      }
+    }
+  }
+
+  // ---------- Input ----------
+  function getPointerX(event) {
+    var rect = canvas.getBoundingClientRect();
+    return clampX(event.clientX - rect.left);
+  }
+
+  function resetDrag() {
+    player.isDragging = false;
+    player.pointerId = null;
+    player.fireHeld = false;
+    player.aimTimer = 0;
+  }
+
+  canvas.addEventListener('pointerdown', function (event) {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+    if (currentState === STATE_GAME_OVER) {
+      // Short delay so a finishing tap does not restart the game by accident
+      if (performance.now() - gameOverAt > 700) {
+        restartCurrentStage();
+      }
+      event.preventDefault();
+      return;
+    }
+    if (currentState !== STATE_PLAYING) {
+      return;
+    }
+    // Follow only the first finger so a second finger cannot make the ship jump
+    if (player.isDragging) {
+      return;
+    }
+    player.isDragging = true;
+    player.pointerId = event.pointerId;
+    var touchX = event.clientX - canvas.getBoundingClientRect().left;
+    player.dragPointerX = touchX;
+    player.dragShipX = player.targetX;
+    player.aimX = touchX;
+    player.aimTimer = 0;
+    player.fireHeld = false; // no instant shot: the finger must rest for AIM_DELAY first
+    tapStart = { id: event.pointerId, t: performance.now() / 1000, x: touchX }; // may become a tap (double tap = bomb)
+    if (!RELATIVE_CONTROL) {
+      player.targetX = getPointerX(event);
+    }
+    if (canvas.setPointerCapture) {
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch (error) {
+        /* ignore */
+      }
+    }
+    event.preventDefault();
+  });
+
+  canvas.addEventListener('pointermove', function (event) {
+    if (currentState !== STATE_PLAYING || !player.isDragging) {
+      return;
+    }
+    if (event.pointerId !== player.pointerId) {
+      return;
+    }
+    var moveX = event.clientX - canvas.getBoundingClientRect().left;
+    // Moved too far for a tap: this touch is a drag
+    if (tapStart && Math.abs(moveX - tapStart.x) > TAP_MAX_MOVE) {
+      tapStart = null;
+    }
+    // Moved further than the tolerance: shooting stops and the aim lock starts again from this spot
+    if (Math.abs(moveX - player.aimX) > AIM_TOLERANCE) {
+      player.aimX = moveX;
+      player.aimTimer = 0;
+      player.fireHeld = false;
+    }
+    if (RELATIVE_CONTROL) {
+      var wantedX = player.dragShipX + (moveX - player.dragPointerX) * CONTROL_SENSITIVITY;
+      var limitedX = clampX(wantedX);
+      // At the screen edge the touch anchor slides along, so the ship comes back as soon as the finger does
+      player.dragShipX += limitedX - wantedX;
+      player.targetX = limitedX;
+    } else {
+      player.targetX = getPointerX(event);
+    }
+    event.preventDefault();
+  });
+
+  // A short touch without moving is a tap; two taps close together fire a bomb
+  function checkTap(event) {
+    var tap = tapStart;
+    tapStart = null;
+    if (!tap || !event || event.pointerId !== tap.id || currentState !== STATE_PLAYING) {
+      return;
+    }
+    var now = performance.now() / 1000;
+    var moved = Math.abs((event.clientX - canvas.getBoundingClientRect().left) - tap.x);
+    if (now - tap.t > TAP_MAX_TIME || moved > TAP_MAX_MOVE) {
+      return;
+    }
+    if (lastTapAt > 0 && now - lastTapAt <= DOUBLE_TAP_TIME) {
+      lastTapAt = 0;
+      useBomb();
+    } else {
+      lastTapAt = now;
+    }
+  }
+
+  // Finger lifted, pointer cancelled by the browser or capture lost: stop following it
+  function stopDragging(event) {
+    if (event && player.pointerId !== null && event.pointerId !== player.pointerId) {
+      return;
+    }
+    if (event && event.type === 'pointerup') {
+      checkTap(event);
+    } else {
+      tapStart = null;
+    }
+    resetDrag();
+  }
+
+  canvas.addEventListener('pointerup', stopDragging);
+  canvas.addEventListener('pointercancel', stopDragging);
+  canvas.addEventListener('lostpointercapture', stopDragging);
+  window.addEventListener('pointerup', stopDragging);
+  window.addEventListener('pointercancel', stopDragging);
+
+  // Prevent page scrolling / long-press menu while playing
+  canvas.addEventListener('touchmove', function (event) {
+    event.preventDefault();
+  }, { passive: false });
+  canvas.addEventListener('contextmenu', function (event) {
+    event.preventDefault();
+  });
+
+  function lockPageScroll() {
+    try {
+      document.documentElement.style.overscrollBehavior = 'none';
+      document.body.style.overscrollBehavior = 'none';
+    } catch (error) {
+      /* ignore */
+    }
+  }
+
+  // Keyboard (for computers)
+  window.addEventListener('keydown', function (event) {
+    if (currentState !== STATE_PLAYING) {
+      return;
+    }
+    if (event.key === 'ArrowLeft') {
+      player.targetX = clampX(player.targetX - 40);
+    } else if (event.key === 'ArrowRight') {
+      player.targetX = clampX(player.targetX + 40);
+    } else if (event.key === 'b' || event.key === 'B') {
+      useBomb();
+    }
+  });
+
+  // ---------- Buttons ----------
+  startGameButton.addEventListener('click', startGame);
+  backToMenuButton.addEventListener('click', backToMenu);
+  pauseButton.addEventListener('click', togglePause);
+
+  kanjiCollectionButton.addEventListener('click', showCollection);
+  settingsButton.addEventListener('click', showSettings);
+  collectionBackButton.addEventListener('click', showMenu);
+  settingsBackButton.addEventListener('click', showMenu);
+
+  soundToggleButton.addEventListener('click', function () {
+    soundEnabled = !soundEnabled;
+    writeStorage(KEY_SOUND, soundEnabled ? 'on' : 'off');
+    updateSoundButton();
+    if (soundEnabled) {
+      playCorrectSound();
+    }
+  });
+
+  resetProgressButton.addEventListener('click', function () {
+    if (!window.confirm('Бүх хадгалсан ахиц болон дээд оноог устгах уу?')) {
+      return;
+    }
+    progress = {};
+    bestScore = 0;
+    removeStorage(KEY_PROGRESS);
+    removeStorage(KEY_BEST);
+    campaign = freshCampaign();
+    campaignReadOnly = false;
+    removeStorage(KEY_CAMPAIGN);
+    removeStorage(KEY_CAMPAIGN + 'Corrupt');
+    settingsMessage.textContent = 'PROGRESS RESET';
+  });
+
+  // ---------- Window events ----------
+  // All size changes go through one throttled function (at most one resize per frame)
+  var resizePending = false;
+  function scheduleResize() {
+    if (resizePending) {
+      return;
+    }
+    resizePending = true;
+    requestAnimationFrame(function () {
+      resizePending = false;
+      if (currentState !== STATE_MENU) {
+        resizeCanvas();
+      }
+    });
+  }
+
+  window.addEventListener('resize', scheduleResize);
+  window.addEventListener('orientationchange', function () {
+    setTimeout(scheduleResize, 200);
+  });
+  if (typeof window.ResizeObserver === 'function') {
+    new window.ResizeObserver(scheduleResize).observe(canvas.parentElement);
+  }
+
+  // Pause automatically when the page is hidden
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      pauseGame();
+    }
+  });
+
+  // ---------- Start ----------
+  lockPageScroll();
+  loadSavedData();
+  updateSoundButton();
+  updateHud();
+  showMenu();
+})();
