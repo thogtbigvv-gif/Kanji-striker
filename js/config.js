@@ -218,6 +218,19 @@ var ENEMY_KINDS = {
   mini:   { scale: 0.75, armor: 1, speedMult: 1.1,  maxSpeed: 0,   score: 1,   border: '#5dff8a',
             colors: { B: '#3ddc84', D: '#1a7a46', Y: '#eaffb0' } }
 };
+// ---------- Enemy movement paths ----------
+// A normal single ship (never a row / V, never a special kind) may fly a special path instead of falling straight.
+// Which paths a stage uses, and how often, is set in STAGE_TUNING (paths / pathChance). The Introduction wave never uses them.
+//   zigzag = sharp left-right turns (a triangle wave, not a smooth sway)
+//   circle = loops around while it falls
+//   side   = enters from the left or right edge, flies in diagonally, then falls straight
+var PATH_ZIGZAG_AMP = 58;      // pixels from the centre line to each turn
+var PATH_ZIGZAG_PERIOD = 2.0;  // seconds for one full left-right-left
+var PATH_CIRCLE_RADIUS = 30;   // pixels
+var PATH_CIRCLE_PERIOD = 3.0;  // seconds per loop
+var PATH_SIDE_SPEED = 170;     // sideways speed (pixels per second) while flying in from the edge
+var PATH_SIDE_START_MIN = 70;  // the side ship appears this far from the top (pixels) ...
+var PATH_SIDE_START_RANGE = 70; // ... plus a random amount up to this
 var ENEMY_FLASH_COLORS = { B: '#ffffff', D: '#cfd6e6', Y: '#ffffff' }; // shown for a moment when an armor hit lands
 
 // ---------- Stage Wave System: timings and wave plans ----------
@@ -288,15 +301,17 @@ var WAVE_DEFS = [
 // speed 1.1 = enemies 10% faster, gap 0.9 = the next group comes 10% sooner.
 // sway multiplies how far swaying groups move sideways (0 = no swaying in that stage).
 // extraGroups are added to the end of every wave of that stage.
+// paths = special movement paths (see Enemy movement paths) that single ships of that stage may use; pathChance = chance per single ship.
 // specials = enemy kinds (see Enemy kinds) added as single ships to every wave EXCEPT the first one
 // (Introduction); the Final Wave gets them twice. Stage 1 has none, so the first stage stays gentle.
 var STAGE_TUNING = {
-  1: { speed: 0.9, gap: 1.15, sway: 0, extraGroups: [], specials: [] },                                  // New Kanji: gentle start
-  2: { speed: 1.0, gap: 1.0, sway: 0.6, extraGroups: [], specials: ['fast'] },                           // Review Run: fast ships appear
-  3: { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [{ count: 2, shape: 'row' }], specials: ['fast', 'big'] }, // Big Waves: + armored big ships
+  1: { speed: 0.9, gap: 1.15, sway: 0, extraGroups: [], specials: [], paths: [], pathChance: 0 },                                  // New Kanji: gentle start
+  2: { speed: 1.0, gap: 1.0, sway: 0.6, extraGroups: [], specials: ['fast'], paths: ['zigzag'], pathChance: 0.35 },                           // Review Run: fast ships appear
+  3: { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [{ count: 2, shape: 'row' }], specials: ['fast', 'big'],
+       paths: ['zigzag', 'side'], pathChance: 0.4 }, // Big Waves: + armored big ships
   4: { speed: 1.2, gap: 0.8, sway: 1.3, extraGroups: [{ count: 3, shape: 'v' }, { count: 1, shape: 'single' }],
-       specials: ['fast', 'big', 'split'] }                                                              // Hard Fight: + splitters
+       specials: ['fast', 'big', 'split'], paths: ['zigzag', 'side', 'circle'], pathChance: 0.5 }                                                              // Hard Fight: + splitters
 };
 // The Boss Gate stage (5): normal waves 1-2 with these values, then the boss fight
-STAGE_TUNING[5] = { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [], specials: ['fast', 'big'] };
-var DEFAULT_TUNING = { speed: 1.0, gap: 1.0, sway: 1.0, extraGroups: [], specials: [] };
+STAGE_TUNING[5] = { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [], specials: ['fast', 'big'], paths: ['zigzag', 'side'], pathChance: 0.35 };
+var DEFAULT_TUNING = { speed: 1.0, gap: 1.0, sway: 1.0, extraGroups: [], specials: [], paths: [], pathChance: 0 };
