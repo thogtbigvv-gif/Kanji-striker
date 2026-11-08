@@ -24,6 +24,12 @@ var resetProgressButton = document.getElementById('resetProgressButton');
 var settingsMessage = document.getElementById('settingsMessage');
 var settingsBackButton = document.getElementById('settingsBackButton');
 
+var galaxySection = document.getElementById('galaxySection');
+var galaxySummary = document.getElementById('galaxySummary');
+var galaxyList = document.getElementById('galaxyList');
+var galaxyContinueButton = document.getElementById('galaxyContinueButton');
+var galaxyBackButton = document.getElementById('galaxyBackButton');
+
 var resultsSection = document.getElementById('resultsSection');
 var resultsKicker = document.getElementById('resultsKicker');
 var resultsTitle = document.getElementById('resultsTitle');
