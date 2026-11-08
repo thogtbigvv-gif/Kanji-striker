@@ -40,6 +40,7 @@ function updateEnemyBullets(dt, scale, speedFactor) {
     if (eb.y > viewHeight + 12 || eb.x < -12 || eb.x > viewWidth + 12) {
       eb.dead = true;
     } else if (
+      dashInvuln <= 0 && // the ship is a ghost while it dashes: shots pass through
       Math.abs(eb.x - player.x) < SHIP_WIDTH * 0.35 + ENEMY_BULLET_W / 2 &&
       Math.abs(eb.y - player.y) < SHIP_HEIGHT / 2 + ENEMY_BULLET_H / 2 - 4
     ) {
