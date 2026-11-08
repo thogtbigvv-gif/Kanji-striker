@@ -375,3 +375,251 @@ body {
   color: #6fb7ff;
   text-align: center;
 }
+
+/* ---------- STAGE RESULTS SCREEN (v0.4.0) ---------- */
+
+.screen-results {
+  min-height: 0;
+}
+
+.results-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: pan-y;
+  padding: 20px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.results-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.results-kicker {
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  color: #6fb7ff;
+}
+
+.results-title {
+  font-size: 1.8rem;
+  letter-spacing: 3px;
+  color: #5dff8a;
+  text-shadow: 2px 2px 0 #1d7a38, 4px 4px 0 #000000;
+}
+
+.results-stage-name {
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  color: #ffd21f;
+}
+
+.results-stars {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.star-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  background-color: #14141c;
+  border: 3px solid #2a2a38;
+}
+
+.star-icon {
+  font-size: 2rem;
+  line-height: 1;
+  color: #3a3a4a;
+}
+
+.star-slot.is-earned {
+  border-color: #ffd21f;
+  background-color: #1d1a0c;
+}
+
+.star-slot.is-earned .star-icon {
+  color: #ffd21f;
+  text-shadow: 0 0 10px rgba(255, 210, 31, 0.6);
+}
+
+.results-badge {
+  font-size: 0.8rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #ffd21f;
+}
+
+.results-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 6px;
+  background-color: #14141c;
+  border: 2px solid #2a2a38;
+}
+
+.stat-wide {
+  grid-column: 1 / -1;
+}
+
+.stat-label {
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  color: #6fb7ff;
+}
+
+.stat-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffd21f;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.stat-good {
+  color: #5dff8a;
+}
+
+.stat-bad {
+  color: #ff6b86;
+}
+
+.results-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background-color: #0e0e15;
+  border: 2px solid #2a2a38;
+}
+
+.results-block-title {
+  font-size: 0.8rem;
+  letter-spacing: 3px;
+  color: #ffd21f;
+}
+
+.xp-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.xp-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: #c8c8d8;
+}
+
+.xp-total {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 2px solid #2a2a38;
+  font-weight: bold;
+  color: #5dff8a;
+}
+
+.results-note {
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  color: #6fb7ff;
+  text-align: center;
+}
+
+.results-next {
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  color: #ffd21f;
+  text-align: center;
+}
+
+.learn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.learn-title {
+  font-size: 0.66rem;
+  letter-spacing: 2px;
+}
+
+.learn-title-new {
+  color: #ffd21f;
+}
+
+.learn-title-good {
+  color: #5dff8a;
+}
+
+.learn-title-bad {
+  color: #ff6b86;
+}
+
+.learn-title-review {
+  color: #b99bff;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background-color: #14141c;
+  border: 2px solid #2a2a38;
+}
+
+.chip-char {
+  font-size: 1.3rem;
+  line-height: 1;
+  color: #ffffff;
+  font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", "MS Gothic", sans-serif;
+}
+
+.chip-meaning {
+  font-size: 0.62rem;
+  color: #8a8aa0;
+}
+
+.chip-empty {
+  font-size: 0.8rem;
+  color: #555566;
+}
+
+.results-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px 12px;
+  background-color: #0b0b10;
+  border-top: 2px solid #2a2a38;
+}
+
+.results-actions .menu-button {
+  padding: 11px 14px;
+  font-size: 0.9rem;
+}
