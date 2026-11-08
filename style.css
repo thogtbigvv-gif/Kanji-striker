@@ -53,7 +53,7 @@ body {
 .screen-menu {
   justify-content: center;
   align-items: center;
-  gap: 44px;
+  gap: 28px;
   padding: 24px 20px;
   text-align: center;
   background-image:
@@ -114,9 +114,8 @@ body {
 .menu-nav {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
-  max-width: 280px;
 }
 
 .menu-button {
@@ -168,6 +167,18 @@ body {
   min-width: 70px;
 }
 
+.hud-hp {
+  flex: 1;
+  max-width: 150px;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.hud-hp .hud-label,
+.hud-hp .hud-value {
+  text-align: left;
+}
+
 .hud-label {
   font-size: 0.65rem;
   letter-spacing: 2px;
@@ -211,6 +222,7 @@ body {
 
 .control-button {
   flex: 1;
+  min-height: 48px;
   padding: 10px 12px;
   font-family: inherit;
   font-size: 0.85rem;
@@ -244,7 +256,7 @@ body {
   padding: 6px 10px;
   text-align: center;
   font-size: 0.7rem;
-  color: #555566;
+  color: #8a8aa0;
 }
 
 /* ---------- PANELS (COLLECTION + SETTINGS) ---------- */
@@ -319,7 +331,7 @@ body {
 }
 
 .kanji-cell-meaning {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   color: #8a8aa0;
 }
 
@@ -480,7 +492,7 @@ body {
 }
 
 .stat-label {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   letter-spacing: 2px;
   color: #6fb7ff;
 }
@@ -727,8 +739,17 @@ body {
 
 .stage-name {
   flex: 1;
-  font-size: 0.8rem;
-  letter-spacing: 1px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.stage-sub {
+  font-size: 0.7rem;
+  font-weight: normal;
+  color: #8a8aa0;
 }
 
 .stage-status {
@@ -765,7 +786,7 @@ body {
 
 .stage-row.is-locked {
   cursor: default;
-  color: #6a6a7c;
+  color: #7c7c92;
 }
 
 .stage-row.is-locked .stage-num {
@@ -773,8 +794,9 @@ body {
   color: #8a8aa0;
 }
 
-.stage-row.is-locked .stage-status {
-  color: #6a6a7c;
+.stage-row.is-locked .stage-status,
+.stage-row.is-locked .stage-sub {
+  color: #7c7c92;
 }
 
 .galaxy-actions {
@@ -786,4 +808,307 @@ body {
 .galaxy-actions .menu-button {
   padding: 11px 10px;
   font-size: 0.9rem;
+}
+
+/* ---------- UX / UI POLISH (v0.6.0) ---------- */
+
+/* Visible keyboard focus on every control */
+button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+/* Main menu: the starfield drifts slowly; each layer loops over its own tile size, so the loop has no jump */
+.screen-menu {
+  animation: starDrift 60s linear infinite;
+}
+
+@keyframes starDrift {
+  to {
+    background-position: 0 220px, 0 240px, 0 300px, 0 220px, 0 280px, 0 260px;
+  }
+}
+
+.menu-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.menu-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background-color: rgba(14, 14, 21, 0.85);
+  border: 2px solid #2a2a38;
+}
+
+.menu-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+}
+
+.menu-stat + .menu-stat {
+  border-left: 2px solid #2a2a38;
+}
+
+.menu-stat-value {
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: #ffd21f;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.menu-stat-label {
+  font-size: 0.68rem;
+  letter-spacing: 2px;
+  color: #6fb7ff;
+}
+
+.menu-next {
+  min-height: 2.4em;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: center;
+  color: #c8c8d8;
+}
+
+.menu-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr;
+  gap: 10px;
+}
+
+.menu-button-small {
+  padding: 12px 4px;
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+  border-width: 2px;
+  box-shadow: 0 3px 0 #8a6d00;
+}
+
+.menu-button-small:active {
+  transform: translateY(3px);
+}
+
+/* HP bar */
+.hp-track {
+  width: 100%;
+  height: 8px;
+  background-color: #1a1a24;
+  border: 2px solid #2a2a38;
+}
+
+.hp-fill {
+  height: 100%;
+  width: 100%;
+  background-color: #5dff8a;
+  transition: width 0.15s linear, background-color 0.2s linear;
+}
+
+.hp-fill.is-mid {
+  background-color: #ffd21f;
+}
+
+.hp-fill.is-low {
+  background-color: #ff4d6d;
+  animation: hpPulse 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes hpPulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+/* Question bar: the one thing the player must always read */
+.question-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px 10px;
+  background-color: #0b0b10;
+  border-bottom: 3px solid #ff6b86;
+}
+
+.question-label {
+  font-size: 0.68rem;
+  letter-spacing: 2px;
+  color: #6fb7ff;
+}
+
+.question-meaning {
+  font-size: 1.9rem;
+  font-weight: bold;
+  line-height: 1.1;
+  color: #ffd21f;
+  text-shadow: 2px 2px 0 #000000;
+  text-align: center;
+}
+
+.question-bar.is-new .question-meaning {
+  animation: questionPop 0.3s ease-out;
+}
+
+@keyframes questionPop {
+  from {
+    transform: scale(1.25);
+    color: #ffffff;
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Collection legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 0.7rem;
+  color: #8a8aa0;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid;
+}
+
+.legend-seen {
+  border-color: #6fb7ff;
+}
+
+.legend-mastered {
+  border-color: #ffd21f;
+  background-color: #1d1a0c;
+}
+
+.legend-locked {
+  border-color: #3a3a4a;
+}
+
+/* How to play */
+.screen-how {
+  padding: 20px 16px 12px;
+  gap: 12px;
+}
+
+.how-list {
+  flex: 1;
+  min-height: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.how-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background-color: #14141c;
+  border: 2px solid #2a2a38;
+}
+
+.how-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 56px;
+  height: 40px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  letter-spacing: 0;
+  text-align: center;
+  color: #ffd21f;
+  background-color: #1d1a0c;
+  border: 2px solid #ffd21f;
+  font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", "MS Gothic", sans-serif;
+}
+
+.how-item h3 {
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: #6fb7ff;
+}
+
+.how-item p {
+  margin-top: 2px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #e4e4ee;
+}
+
+/* Results: stars pop in one by one */
+.star-slot.is-earned {
+  animation: starPop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+.star-slot.is-earned:nth-child(2) {
+  animation-delay: 0.25s;
+}
+
+.star-slot.is-earned:nth-child(3) {
+  animation-delay: 0.5s;
+}
+
+@keyframes starPop {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Buttons: at least 48px tall on touch screens */
+.menu-button {
+  min-height: 48px;
+}
+
+@media (max-height: 640px) {
+  .screen-menu {
+    gap: 14px;
+    padding: 12px 20px;
+  }
+  .title-line-top {
+    font-size: 2.3rem;
+  }
+  .title-line-bottom {
+    font-size: 1.8rem;
+  }
+  .question-meaning {
+    font-size: 1.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-menu,
+  .hp-fill.is-low,
+  .question-bar.is-new .question-meaning,
+  .star-slot.is-earned {
+    animation: none;
+  }
+  .hp-fill {
+    transition: none;
+  }
 }
