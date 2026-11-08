@@ -70,10 +70,9 @@
     pointerId: null,
     dragPointerX: 0, // finger position when the touch started (relative control)
     dragShipX: 0,    // ship target position when the touch started (relative control)
-    lastFingerX: 0,  // last finger position (used to measure the finger speed)
-    moveAccum: 0,    // finger distance moved since the last frame (pixels)
-    fingerSpeed: 0,  // smoothed finger speed (pixels per second)
-    fireHeld: false  // true while shooting is allowed (finger down and not moving fast)
+    aimX: 0,         // finger position where it last rested (anchor of the aim lock)
+    aimTimer: 0,     // seconds the finger has rested on the anchor
+    fireHeld: false  // true while shooting is allowed (finger resting for at least AIM_DELAY)
   };
 
   var stars = [];
@@ -136,11 +135,12 @@
   var PLAYER_FOLLOW = 16;    // how fast the ship follows the finger (per second)
   var RELATIVE_CONTROL = true;   // true: the ship moves by how far the finger moved (finger can be anywhere)
                                  // false: the ship goes to the exact spot where the finger is
-  // Fire control: the ship shoots while the finger is down AND moving slowly. A fast swipe (dodging)
-  // pauses shooting, so a wrong kanji can be avoided without lifting the finger.
-  var FIRE_STOP_SPEED = 240;      // finger speed (pixels per second) above which shooting pauses
-  var FIRE_START_SPEED = 150;     // finger speed below which shooting starts again (lower than STOP, so it does not flicker)
-  var FIRE_SPEED_SMOOTHING = 18;  // how quickly the measured finger speed reacts (higher = faster)
+  // Aim lock: the ship shoots ONLY while the finger rests on one spot. Touching the screen does not shoot
+  // at once: the finger must stay still for AIM_DELAY seconds first. Moving the finger further than
+  // AIM_TOLERANCE pixels stops shooting immediately, and the finger must rest again before the next shot.
+  // So moving the ship never shoots, and a wrong kanji can be passed (or dodged) safely.
+  var AIM_DELAY = 0.2;     // seconds the finger must rest before the ship starts shooting
+  var AIM_TOLERANCE = 10;  // pixels the finger may wobble while still counting as resting
   var CONTROL_SENSITIVITY = 1.2; // relative control only: 1 = ship moves as far as the finger, 1.2 = a bit more
   // Weapon power-up: the ship shoots more bullets side by side while the combo is high.
   // Any damage resets the combo, so it also drops the weapon back to a single shot.
@@ -241,6 +241,30 @@
     '.BBDDDBB.',
     '..B.D.B..'
   ];
+
+  // ---------- Enemy kinds ----------
+  // Every kind carries a kanji, exactly like the normal ship. The kind only changes how the ship behaves:
+  //   normal = the standard blue ship
+  //   fast   = orange, flies much faster (speedMult, capped by maxSpeed), worth more points
+  //   big    = purple, large and slow, takes 2 hits (armor) before the answer counts, worth double points
+  //   split  = green, ALWAYS a wrong answer: when it reaches SPLIT_AT_Y of the screen it breaks into 2 mini ships
+  //   mini   = small green ship made by a split, always a wrong answer, drifts sideways
+  // scale = size compared to the normal ship, score = points multiplier for a correct answer
+  var SPLIT_AT_Y = 0.35;  // the splitter breaks apart when its top is below this part of the screen height
+  var MINI_DRIFT = 70;    // sideways speed of the mini ships (pixels per second)
+  var ENEMY_KINDS = {
+    normal: { scale: 1,    armor: 1, speedMult: 1,    maxSpeed: 0,   score: 1,   border: '#ffd21f',
+              colors: { B: '#2f7bff', D: '#123a8a', Y: '#ffd21f' } },
+    fast:   { scale: 1,    armor: 1, speedMult: 1.6,  maxSpeed: 170, score: 1.5, border: '#ff9a3c',
+              colors: { B: '#ff7a1f', D: '#8a3a0a', Y: '#ffe36b' } },
+    big:    { scale: 1.5,  armor: 2, speedMult: 0.75, maxSpeed: 0,   score: 2,   border: '#b99bff',
+              colors: { B: '#9b6bff', D: '#4b2a9a', Y: '#ffd21f' } },
+    split:  { scale: 1.25, armor: 1, speedMult: 0.9,  maxSpeed: 0,   score: 1,   border: '#5dff8a',
+              colors: { B: '#3ddc84', D: '#1a7a46', Y: '#eaffb0' } },
+    mini:   { scale: 0.75, armor: 1, speedMult: 1.1,  maxSpeed: 0,   score: 1,   border: '#5dff8a',
+              colors: { B: '#3ddc84', D: '#1a7a46', Y: '#eaffb0' } }
+  };
+  var ENEMY_FLASH_COLORS = { B: '#ffffff', D: '#cfd6e6', Y: '#ffffff' }; // shown for a moment when an armor hit lands
 
   // ---------- Saved data (stored in the browser) ----------
   var KEY_BEST = 'kanjiStrikerBestScore';
@@ -886,15 +910,46 @@
   // speed 1.1 = enemies 10% faster, gap 0.9 = the next group comes 10% sooner.
   // sway multiplies how far swaying groups move sideways (0 = no swaying in that stage).
   // extraGroups are added to the end of every wave of that stage.
+  // specials = enemy kinds (see Enemy kinds) added as single ships to every wave EXCEPT the first one
+  // (Introduction); the Final Wave gets them twice. Stage 1 has none, so the first stage stays gentle.
   var STAGE_TUNING = {
-    1: { speed: 0.9, gap: 1.15, sway: 0, extraGroups: [] },                                  // New Kanji: gentle start
-    2: { speed: 1.0, gap: 1.0, sway: 0.6, extraGroups: [] },                                   // Review Run: normal speed, but old kanji are mixed in
-    3: { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [{ count: 2, shape: 'row' }] },         // Big Waves: one more group per wave
-    4: { speed: 1.2, gap: 0.8, sway: 1.3, extraGroups: [{ count: 3, shape: 'v' }, { count: 1, shape: 'single' }] } // Hard Fight
+    1: { speed: 0.9, gap: 1.15, sway: 0, extraGroups: [], specials: [] },                                  // New Kanji: gentle start
+    2: { speed: 1.0, gap: 1.0, sway: 0.6, extraGroups: [], specials: ['fast'] },                           // Review Run: fast ships appear
+    3: { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [{ count: 2, shape: 'row' }], specials: ['fast', 'big'] }, // Big Waves: + armored big ships
+    4: { speed: 1.2, gap: 0.8, sway: 1.3, extraGroups: [{ count: 3, shape: 'v' }, { count: 1, shape: 'single' }],
+         specials: ['fast', 'big', 'split'] }                                                              // Hard Fight: + splitters
   };
-  var DEFAULT_TUNING = { speed: 1.0, gap: 1.0, sway: 1.0, extraGroups: [] };
+  var DEFAULT_TUNING = { speed: 1.0, gap: 1.0, sway: 1.0, extraGroups: [], specials: [] };
 
   // The wave plan of a stage: the base waves, made faster / longer depending on the stage number
+  // Adds one single-ship group for every special kind (repeated `times` times), spread evenly through the wave
+  function withSpecialGroups(groups, specials, times) {
+    if (!specials || specials.length === 0) {
+      return groups;
+    }
+    var extra = [];
+    for (var r = 0; r < times; r++) {
+      for (var s = 0; s < specials.length; s++) {
+        extra.push({ count: 1, shape: 'single', kind: specials[s] });
+      }
+    }
+    var out = [];
+    var step = groups.length / (extra.length + 1);
+    var next = 0;
+    for (var g = 0; g < groups.length; g++) {
+      while (next < extra.length && g >= Math.round(step * (next + 1))) {
+        out.push(extra[next]);
+        next += 1;
+      }
+      out.push(groups[g]);
+    }
+    while (next < extra.length) {
+      out.push(extra[next]);
+      next += 1;
+    }
+    return out;
+  }
+
   function getWavesForStage(stage) {
     if (!stage) {
       return [];
@@ -910,7 +965,9 @@
         sway: base.sway && tuning.sway > 0
           ? { chance: base.sway.chance, amplitude: base.sway.amplitude * tuning.sway, period: base.sway.period }
           : null,
-        groups: base.groups.concat(tuning.extraGroups)
+        groups: i >= 1
+          ? withSpecialGroups(base.groups.concat(tuning.extraGroups), tuning.specials, i === WAVE_DEFS.length - 1 ? 2 : 1)
+          : base.groups.concat(tuning.extraGroups)
       });
     }
     return waves;
@@ -1011,10 +1068,15 @@
   // Spawns every ship of a group at once. The ships are created in random order, so the correct
   // target (the first ship created while no target is on screen) is not always on the same side.
   function spawnGroup(group, speed, sway) {
+    // A splitter is always a wrong answer, so when no correct target is on screen yet, a normal ship
+    // carrying the target comes first
+    if (group.kind === 'split' && !activeTargetOnScreen()) {
+      spawnEnemy(pickSpawnX(), -ENEMY_HEIGHT, speed, null, 'normal');
+    }
     var slots = shuffle(formationSlots(group));
     var motion = pickMotion(sway, slots);
     for (var i = 0; i < slots.length; i++) {
-      spawnEnemy(slots[i].x, -ENEMY_HEIGHT - slots[i].lift, speed, motion);
+      spawnEnemy(slots[i].x, -ENEMY_HEIGHT - slots[i].lift, speed, motion, group.kind);
     }
   }
 
@@ -1348,8 +1410,10 @@
         continue;
       }
       onScreen[en.data.kanji] = true;
-      // Prefer a ship of this stage's own kanji that is not the old question; the highest one gives the most time
-      if (en.data !== question && questionPool.indexOf(en.data) !== -1 && (promote === null || en.y < promote.y)) {
+      // Prefer a ship of this stage's own kanji that is not the old question; the highest one gives the most time.
+      // Splitters and their mini ships are always wrong answers, so they can never be promoted.
+      if (en.kind !== 'split' && en.kind !== 'mini' &&
+          en.data !== question && questionPool.indexOf(en.data) !== -1 && (promote === null || en.y < promote.y)) {
         promote = en;
       }
     }
@@ -1446,27 +1510,65 @@
     return bestX;
   }
 
-  function spawnEnemy(x, y, speed, motion) {
+  // Builds one enemy object of the given kind (used for normal spawns and for the mini ships of a splitter)
+  function buildEnemy(data, isTarget, x, y, speed, motion, kind) {
+    var def = ENEMY_KINDS[kind];
+    var w = ENEMY_WIDTH * def.scale;
+    var h = ENEMY_HEIGHT * def.scale;
+    var margin = w / 2 + 4;
+    var px = Math.max(margin, Math.min(viewWidth - margin, x));
+    var finalSpeed = speed * def.speedMult;
+    if (def.maxSpeed > 0) {
+      finalSpeed = Math.min(finalSpeed, def.maxSpeed);
+    }
+    var swaying = motion && kind === 'normal'; // special ships fly straight, so they are easy to read
+    return {
+      data: data,
+      isTarget: isTarget,
+      qid: questionSerial,
+      dead: false,
+      kind: kind,
+      w: w,
+      h: h,
+      armor: def.armor,                 // hits needed before the ship is destroyed
+      hitFlash: 0,                      // seconds left of the white flash after an armor hit
+      vx: 0,                            // sideways drift (mini ships only)
+      x: px,
+      baseX: px,                        // centre line the ship sways around
+      swayAmp: swaying ? motion.amp : 0, // 0 = flies straight
+      swayFreq: swaying ? motion.freq : 0,
+      age: 0,
+      y: y - (h - ENEMY_HEIGHT),        // a bigger ship starts higher, so it still enters from above the screen
+      speed: finalSpeed,    // pixels per second at the reference screen height (set by the wave)
+      wave: waveState.index // which wave this ship belongs to
+    };
+  }
+
+  function spawnEnemy(x, y, speed, motion, kind) {
     // Exactly one correct target per question: spawn it only when none is active
     var needTarget = !activeTargetOnScreen();
     if (needTarget) {
       targetLost = false; // the correct target is back on screen
       rescueTimer = -1;
     }
-    enemies.push({
-      data: needTarget ? question : pickDecoy(),
-      isTarget: needTarget,
-      qid: questionSerial,
-      dead: false,
-      x: x,
-      baseX: x,                       // centre line the ship sways around
-      swayAmp: motion ? motion.amp : 0, // 0 = flies straight
-      swayFreq: motion ? motion.freq : 0,
-      age: 0,
-      y: y,
-      speed: speed,         // pixels per second at the reference screen height (set by the wave)
-      wave: waveState.index // which wave this ship belongs to
-    });
+    if (!ENEMY_KINDS[kind] || (needTarget && (kind === 'split' || kind === 'mini'))) {
+      kind = 'normal'; // these two kinds are always wrong answers and can never be the target
+    }
+    enemies.push(buildEnemy(needTarget ? question : pickDecoy(), needTarget, x, y, speed, motion, kind));
+  }
+
+  // The splitter breaks into two mini ships that drift apart (always wrong answers)
+  function splitEnemy(enemy) {
+    enemy.dead = true;
+    burst(enemy.x, enemy.y + enemy.h / 2, '#5dff8a');
+    playTone(260, 0.1, 'square', 0.06);
+    playTone(390, 0.1, 'square', 0.06, 0.07);
+    var baseSpeed = enemy.speed / ENEMY_KINDS.split.speedMult; // the wave speed the splitter was made with
+    for (var side = -1; side <= 1; side += 2) {
+      var mini = buildEnemy(pickDecoy(), false, enemy.x + side * 16, enemy.y + enemy.h * 0.25, baseSpeed, null, 'mini');
+      mini.vx = side * MINI_DRIFT;
+      enemies.push(mini);
+    }
   }
 
   function burst(x, y, color) {
@@ -1512,11 +1614,12 @@
     updateHud();
   }
 
-  function correctHit(data, x, y) {
+  function correctHit(data, x, y, kind) {
     var levelBefore = weaponLevel();
     combo += 1;
     answered += 1;
-    var points = 10 * Math.min(combo, MAX_SCORE_MULTIPLIER);
+    var kindScore = (ENEMY_KINDS[kind] || ENEMY_KINDS.normal).score; // fast x1.5, big x2
+    var points = Math.round(10 * Math.min(combo, MAX_SCORE_MULTIPLIER) * kindScore);
     score += points;
     recordHit(data.kanji);
 
@@ -1639,28 +1742,22 @@
 
   function hitsPlayer(enemy) {
     return (
-      Math.abs(enemy.x - player.x) < (ENEMY_WIDTH + SHIP_WIDTH) / 2 - 4 &&
-      enemy.y + ENEMY_HEIGHT > player.y - SHIP_HEIGHT / 2 &&
+      Math.abs(enemy.x - player.x) < (enemy.w + SHIP_WIDTH) / 2 - 4 &&
+      enemy.y + enemy.h > player.y - SHIP_HEIGHT / 2 &&
       enemy.y < player.y + SHIP_HEIGHT / 2
     );
   }
 
-  // Measures how fast the finger moves and decides if shooting is allowed (with a small hysteresis)
+  // Aim lock: counts how long the finger has rested. Shooting is allowed only after AIM_DELAY.
+  // (Moving the finger resets aimTimer in the pointermove handler.)
   function updateFireControl(dt) {
     if (!player.isDragging) {
       player.fireHeld = false;
-      player.fingerSpeed = 0;
-      player.moveAccum = 0;
+      player.aimTimer = 0;
       return;
     }
-    var instantSpeed = dt > 0 ? player.moveAccum / dt : 0;
-    player.moveAccum = 0;
-    player.fingerSpeed += (instantSpeed - player.fingerSpeed) * (1 - Math.exp(-FIRE_SPEED_SMOOTHING * dt));
-    if (player.fingerSpeed > FIRE_STOP_SPEED) {
-      player.fireHeld = false;
-    } else if (player.fingerSpeed < FIRE_START_SPEED) {
-      player.fireHeld = true;
-    }
+    player.aimTimer = Math.min(player.aimTimer + dt, AIM_DELAY);
+    player.fireHeld = player.aimTimer >= AIM_DELAY;
   }
 
   // 1 = single shot, 2 = double shot, 3 = triple shot (depends on the current combo)
@@ -1679,11 +1776,10 @@
     var i;
     var j;
 
-    // Hold-to-fire: the ship shoots only while a finger (or the mouse button) is down and moving slowly.
-    // Swipe fast (or lift the finger) to stop shooting, so a wrong kanji in the lane can be let pass safely.
-    // The cooldown keeps counting down even when the finger is lifted, so tapping quickly
-    // can never shoot faster than FIRE_INTERVAL. The first shot comes the moment the finger touches
-    // (when the cooldown is already over).
+    // Aim-lock fire: the ship shoots only while the finger (or the mouse button) rests on one spot for
+    // AIM_DELAY seconds. Move the finger (or lift it) to stop shooting, so a wrong kanji in the lane can be
+    // let pass safely. The cooldown keeps counting down even when the finger is lifted, so tapping quickly
+    // can never shoot faster than FIRE_INTERVAL.
     updateFireControl(dt);
     if (player.isDragging && player.fireHeld) {
       fireTimer -= dt;
@@ -1723,11 +1819,31 @@
       if (enemy.dead) {
         continue;
       }
+      if (enemy.hitFlash > 0) {
+        enemy.hitFlash -= dt;
+      }
       if (enemy.swayAmp !== 0) {
         enemy.age += dt;
         enemy.x = enemy.baseX + enemy.swayAmp * Math.sin(enemy.age * enemy.swayFreq);
       }
+      if (enemy.vx !== 0) {
+        // Mini ships drift sideways and bounce off the screen edges
+        var edge = enemy.w / 2 + 2;
+        enemy.x += enemy.vx * dt;
+        if (enemy.x < edge) {
+          enemy.x = edge;
+          enemy.vx = Math.abs(enemy.vx);
+        } else if (enemy.x > viewWidth - edge) {
+          enemy.x = viewWidth - edge;
+          enemy.vx = -Math.abs(enemy.vx);
+        }
+      }
       enemy.y += enemy.speed * scale * speedFactor * dt;
+
+      if (enemy.kind === 'split' && enemy.y > viewHeight * SPLIT_AT_Y) {
+        splitEnemy(enemy);
+        continue;
+      }
 
       if (enemy.y > viewHeight) {
         var escapedTarget = isActiveTarget(enemy);
@@ -1745,7 +1861,7 @@
       if (hitsPlayer(enemy)) {
         var crashedTarget = isActiveTarget(enemy);
         enemy.dead = true;
-        burst(enemy.x, enemy.y + ENEMY_HEIGHT / 2, '#ff6b86');
+        burst(enemy.x, enemy.y + enemy.h / 2, '#ff6b86');
         if (crashedTarget) {
           targetMissed(TARGET_CRASH_DAMAGE);
         } else {
@@ -1770,10 +1886,10 @@
         if (e.dead || e.y <= KANJI_VISIBLE_Y) {
           continue;
         }
-        if (Math.abs(b.x - e.x) > ENEMY_WIDTH / 2 + BULLET_HIT_PADDING) {
+        if (Math.abs(b.x - e.x) > e.w / 2 + BULLET_HIT_PADDING) {
           continue;
         }
-        if (b.y > e.y + ENEMY_HEIGHT || b.prevY < e.y) {
+        if (b.y > e.y + e.h || b.prevY < e.y) {
           continue;
         }
         if (target === null || e.y > target.y) {
@@ -1784,14 +1900,23 @@
         continue;
       }
 
-      var wasCorrect = isActiveTarget(target);
       b.dead = true;
+      // Armored ship (big): the first hit only cracks the armor, the answer counts when it is destroyed
+      if (target.armor > 1) {
+        target.armor -= 1;
+        target.hitFlash = 0.12;
+        burst(b.x, b.y, '#b99bff');
+        playTone(300, 0.05, 'square', 0.05);
+        continue;
+      }
+
+      var wasCorrect = isActiveTarget(target);
       target.dead = true;
       if (wasCorrect) {
-        burst(target.x, target.y + ENEMY_HEIGHT / 2, '#5dff8a');
-        correctHit(target.data, target.x, target.y);
+        burst(target.x, target.y + target.h / 2, '#5dff8a');
+        correctHit(target.data, target.x, target.y, target.kind);
       } else {
-        burst(target.x, target.y + ENEMY_HEIGHT / 2, '#ff6b86');
+        burst(target.x, target.y + target.h / 2, '#ff6b86');
         wrongHit(target.data);
         if (currentState === STATE_GAME_OVER) {
           break;
@@ -1963,9 +2088,24 @@
   }
 
   function drawEnemy(enemy) {
+    var def = ENEMY_KINDS[enemy.kind] || ENEMY_KINDS.normal;
+    var colors = enemy.hitFlash > 0 ? ENEMY_FLASH_COLORS : def.colors;
     var spriteWidth = ENEMY_PIXELS[0].length * ENEMY_PIXEL;
-    var left = Math.round(enemy.x - spriteWidth / 2);
-    var top = Math.round(enemy.y);
+
+    // Everything below is drawn for a normal-size ship at (0, 0) = top centre; scale() makes other kinds bigger/smaller
+    ctx.save();
+    ctx.translate(Math.round(enemy.x), Math.round(enemy.y));
+    ctx.scale(def.scale, def.scale);
+    var left = -spriteWidth / 2;
+
+    // Speed lines behind a fast ship
+    if (enemy.kind === 'fast') {
+      var trail = Math.floor(totalTime * 24) % 2 === 0 ? 14 : 20;
+      ctx.fillStyle = 'rgba(255, 154, 60, 0.55)';
+      ctx.fillRect(-12, -trail, 3, trail - 2);
+      ctx.fillRect(-1, -trail - 4, 3, trail + 2);
+      ctx.fillRect(10, -trail, 3, trail - 2);
+    }
 
     for (var row = 0; row < ENEMY_PIXELS.length; row++) {
       for (var col = 0; col < ENEMY_PIXELS[row].length; col++) {
@@ -1973,25 +2113,35 @@
         if (key === '.') {
           continue;
         }
-        ctx.fillStyle = ENEMY_COLORS[key];
-        ctx.fillRect(left + col * ENEMY_PIXEL, top + row * ENEMY_PIXEL, ENEMY_PIXEL, ENEMY_PIXEL);
+        ctx.fillStyle = colors[key];
+        ctx.fillRect(left + col * ENEMY_PIXEL, row * ENEMY_PIXEL, ENEMY_PIXEL, ENEMY_PIXEL);
       }
     }
 
     // Kanji plate
-    var plateTop = top + ENEMY_PIXELS.length * ENEMY_PIXEL + 4;
-    var plateHeight = ENEMY_HEIGHT - (plateTop - top);
+    var plateTop = ENEMY_PIXELS.length * ENEMY_PIXEL + 4;
+    var plateHeight = ENEMY_HEIGHT - plateTop;
+    var plateLeft = -ENEMY_WIDTH / 2;
     ctx.fillStyle = '#0b0b10';
-    ctx.fillRect(Math.round(enemy.x - ENEMY_WIDTH / 2), plateTop, ENEMY_WIDTH, plateHeight);
-    ctx.strokeStyle = '#ffd21f';
+    ctx.fillRect(plateLeft, plateTop, ENEMY_WIDTH, plateHeight);
+    ctx.strokeStyle = def.border;
     ctx.lineWidth = 2;
-    ctx.strokeRect(Math.round(enemy.x - ENEMY_WIDTH / 2), plateTop, ENEMY_WIDTH, plateHeight);
+    ctx.strokeRect(plateLeft, plateTop, ENEMY_WIDTH, plateHeight);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 24px ' + KANJI_FONT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(enemy.data.kanji, enemy.x, plateTop + plateHeight / 2 + 1);
+    ctx.fillText(enemy.data.kanji, 0, plateTop + plateHeight / 2 + 1);
+
+    // Armor pips above a big ship: one filled pip for every hit it can still take
+    if (def.armor > 1) {
+      for (var p = 0; p < def.armor; p++) {
+        ctx.fillStyle = p < enemy.armor ? '#b99bff' : 'rgba(185, 155, 255, 0.25)';
+        ctx.fillRect(-9 + p * 11, -7, 8, 3);
+      }
+    }
+    ctx.restore();
   }
 
   function drawQuestion() {
@@ -2075,17 +2225,27 @@
   }
 
   // Small hint at the bottom while the finger is down but shooting is paused by a fast swipe
+  // While the finger is down but the ship is not shooting: a small bar above the ship fills up while
+  // the finger rests (AIM_DELAY), and a short hint is shown at the bottom
   function drawFirePaused() {
     if (currentState !== STATE_PLAYING || !player.isDragging || player.fireHeld) {
       return;
     }
+    var barWidth = SHIP_WIDTH + 8;
+    var barLeft = Math.round(player.x - barWidth / 2);
+    var barTop = Math.round(player.y - SHIP_HEIGHT / 2 - 12);
+    ctx.fillStyle = 'rgba(143, 153, 168, 0.35)';
+    ctx.fillRect(barLeft, barTop, barWidth, 3);
+    ctx.fillStyle = '#ffd21f';
+    ctx.fillRect(barLeft, barTop, Math.round(barWidth * Math.min(player.aimTimer / AIM_DELAY, 1)), 3);
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = 'bold 11px "Courier New", monospace';
     ctx.fillStyle = '#000000';
-    ctx.fillText('HOLD FIRE', viewWidth / 2 + 1, viewHeight - 11);
+    ctx.fillText('HOLD STILL TO FIRE', viewWidth / 2 + 1, viewHeight - 11);
     ctx.fillStyle = '#8f99a8';
-    ctx.fillText('HOLD FIRE', viewWidth / 2, viewHeight - 12);
+    ctx.fillText('HOLD STILL TO FIRE', viewWidth / 2, viewHeight - 12);
   }
 
   // Small label in the bottom-left corner while a power-up weapon is active
@@ -2198,8 +2358,7 @@
     player.isDragging = false;
     player.pointerId = null;
     player.fireHeld = false;
-    player.fingerSpeed = 0;
-    player.moveAccum = 0;
+    player.aimTimer = 0;
   }
 
   canvas.addEventListener('pointerdown', function (event) {
@@ -2226,10 +2385,9 @@
     var touchX = event.clientX - canvas.getBoundingClientRect().left;
     player.dragPointerX = touchX;
     player.dragShipX = player.targetX;
-    player.lastFingerX = touchX;
-    player.moveAccum = 0;
-    player.fingerSpeed = 0;
-    player.fireHeld = true; // the first shot comes the moment the finger touches
+    player.aimX = touchX;
+    player.aimTimer = 0;
+    player.fireHeld = false; // no instant shot: the finger must rest for AIM_DELAY first
     if (!RELATIVE_CONTROL) {
       player.targetX = getPointerX(event);
     }
@@ -2251,8 +2409,12 @@
       return;
     }
     var moveX = event.clientX - canvas.getBoundingClientRect().left;
-    player.moveAccum += Math.abs(moveX - player.lastFingerX); // used to measure the finger speed
-    player.lastFingerX = moveX;
+    // Moved further than the tolerance: shooting stops and the aim lock starts again from this spot
+    if (Math.abs(moveX - player.aimX) > AIM_TOLERANCE) {
+      player.aimX = moveX;
+      player.aimTimer = 0;
+      player.fireHeld = false;
+    }
     if (RELATIVE_CONTROL) {
       var wantedX = player.dragShipX + (moveX - player.dragPointerX) * CONTROL_SENSITIVITY;
       var limitedX = clampX(wantedX);
