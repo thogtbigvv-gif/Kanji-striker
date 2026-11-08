@@ -180,7 +180,7 @@ window.addEventListener('keydown', function (event) {
 });
 
 // ---------- Buttons ----------
-startGameButton.addEventListener('click', startGame);
+startGameButton.addEventListener('click', showGalaxyMap);
 backToMenuButton.addEventListener('click', backToMenu);
 pauseButton.addEventListener('click', togglePause);
 
@@ -188,6 +188,15 @@ kanjiCollectionButton.addEventListener('click', showCollection);
 settingsButton.addEventListener('click', showSettings);
 collectionBackButton.addEventListener('click', showMenu);
 settingsBackButton.addEventListener('click', showMenu);
+
+// Galaxy map buttons
+galaxyBackButton.addEventListener('click', showMenu);
+galaxyContinueButton.addEventListener('click', function () {
+  var stageId = debugStageId || getContinueStageId();
+  if (!stageId || !startStage(stageId)) {
+    showGalaxyMap();
+  }
+});
 
 // Stage results buttons
 resultsNextButton.addEventListener('click', function () {
@@ -197,7 +206,7 @@ resultsNextButton.addEventListener('click', function () {
   }
 });
 resultsRetryButton.addEventListener('click', restartCurrentStage);
-resultsMapButton.addEventListener('click', backToMenu);
+resultsMapButton.addEventListener('click', goToGalaxyMap);
 
 soundToggleButton.addEventListener('click', function () {
   soundEnabled = !soundEnabled;
