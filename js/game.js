@@ -46,6 +46,16 @@ function startStage(stageId) {
   dashGhosts = [];
   flickTrail = [];
   runStats = newRunStats();
+  runKanji = {};
+  priorHits = {};
+  for (var k = 0; k < KANJI_LIST.length; k++) {
+    var saved = progress[KANJI_LIST[k].kanji];
+    priorHits[KANJI_LIST[k].kanji] = saved && typeof saved.hits === 'number' ? saved.hits : 0;
+  }
+  if (resultsTimer !== null) {
+    clearTimeout(resultsTimer);
+    resultsTimer = null;
+  }
   waveHpLost = false;
   perfectWaves = 0;
   bonusScore = 0;
@@ -88,6 +98,10 @@ function restartCurrentStage() {
 }
 
 function backToMenu() {
+  if (resultsTimer !== null) {
+    clearTimeout(resultsTimer);
+    resultsTimer = null;
+  }
   if (currentState === STATE_PLAYING || currentState === STATE_PAUSED || currentState === STATE_STAGE_COMPLETE) {
     commitBestScore();
   }
