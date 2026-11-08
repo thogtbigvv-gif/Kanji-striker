@@ -65,7 +65,8 @@ function pickQuestion() {
     onScreen[en.data.kanji] = true;
     // Prefer a ship of this stage's own kanji that is not the old question; the highest one gives the most time.
     // Splitters and their mini ships are always wrong answers, so they can never be promoted.
-    if (en.kind !== 'split' && en.kind !== 'mini' &&
+    // A ship still flying in from the screen edge (entering) is not promoted either.
+    if (en.kind !== 'split' && en.kind !== 'mini' && !en.entering &&
         en.data !== question && questionPool.indexOf(en.data) !== -1 && (promote === null || en.y < promote.y)) {
       promote = en;
     }
@@ -174,7 +175,9 @@ function buildEnemy(data, isTarget, x, y, speed, motion, kind) {
   if (def.maxSpeed > 0) {
     finalSpeed = Math.min(finalSpeed, def.maxSpeed);
   }
-  var swaying = motion && kind === 'normal'; // special ships fly straight, so they are easy to read
+  var moving = motion && kind === 'normal'; // special ships fly straight, so they are easy to read
+  var swaying = moving && motion.amp;       // sway, zigzag and circle all use amp / freq
+  var path = moving && motion.type ? motion.type : ''; // '' = plain sway or straight
   return {
     data: data,
     isTarget: isTarget,
@@ -190,6 +193,10 @@ function buildEnemy(data, isTarget, x, y, speed, motion, kind) {
     baseX: px,                        // centre line the ship sways around
     swayAmp: swaying ? motion.amp : 0, // 0 = flies straight
     swayFreq: swaying ? motion.freq : 0,
+    path: path,                       // '', 'zigzag', 'circle' or 'side'
+    orbitY: path === 'circle' ? motion.orbitY : 0, // vertical radius of a circle path
+    orbitOff: 0,                      // how far the circle has moved the ship vertically so far
+    entering: false,                  // true while a 'side' ship is still flying in from the edge
     age: 0,
     y: y - (h - ENEMY_HEIGHT),        // a bigger ship starts higher, so it still enters from above the screen
     speed: finalSpeed,    // pixels per second at the reference screen height (set by the wave)
@@ -210,6 +217,12 @@ function spawnEnemy(x, y, speed, motion, kind) {
     kind = 'normal'; // these two kinds are always wrong answers and can never be the target
   }
   var made = buildEnemy(needTarget ? question : pickDecoy(), needTarget, x, y, speed, motion, kind);
+  if (made.path === 'side') {
+    // starts just outside the left or right edge and flies in towards its lane (made.baseX)
+    made.entering = true;
+    made.x = motion.fromLeft ? -made.w / 2 - 6 : viewWidth + made.w / 2 + 6;
+    made.y = motion.startY;
+  }
   var waveDef = stageWaves[waveState.index];
   if (waveDef && waveDef.fire > 0 && (kind === 'normal' || kind === 'fast' || kind === 'big') && Math.random() < waveDef.fire) {
     made.shooter = true;
