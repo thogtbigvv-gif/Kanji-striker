@@ -97,7 +97,8 @@ function restartCurrentStage() {
   }
 }
 
-function backToMenu() {
+// Leaves the stage that is being played (or its results) without opening a screen yet
+function leaveStage() {
   if (resultsTimer !== null) {
     clearTimeout(resultsTimer);
     resultsTimer = null;
@@ -107,7 +108,16 @@ function backToMenu() {
   }
   currentState = STATE_MENU;
   stopLoop();
+}
+
+function backToMenu() {
+  leaveStage();
   showMenu();
+}
+
+function goToGalaxyMap() {
+  leaveStage();
+  showGalaxyMap();
 }
 
 function pauseGame() {
