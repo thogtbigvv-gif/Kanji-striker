@@ -16,7 +16,8 @@
 - **Boss fights:** The Boss Gate stage ends with a boss that shoots back while kanji ships keep coming.
 - **Power-up capsules:** Shield (S), Slow time (T), Repair (R), Power (P) and Bomb (B). Fly into a capsule to collect it.
 - **Bombs:** Double tap the screen (or press `B`) to destroy every wrong ship and enemy bullet. The correct kanji ship survives, so you still have to answer.
-- **Stage results screen:** Score, accuracy, best combo, XP, 1–3 stars and a kanji learning summary (new, correct, incorrect, needs review).
+- **Dash:** Flick your finger sideways (or press `Space` / `Shift`) to dash. The ship is a ghost during the dash. Cooldown 1.2 s.
+- **Stage results screen (now wired in v0.4.0):** Score, accuracy, best combo, XP, 1–3 stars and a kanji learning summary (new, correct, incorrect, needs review).
 - **Kanji collection:** See which kanji you have discovered.
 - **Sound effects:** Simple generated beeps (no audio files). Can be turned off in Settings.
 - **Mobile-first design:** Optimized for portrait smartphone browsers with responsive Canvas rendering.
@@ -78,6 +79,7 @@ Progress is stored in the browser with `localStorage`. These keys must never be 
 - `kanjiStrikerProgress`
 - `kanjiStrikerSound`
 - `kanjiStrikerCampaign`
+- `kanjiStrikerXp`
 
 Settings → **RESET PROGRESS** clears all saved data.
 
@@ -98,6 +100,14 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+## 🆕 v0.4.0 changes
+
+- Clearing a stage now saves campaign progress (stage unlocks, best score, best stars, plays). Game over counts as an attempt.
+- Stage results screen is connected: stars, XP, kanji learning summary, NEXT STAGE / RETRY / MENU.
+- Total XP is saved in `kanjiStrikerXp` and cleared by RESET PROGRESS.
+
+---
+
 ## 📌 Version
 
-Current version: **v0.3.0** (shown in the footer of the menu).
+Current version: **v0.4.0** (shown in the footer of the menu).
