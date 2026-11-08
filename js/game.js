@@ -66,6 +66,8 @@ function startStage(stageId) {
   totalTime = 0;
   answered = 0;
   pickQuestion();
+  resetQuitButton();
+  updateHud();
 
   currentState = STATE_PLAYING;
   pauseButton.textContent = 'PAUSE';
@@ -111,11 +113,13 @@ function leaveStage() {
 }
 
 function backToMenu() {
+  resetQuitButton();
   leaveStage();
   showMenu();
 }
 
 function goToGalaxyMap() {
+  resetQuitButton();
   leaveStage();
   showGalaxyMap();
 }
