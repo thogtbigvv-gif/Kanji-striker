@@ -275,6 +275,7 @@ resetProgressButton.addEventListener('click', function () {
   campaignReadOnly = false;
   removeStorage(KEY_CAMPAIGN);
   removeStorage(KEY_CAMPAIGN + 'Corrupt');
+  resetProgression(); // also clears kanjiStrikerProgressionV1 (Credits and future upgrades)
   settingsMessage.textContent = 'PROGRESS RESET';
   updateMenuInfo();
 });
