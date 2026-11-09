@@ -22,7 +22,8 @@ function startStage(stageId) {
   targetLost = false;
   rescueTimer = -1;
 
-  hp = MAX_HP;
+  combatStats = getCombatStats(); // the run's combat numbers are fixed here (see progression.js)
+  hp = combatStats.maxHp;
   score = 0;
   combo = 0;
   updateHud();
@@ -239,7 +240,7 @@ function updateGameplay(dt) {
   if (player.isDragging && player.fireHeld) {
     fireTimer -= dt;
     if (fireTimer <= 0) {
-      fireTimer += FIRE_INTERVAL;
+      fireTimer += combatStats.fireInterval;
       var startY = player.y - SHIP_HEIGHT / 2;
       var level = weaponLevel();
       var offsets = [];
@@ -266,7 +267,7 @@ function updateGameplay(dt) {
   // Move bullets (they remember the previous position so fast bullets cannot skip an enemy)
   for (i = 0; i < bullets.length; i++) {
     bullets[i].prevY = bullets[i].y;
-    bullets[i].y -= BULLET_SPEED * dt;
+    bullets[i].y -= combatStats.bulletSpeed * dt;
     if (bullets[i].y < -10) {
       bullets[i].dead = true;
     }
@@ -399,7 +400,7 @@ function updateGameplay(dt) {
           b.y <= boss.y + BOSS_H && b.prevY >= boss.y) {
         b.dead = true;
         runStats.shotsHit += 1;
-        damageBoss(BOSS_SHOT_DAMAGE, false);
+        damageBoss(BOSS_SHOT_DAMAGE * combatStats.weaponDamage, false);
       }
       continue;
     }
@@ -519,7 +520,7 @@ function update(dt) {
   if (dashTimer <= 0) {
     // Smooth movement toward the target position (same feel at 30, 60 or 120 fps)
     player.targetX = clampX(player.targetX);
-    player.x += (player.targetX - player.x) * (1 - Math.exp(-PLAYER_FOLLOW * dt));
+    player.x += (player.targetX - player.x) * (1 - Math.exp(-combatStats.playerFollow * dt));
     player.x = clampX(player.x);
   }
 
