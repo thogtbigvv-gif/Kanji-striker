@@ -175,7 +175,9 @@ function buildEnemy(data, isTarget, x, y, speed, motion, kind) {
   if (def.maxSpeed > 0) {
     finalSpeed = Math.min(finalSpeed, def.maxSpeed);
   }
-  var moving = motion && kind === 'normal'; // special ships fly straight, so they are easy to read
+  // Every ship except the mini ships may sway with its wave (so neighbours keep their distance).
+  // Only the normal ship flies the special paths (zigzag / circle / side).
+  var moving = motion && (kind === 'normal' || (kind !== 'mini' && !motion.type));
   var swaying = moving && motion.amp;       // sway, zigzag and circle all use amp / freq
   var path = moving && motion.type ? motion.type : ''; // '' = plain sway or straight
   return {
