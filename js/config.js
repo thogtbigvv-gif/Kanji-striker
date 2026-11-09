@@ -63,7 +63,7 @@ var HEAL_AMOUNT = 5;          // HP restored by one streak reward (never above M
 var WRONG_HIT_DAMAGE = 10;    // shooting a wrong kanji
 var TARGET_ESCAPE_DAMAGE = 10; // the correct kanji reached the bottom
 var TARGET_CRASH_DAMAGE = 15;  // the correct kanji crashed into the ship
-var DECOY_CRASH_DAMAGE = 15;   // a wrong kanji crashed into the ship
+var DECOY_CRASH_DAMAGE = 10;   // a wrong kanji crashed into the ship (same as shooting a wrong kanji)
 var REF_HEIGHT = 640;      // screen height the enemy speed is tuned for
 var MAX_DPR = 3;           // limits canvas size on very dense Android screens
 
@@ -129,14 +129,14 @@ var STAGE_FIRE = { 1: 0, 2: 0.2, 3: 0.3, 4: 0.4, 5: 0.3 };
 // Boss (the Boss Gate stage, stage 5 of every world): a boss fight is the last wave. Kanji ships keep coming
 // while the boss shoots. Damage: a correct answer = BOSS_ANSWER_DAMAGE, one bullet = BOSS_SHOT_DAMAGE, bomb = BOMB_BOSS_DAMAGE.
 var BOSS_PIXEL = 6;
-var BOSS_HP = 100;
+var BOSS_HP = 160;
 var BOSS_ANSWER_DAMAGE = 8;
 var BOSS_SHOT_DAMAGE = 0.12;
 var BOSS_DEFEAT_BONUS = 1000;
 var BOSS_REST_Y = 70;           // top of the boss when it is in position
 var BOSS_ENTER_SPEED = 80;      // pixels per second while it flies in
 var BOSS_DYING_TIME = 1.4;      // seconds of explosions before the stage is complete
-var BOSS_FIRE_INTERVAL = [2.1, 1.8, 1.4]; // seconds between volleys in phase 1 / 2 / 3
+var BOSS_FIRE_INTERVAL = [1.9, 1.6, 1.25]; // seconds between volleys in phase 1 / 2 / 3
 var BOSS_SWAY_SPEED = [0.7, 1.0, 1.35];   // sideways speed (radians per second) in phase 1 / 2 / 3
 var BOSS_WAVE_SPEED = 70;       // speed of the kanji ships during the boss fight (slower: you also have to dodge)
 var BOSS_FIRST_GROUP_DELAY = 2.2;
