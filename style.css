@@ -1122,3 +1122,348 @@ button:focus-visible {
     transition: none;
   }
 }
+
+/* ================= ARCADE ATTRACT MENU (v0.7.0) =================
+   The main menu looks like the attract screen of a classic arcade space shooter: score bar on top, a glowing
+   title, a Galaga-style demo (a swaying alien formation, one diving alien, our ship shooting) and a blinking
+   PRESS START. Everything is CSS only; the demo is decoration (aria-hidden). The menu ids used by the game
+   code (menuStars, menuXp, menuBest, menuNext, the buttons) did not change. */
+
+.sprite-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.screen-menu {
+  position: relative;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.screen-menu > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* A second, faster star layer (the slow one is the background of .screen-menu) */
+.screen-menu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.85;
+  background-image:
+    radial-gradient(circle at 30% 20%, #ffffff 0 1px, transparent 2px),
+    radial-gradient(circle at 80% 60%, #9cc9ff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 55% 85%, #ffe27a 0 1px, transparent 2px);
+  background-size: 170px 210px, 230px 190px, 150px 250px;
+  animation: starFast 16s linear infinite;
+}
+
+@keyframes starFast {
+  to {
+    background-position: 0 210px, 0 190px, 0 250px;
+  }
+}
+
+/* Faint CRT scanlines over the whole menu (clicks pass through) */
+.screen-menu::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.14) 2px 3px);
+}
+
+/* Score bar: STARS | HI-SCORE | XP */
+.arcade-scorebar {
+  flex: none;
+  width: 100%;
+  max-width: 300px;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  background-color: rgba(5, 5, 7, 0.85);
+  border: 2px solid #2a2a38;
+}
+
+.arcade-scorebar .menu-stat-label {
+  font-size: 0.64rem;
+  letter-spacing: 1px;
+}
+
+.menu-stat-hi .menu-stat-value {
+  font-size: 1.2rem;
+  letter-spacing: 1px;
+  color: #ffffff;
+}
+
+.menu-stat-hi .menu-stat-label {
+  color: #ff4d6d;
+}
+
+/* Title: the colour cycles in steps, like an arcade palette */
+.title-line-top {
+  animation: titleCycle 3s steps(1) infinite;
+}
+
+.title-line-bottom {
+  animation: titleCycle 3s steps(1) 0.3s infinite;
+}
+
+@keyframes titleCycle {
+  0% { color: #ffd21f; }
+  55% { color: #fff1a8; }
+  62% { color: #ffd21f; }
+}
+
+/* Attract demo */
+.attract {
+  position: relative;
+  flex: none;
+  width: 100%;
+  max-width: 300px;
+  height: 118px;
+}
+
+.px {
+  display: block;
+  shape-rendering: crispEdges;
+  image-rendering: pixelated;
+}
+
+.formation {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: formSway 4.8s ease-in-out infinite alternate;
+}
+
+@keyframes formSway {
+  from { transform: translateX(-16px); }
+  to { transform: translateX(16px); }
+}
+
+.f-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.f-row-2 {
+  animation: rowBob 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes rowBob {
+  from { transform: translateY(0); }
+  to { transform: translateY(3px); }
+}
+
+.alien {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 17px;
+}
+
+.alien .px {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Two sprite frames swap in steps: the wings flap */
+.flap-a {
+  animation: flapA 0.8s steps(1) calc(var(--d, 0s) * -1) infinite;
+}
+
+.flap-b {
+  animation: flapB 0.8s steps(1) calc(var(--d, 0s) * -1) infinite;
+}
+
+@keyframes flapA {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes flapB {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+/* One alien leaves the formation, dives toward our ship, and flies back in from above */
+.diver {
+  animation: dive 9s linear infinite;
+}
+
+@keyframes dive {
+  0%, 62% { transform: translate(0, 0); opacity: 1; }
+  68% { transform: translate(-30px, 24px); opacity: 1; }
+  75% { transform: translate(22px, 56px); opacity: 1; }
+  82% { transform: translate(-6px, 88px); opacity: 1; }
+  83% { transform: translate(-6px, 88px); opacity: 0; }
+  84%, 92% { transform: translate(0, -30px); opacity: 0; }
+  93% { transform: translate(0, -30px); opacity: 1; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+
+/* Our ship at the bottom: engine flames flicker and it fires straight up */
+.hero {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  width: 36px;
+  height: 32px;
+  margin-left: -18px;
+  animation: heroBob 2.4s ease-in-out infinite alternate;
+}
+
+.hero .px {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes heroBob {
+  from { transform: translateY(0); }
+  to { transform: translateY(-2px); }
+}
+
+.flame {
+  position: absolute;
+  bottom: -5px;
+  width: 3px;
+  height: 5px;
+  background: #ffd21f;
+  box-shadow: 0 2px 0 #ff7a1f;
+  animation: flameFlicker 0.18s steps(1) infinite;
+}
+
+.flame-l {
+  left: 10px;
+}
+
+.flame-r {
+  left: 23px;
+  animation-delay: 0.09s;
+}
+
+@keyframes flameFlicker {
+  0% { height: 5px; }
+  50% { height: 3px; }
+}
+
+.bullet {
+  position: absolute;
+  left: 50%;
+  bottom: 38px;
+  width: 3px;
+  height: 10px;
+  margin-left: -1px;
+  background: #ffd21f;
+  box-shadow: 0 0 6px #ffd21f;
+  opacity: 0;
+  animation: shoot 1.4s linear infinite;
+}
+
+.bullet.b2 {
+  animation-delay: 0.7s;
+}
+
+@keyframes shoot {
+  0% { transform: translateY(0); opacity: 1; }
+  85% { transform: translateY(-40px); opacity: 1; }
+  86%, 100% { transform: translateY(-40px); opacity: 0; }
+}
+
+/* PRESS START: blinking arrows and a pulsing glow */
+#startGameButton {
+  letter-spacing: 3px;
+  animation: startGlow 1.6s ease-in-out infinite;
+}
+
+#startGameButton:active {
+  animation: none;
+}
+
+#startGameButton::before {
+  content: "\25B6\00a0";
+  animation: arrowBlink 1s steps(1) infinite;
+}
+
+#startGameButton::after {
+  content: "\00a0\25C0";
+  animation: arrowBlink 1s steps(1) infinite;
+}
+
+@keyframes arrowBlink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes startGlow {
+  0%, 100% { box-shadow: 0 4px 0 #7a0a22, 0 0 0 rgba(255, 107, 134, 0); }
+  50% { box-shadow: 0 4px 0 #7a0a22, 0 0 16px rgba(255, 107, 134, 0.6); }
+}
+
+.menu-credit {
+  margin-top: 2px;
+  font-size: 0.66rem;
+  letter-spacing: 3px;
+  text-align: center;
+  color: #8a8aa0;
+}
+
+/* Small screens: shorter demo, then no demo */
+@media (max-height: 700px) {
+  .attract {
+    height: 96px;
+  }
+  .f-row-2 {
+    display: none;
+  }
+  .bullet {
+    bottom: 36px;
+  }
+  @keyframes shoot {
+    0% { transform: translateY(0); opacity: 1; }
+    85% { transform: translateY(-24px); opacity: 1; }
+    86%, 100% { transform: translateY(-24px); opacity: 0; }
+  }
+}
+
+@media (max-height: 600px) {
+  .attract {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-menu::before,
+  .formation,
+  .f-row-2,
+  .flap-a,
+  .flap-b,
+  .diver,
+  .hero,
+  .flame,
+  .bullet,
+  .title-line-top,
+  .title-line-bottom,
+  #startGameButton,
+  #startGameButton::before,
+  #startGameButton::after {
+    animation: none;
+  }
+  .flap-b,
+  .bullet {
+    display: none;
+  }
+}
