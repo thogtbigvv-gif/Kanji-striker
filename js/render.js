@@ -587,6 +587,9 @@ function drawEnemy(enemy) {
   var def = ENEMY_KINDS[enemy.kind] || ENEMY_KINDS.normal;
   var colors = enemy.hitFlash > 0 ? ENEMY_FLASH_COLORS : def.colors;
   var spriteWidth = ENEMY_PIXELS[0].length * ENEMY_PIXEL;
+  // Every kind has its own two-frame sprite (see ENEMY_KINDS). Ships flap out of step with each other.
+  var frames = def.sprite || [ENEMY_PIXELS];
+  var frame = frames[Math.floor(totalTime * 3 + (enemy.baseX || 0) * 0.037) % frames.length];
 
   // Everything below is drawn for a normal-size ship at (0, 0) = top centre; scale() makes other kinds bigger/smaller
   ctx.save();
@@ -597,15 +600,23 @@ function drawEnemy(enemy) {
   // Speed lines behind a fast ship
   if (enemy.kind === 'fast') {
     var trail = Math.floor(totalTime * 24) % 2 === 0 ? 14 : 20;
-    ctx.fillStyle = 'rgba(255, 154, 60, 0.55)';
-    ctx.fillRect(-12, -trail, 3, trail - 2);
-    ctx.fillRect(-1, -trail - 4, 3, trail + 2);
-    ctx.fillRect(10, -trail, 3, trail - 2);
+    // three bars that fade out upwards: bright near the ship, dim far away
+    var barX = [-12, -1, 10];
+    var barW = 3;
+    for (var s = 0; s < 3; s++) {
+      var segTop = -trail - (s === 1 ? 4 : 0);
+      ctx.fillStyle = 'rgba(255, 210, 130, 0.8)';
+      ctx.fillRect(barX[s], -6, barW, 6);
+      ctx.fillStyle = 'rgba(255, 160, 70, 0.5)';
+      ctx.fillRect(barX[s], -12, barW, 6);
+      ctx.fillStyle = 'rgba(255, 140, 60, 0.25)';
+      ctx.fillRect(barX[s], segTop, barW, -12 - segTop);
+    }
   }
 
-  for (var row = 0; row < ENEMY_PIXELS.length; row++) {
-    for (var col = 0; col < ENEMY_PIXELS[row].length; col++) {
-      var key = ENEMY_PIXELS[row][col];
+  for (var row = 0; row < frame.length; row++) {
+    for (var col = 0; col < frame[row].length; col++) {
+      var key = frame[row][col];
       if (key === '.') {
         continue;
       }
