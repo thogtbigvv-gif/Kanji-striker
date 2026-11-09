@@ -272,6 +272,14 @@ var PATH_CIRCLE_PERIOD = 3.0;  // seconds per loop
 var PATH_SIDE_SPEED = 170;     // sideways speed (pixels per second) while flying in from the edge
 var PATH_SIDE_START_MIN = 70;  // the side ship appears this far from the top (pixels) ...
 var PATH_SIDE_START_RANGE = 70; // ... plus a random amount up to this
+// Orderly movement: ships appear in fixed LANES (columns) instead of random x positions, every swaying ship moves
+// in sync (same clock, same direction), and ships never fly through each other.
+var LANE_GAP = 14;        // free space (pixels) between two neighbouring lanes, next to the ship width
+var LANE_SWAY_PAD = 30;   // the lanes keep this much room to the screen edge; it is also the biggest sway distance
+var LANE_CLEAR_Y = 130;   // a lane counts as busy while a ship is still above this y (pixels)
+var SEP_GAP = 6;          // minimum free space (pixels) between a ship and the ship in front of it
+var PATH_CLEAR_Y = 0.45;  // special paths (zigzag / circle / side) start only when every ship is below this part of the screen
+var PATH_WAIT_MAX = 2.5;  // seconds a special-path ship may wait for that clear space; after that it flies a normal way
 var ENEMY_FLASH_COLORS = { B: '#ffffff', D: '#cfd6e6', Y: '#ffffff', L: '#ffffff', W: '#ffffff' }; // shown for a moment when an armor hit lands
 
 // ---------- Stage Wave System: timings and wave plans ----------
@@ -350,7 +358,8 @@ var WAVE_DEFS = [
 
 // Difficulty per stage number (1-4). speed and gap multiply the wave values above:
 // speed 1.1 = enemies 10% faster, gap 0.9 = the next group comes 10% sooner.
-// sway multiplies how far swaying groups move sideways (0 = no swaying in that stage).
+// sway multiplies how far swaying groups move sideways (0 = no swaying in that stage). In a wave with sway EVERY ship sways
+// together, at most LANE_SWAY_PAD pixels (the chance value in WAVE_DEFS is no longer used).
 // extraGroups are added to the end of every wave of that stage.
 // paths = special movement paths (see Enemy movement paths) that single ships of that stage may use; pathChance = chance per single ship.
 // specials = enemy kinds (see Enemy kinds) added as single ships to every wave EXCEPT the first one
