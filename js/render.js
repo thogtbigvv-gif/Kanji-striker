@@ -367,7 +367,7 @@ function buildCollection() {
 // ---------- HUD ----------
 function updateHud() {
   hpDisplay.textContent = String(hp);
-  var hpPercent = Math.max(0, Math.min(100, Math.round((hp / MAX_HP) * 100)));
+  var hpPercent = Math.max(0, Math.min(100, Math.round((hp / combatStats.maxHp) * 100)));
   hpBarFill.style.width = hpPercent + '%';
   hpBarFill.className = 'hp-fill' + (hpPercent <= 30 ? ' is-low' : hpPercent <= 60 ? ' is-mid' : '');
   var meaningText = question ? question.meaning.toUpperCase() : '-';
