@@ -859,6 +859,8 @@ function render() {
     ctx.fillRect(Math.round(star.x), Math.round(star.y), star.size, star.size);
   }
 
+  // The toast is drawn first (behind ships and boss), so it can never cover a kanji the player has to read
+  drawToast();
   drawBoss();
 
   // Bullets
@@ -902,7 +904,6 @@ function render() {
 
   drawQuestion();
   drawBossBar();
-  drawToast();
   drawWaveBanner();
   drawWeaponLabel();
   drawBombStock();
