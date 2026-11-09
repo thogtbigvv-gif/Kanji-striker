@@ -175,23 +175,31 @@ var KANJI_FONT = '"Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK J
 // ---------- Pixel ship drawing ----------
 var PIXEL = 3;
 var SHIP_COLORS = {
-  R: '#e0123c',
-  D: '#8a0a26',
-  C: '#66e0ff',
-  W: '#ffffff'
+  R: '#e0123c', // body
+  L: '#ff6b86', // light red highlight (nose and spine)
+  D: '#8a0a26', // dark red shade
+  C: '#66e0ff', // canopy
+  B: '#d8f8ff', // canopy glint
+  W: '#ffffff', // nose tip
+  G: '#aeb6c6', // metal wing edge
+  M: '#5b6578', // engine nozzle
+  Y: '#ffd21f'  // wing tip light
 };
+// The shape is symmetric. Keep it 11 pixels wide and 10 rows high: the size is used for collisions.
 var SHIP_PIXELS = [
-  '.....R.....',
-  '....RRR....',
-  '....RWR....',
+  '.....W.....',
+  '....RLR....',
+  '....RBR....',
   '...RRCRR...',
   '..RRRCRRR..',
-  '.RRRRCRRRR.',
-  'RRDRRRRRDRR',
-  'RR.RRRRR.RR',
-  'R..RRDRR..R',
-  '...D...D...'
+  '.GRRRCRRRG.',
+  'GRDRRLRRDRG',
+  'YG.DRLRD.GY',
+  'Y..RRDRR..Y',
+  '...M...M...'
 ];
+// Engine flame under each nozzle (columns 3 and 7): hot core first, cooler tip last (the last colour flickers)
+var SHIP_FLAME_COLORS = ['#ffd21f', '#ff7a1f', '#d4143c'];
 var SHIP_WIDTH = SHIP_PIXELS[0].length * PIXEL;
 var SHIP_HEIGHT = SHIP_PIXELS.length * PIXEL;
 
