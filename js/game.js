@@ -221,7 +221,7 @@ function updateGameplay(dt) {
         offsets.push((n - (level - 1) / 2) * BULLET_SPREAD); // bullets side by side, centred on the ship
       }
       for (var o = 0; o < offsets.length; o++) {
-        bullets.push({ x: player.x + offsets[o], y: startY, prevY: startY, dead: false });
+        bullets.push({ x: player.x + offsets[o], y: startY, prevY: startY, qid: questionSerial, dead: false });
         runStats.shotsFired += 1;
       }
     }
@@ -348,6 +348,11 @@ function updateGameplay(dt) {
     for (j = 0; j < enemies.length; j++) {
       var e = enemies[j];
       if (e.dead || e.y <= KANJI_VISIBLE_Y) {
+        continue;
+      }
+      // A bullet fired for an OLD question flies through wrong ships: the question changed while it was in the
+      // air, so the player cannot be punished for it. It can still hit the new correct target.
+      if (b.qid !== questionSerial && !isActiveTarget(e)) {
         continue;
       }
       if (Math.abs(b.x - e.x) > e.w / 2 + BULLET_HIT_PADDING) {
