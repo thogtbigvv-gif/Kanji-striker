@@ -17,6 +17,8 @@ function startStage(stageId) {
   stageWaves = getWavesForStage(stage);
   stageCompleteFired = false;
   stageResult = null;
+  swayClock = 0;
+  lastLaneStart = -1;
   targetLost = false;
   rescueTimer = -1;
 
@@ -200,6 +202,30 @@ function weaponLevel() {
   return Math.min(MAX_WEAPON_LEVEL, base + powerLevel);
 }
 
+// Keeps ships in order: a ship cannot fly into the ship in front of it. It waits (or slows down to the speed
+// of the ship in front) until there is SEP_GAP free space. Returns the new y of the ship.
+function separatedY(enemy, index, wantedY) {
+  var limit = wantedY;
+  for (var k = 0; k < enemies.length; k++) {
+    var other = enemies[k];
+    if (k === index || other.dead) {
+      continue;
+    }
+    // only a ship that is in front (lower on the screen) can hold this one back; at equal height the later one wins
+    if (!(other.y > enemy.y || (other.y === enemy.y && k > index))) {
+      continue;
+    }
+    if (Math.abs(other.x - enemy.x) >= (other.w + enemy.w) / 2) {
+      continue;
+    }
+    var room = other.y - enemy.h - SEP_GAP;
+    if (room < limit) {
+      limit = room;
+    }
+  }
+  return Math.max(enemy.y, Math.min(wantedY, limit)); // never pushed backwards
+}
+
 function updateGameplay(dt) {
   var scale = sizeScale();
   var i;
@@ -231,6 +257,7 @@ function updateGameplay(dt) {
 
   updatePowerups(dt, scale);
   var speedFactor = slowTimer > 0 ? SLOW_FACTOR : 1;
+  swayClock += dt * speedFactor; // one clock for every swaying ship, so they all move in sync
 
   // Spawn enemies: the Wave System decides what appears and when
   updateWaveSpawning(dt);
@@ -256,7 +283,8 @@ function updateGameplay(dt) {
     }
     if (enemy.swayAmp !== 0) {
       enemy.age += dt * speedFactor; // the SLOW power-up slows the sideways motion too
-      var phase = enemy.age * enemy.swayFreq;
+      // plain sway follows the shared clock (all ships in sync); zigzag / circle keep their own clock
+      var phase = (enemy.path === '' ? swayClock : enemy.age) * enemy.swayFreq;
       if (enemy.path === 'zigzag') {
         // triangle wave: straight sideways runs with sharp turns
         enemy.x = enemy.baseX + enemy.swayAmp * (2 / Math.PI) * Math.asin(Math.sin(phase));
@@ -293,7 +321,7 @@ function updateGameplay(dt) {
         enemy.vx = -Math.abs(enemy.vx);
       }
     }
-    enemy.y += enemy.speed * scale * speedFactor * dt;
+    enemy.y = separatedY(enemy, i, enemy.y + enemy.speed * scale * speedFactor * dt);
 
     if (enemy.kind === 'split' && enemy.y > viewHeight * SPLIT_AT_Y) {
       splitEnemy(enemy);
