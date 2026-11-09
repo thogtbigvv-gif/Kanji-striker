@@ -325,8 +325,8 @@ function correctHit(data, x, y, kind) {
 
   // Streak reward: every COMBO_HEAL_EVERY correct answers in a row restore a little HP
   var healed = 0;
-  if (combo % COMBO_HEAL_EVERY === 0 && hp < MAX_HP) {
-    healed = Math.min(HEAL_AMOUNT, MAX_HP - hp);
+  if (combo % combatStats.comboHealEvery === 0 && hp < combatStats.maxHp) {
+    healed = Math.min(combatStats.healAmount, combatStats.maxHp - hp);
     hp += healed;
   }
 
