@@ -229,15 +229,35 @@ var SPLIT_AT_Y = 0.35;  // the splitter breaks apart when its top is below this 
 var MINI_DRIFT = 70;    // sideways speed of the mini ships (pixels per second)
 var ENEMY_KINDS = {
   normal: { scale: 1,    armor: 1, speedMult: 1,    maxSpeed: 0,   score: 1,   border: '#ffd21f',
-            colors: { B: '#2f7bff', D: '#123a8a', Y: '#ffd21f' } },
+            colors: { B: '#2f7bff', D: '#123a8a', Y: '#ffd21f', L: '#7fb2ff', W: '#ffffff' },
+            sprite: [ // wings up, wings down (the ship flaps)
+              ['B.......B', 'BB.LYL.BB', 'BBBYWYBBB', '.BBDDDBB.', '..B.D.B..'],
+              ['.........', 'B..LYL..B', 'BBBYWYBBB', 'BBBDDDBBB', '.B..D..B.']
+            ] },
   fast:   { scale: 1,    armor: 1, speedMult: 1.6,  maxSpeed: 170, score: 1.5, border: '#ff9a3c',
-            colors: { B: '#ff7a1f', D: '#8a3a0a', Y: '#ffe36b' } },
+            colors: { B: '#ff7a1f', D: '#8a3a0a', Y: '#ffe36b', L: '#ffb36b', W: '#ffffff' },
+            sprite: [ // a dart that points down; the wing tips sweep back and forth
+              ['B.BBBBB.B', '.BBLYLBB.', '..BBYBB..', '...BDB...', '....D....'],
+              ['.B.BBB.B.', 'B.BLYLB.B', '..BBYBB..', '...BDB...', '....D....']
+            ] },
   big:    { scale: 1.5,  armor: 2, speedMult: 0.75, maxSpeed: 0,   score: 2,   border: '#b99bff',
-            colors: { B: '#9b6bff', D: '#4b2a9a', Y: '#ffd21f' } },
+            colors: { B: '#9b6bff', D: '#4b2a9a', Y: '#ffd21f', L: '#cbb0ff', W: '#ffffff' },
+            sprite: [ // heavy armored hull with plating
+              ['DBBBBBBBD', 'BBLLYLLBB', 'BDBYWYBDB', 'BBDDDDDBB', '.D.B.B.D.'],
+              ['DBBBBBBBD', 'BBLLYLLBB', 'BDBYWYBDB', 'BBDDDDDBB', 'D..B.B..D']
+            ] },
   split:  { scale: 1.25, armor: 1, speedMult: 0.9,  maxSpeed: 0,   score: 1,   border: '#5dff8a',
-            colors: { B: '#3ddc84', D: '#1a7a46', Y: '#eaffb0' } },
+            colors: { B: '#3ddc84', D: '#1a7a46', Y: '#eaffb0', L: '#9bffbf', W: '#ffffff' },
+            sprite: [ // two halves with a seam that opens and closes: it is about to break apart
+              ['.BBB.BBB.', 'BLBYDYBLB', 'BBBBDBBBB', '.BBBDBBB.', '..B.D.B..'],
+              ['.BBB.BBB.', 'BLBY.YBLB', 'BBBBDBBBB', '.BBBDBBB.', '..B.D.B..']
+            ] },
   mini:   { scale: 0.75, armor: 1, speedMult: 1.1,  maxSpeed: 0,   score: 1,   border: '#5dff8a',
-            colors: { B: '#3ddc84', D: '#1a7a46', Y: '#eaffb0' } }
+            colors: { B: '#3ddc84', D: '#1a7a46', Y: '#eaffb0', L: '#9bffbf', W: '#ffffff' },
+            sprite: [ // a compact little bug
+              ['.........', 'B.BBBBB.B', 'BBBYWYBBB', '.BBBDBBB.', '..B...B..'],
+              ['.........', '.BBBBBBB.', 'BBBYWYBBB', 'B.BBDBB.B', '.........']
+            ] }
 };
 // ---------- Enemy movement paths ----------
 // A normal single ship (never a row / V, never a special kind) may fly a special path instead of falling straight.
@@ -252,7 +272,7 @@ var PATH_CIRCLE_PERIOD = 3.0;  // seconds per loop
 var PATH_SIDE_SPEED = 170;     // sideways speed (pixels per second) while flying in from the edge
 var PATH_SIDE_START_MIN = 70;  // the side ship appears this far from the top (pixels) ...
 var PATH_SIDE_START_RANGE = 70; // ... plus a random amount up to this
-var ENEMY_FLASH_COLORS = { B: '#ffffff', D: '#cfd6e6', Y: '#ffffff' }; // shown for a moment when an armor hit lands
+var ENEMY_FLASH_COLORS = { B: '#ffffff', D: '#cfd6e6', Y: '#ffffff', L: '#ffffff', W: '#ffffff' }; // shown for a moment when an armor hit lands
 
 // ---------- Stage Wave System: timings and wave plans ----------
 // A stage is played as a sequence of waves. Each wave is a fixed list of enemy groups (a single ship,
