@@ -2,6 +2,9 @@
 /* js/waves.js - Stage Wave System: wave plans, group spawning, wave bonuses, stage completion.
    Load after audio.js. Wave numbers and timings live in config.js (WAVE_DEFS, STAGE_TUNING). */
 
+var swayClock = 0;      // one shared clock for every swaying ship (reset when a stage starts)
+var lastLaneStart = -1; // the lane used by the last group, so the next group tries another lane
+
 // The wave plan of a stage: the base waves, made faster / longer depending on the stage number
 // Adds one single-ship group for every special kind (repeated `times` times), spread evenly through the wave
 function withSpecialGroups(groups, specials, times) {
@@ -150,26 +153,78 @@ function shuffle(list) {
   return list;
 }
 
+// ---------- Lanes ----------
+// The playfield is divided into fixed lanes (columns). Ships appear in the middle of a lane, so the screen
+// stays tidy. The first and last lane keep LANE_SWAY_PAD pixels of room, so swaying ships never leave the screen.
+function laneInfo() {
+  var edge = ENEMY_WIDTH / 2 + 4 + LANE_SWAY_PAD;
+  var usable = Math.max(0, viewWidth - edge * 2);
+  var count = Math.max(3, Math.floor(usable / (ENEMY_WIDTH + LANE_GAP)) + 1);
+  var step = usable / (count - 1);
+  return { edge: edge, count: count, step: step };
+}
+
+function laneX(info, lane) {
+  return info.edge + lane * info.step;
+}
+
+// A lane is busy while a ship that is still near the top of the screen stands in it
+function laneBusy(info, lane) {
+  var x = laneX(info, lane);
+  for (var i = 0; i < enemies.length; i++) {
+    var en = enemies[i];
+    if (!en.dead && en.y < LANE_CLEAR_Y && Math.abs(en.x - x) < ENEMY_WIDTH) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// First lane of a group that needs `span` lanes next to each other. Prefers free lanes and not the last used one.
+function pickLaneStart(info, span) {
+  var best = [];
+  var bestScore = Infinity;
+  for (var start = 0; start + span <= info.count; start++) {
+    var score = start === lastLaneStart ? 0.5 : 0;
+    for (var k = 0; k < span; k++) {
+      if (laneBusy(info, start + k)) {
+        score += 1;
+      }
+    }
+    if (score < bestScore) {
+      bestScore = score;
+      best = [start];
+    } else if (score === bestScore) {
+      best.push(start);
+    }
+  }
+  var chosen = best.length > 0 ? best[Math.floor(Math.random() * best.length)] : 0;
+  lastLaneStart = chosen;
+  return chosen;
+}
+
+// x of a free lane (used for single ships and the rescue ship)
+function pickLaneX() {
+  var info = laneInfo();
+  return laneX(info, pickLaneStart(info, 1));
+}
+
 // Start positions of the ships of one group. lift = extra height above the spawn line (V formation).
+// Rows and V formations use every second lane when there is room, so their ships do not touch.
 function formationSlots(group) {
+  var info = laneInfo();
   var slots = [];
-  var count = group.count;
-  var i;
+  var count = Math.min(group.count, info.count);
   if (count <= 1) {
-    slots.push({ x: pickSpawnX(), lift: 0 });
+    slots.push({ x: laneX(info, pickLaneStart(info, 1)), lift: 0 });
     return slots;
   }
-  var margin = ENEMY_WIDTH / 2 + 4;
-  var usable = viewWidth - margin * 2;
-  var spacing = Math.min(ENEMY_WIDTH * 2 + 10, usable / (count - 1));
-  var half = (spacing * (count - 1)) / 2;
-  var minCenter = margin + half;
-  var maxCenter = viewWidth - margin - half;
-  var center = maxCenter > minCenter ? minCenter + Math.random() * (maxCenter - minCenter) : viewWidth / 2;
-  for (i = 0; i < count; i++) {
+  var step = (count - 1) * 2 + 1 <= info.count ? 2 : 1;
+  var start = pickLaneStart(info, (count - 1) * step + 1);
+  for (var i = 0; i < count; i++) {
     var fromMiddle = Math.abs(i - (count - 1) / 2);
     slots.push({
-      x: center - half + spacing * i,
+      x: laneX(info, start + i * step),
       lift: group.shape === 'v' ? Math.round(fromMiddle * V_FORMATION_LIFT) : 0
     });
   }
@@ -178,32 +233,51 @@ function formationSlots(group) {
 
 // Spawns every ship of a group at once. The ships are created in random order, so the correct
 // target (the first ship created while no target is on screen) is not always on the same side.
-function spawnGroup(group, speed, sway, waveDef) {
+// pathType = a special path chosen for this group (or null); the group sways with its wave otherwise.
+function spawnGroup(group, speed, sway, waveDef, pathType) {
   // A splitter is always a wrong answer, so when no correct target is on screen yet, a normal ship
   // carrying the target comes first
   if (group.kind === 'split' && !activeTargetOnScreen()) {
-    spawnEnemy(pickSpawnX(), -ENEMY_HEIGHT, speed, null, 'normal');
+    spawnEnemy(pickLaneX(), -ENEMY_HEIGHT, speed, waveSwayMotion(sway), 'normal');
   }
   var slots = shuffle(formationSlots(group));
-  var motion = pickPath(group, waveDef, slots) || pickMotion(sway, slots);
+  var motion = (pathType ? buildPath(pathType, slots) : null) || waveSwayMotion(sway);
   for (var i = 0; i < slots.length; i++) {
     spawnEnemy(slots[i].x, -ENEMY_HEIGHT - slots[i].lift, speed, motion, group.kind);
   }
 }
 
-// Decides if a single normal ship flies a special path (zigzag / circle / side entry). Returns null otherwise.
-// The lane of the ship is moved inward when needed, so the whole path stays on the screen.
-function pickPath(group, waveDef, slots) {
+// True when every ship is already in the lower part of the screen: a special path needs open space
+function pathZoneClear() {
+  for (var i = 0; i < enemies.length; i++) {
+    if (!enemies[i].dead && enemies[i].y < viewHeight * PATH_CLEAR_Y) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Decides if a single normal ship flies a special path (zigzag / circle / side entry).
+// Returns the path type, or null for an ordinary group.
+function rollPathType(group, waveDef) {
   if (!waveDef || !waveDef.paths || waveDef.paths.length === 0 || waveDef.pathChance <= 0) {
     return null;
   }
-  if (group.count !== 1 || (group.kind && group.kind !== 'normal') || slots.length !== 1) {
+  if (group.count !== 1 || (group.kind && group.kind !== 'normal')) {
     return null;
   }
   if (Math.random() >= waveDef.pathChance) {
     return null;
   }
-  var type = waveDef.paths[Math.floor(Math.random() * waveDef.paths.length)];
+  return waveDef.paths[Math.floor(Math.random() * waveDef.paths.length)];
+}
+
+// Builds the motion of a special path. The lane of the ship is moved inward when needed, so the whole path
+// stays on the screen. Returns null for an unknown type or a group that is not a single ship.
+function buildPath(type, slots) {
+  if (slots.length !== 1) {
+    return null;
+  }
   var minX = ENEMY_WIDTH / 2 + 2;
   var maxX = viewWidth - ENEMY_WIDTH / 2 - 2;
   var sign = Math.random() < 0.5 ? -1 : 1;
@@ -230,26 +304,17 @@ function pickPath(group, waveDef, slots) {
   return { type: 'circle', amp: sign * reach, orbitY: reach, freq: (Math.PI * 2) / PATH_CIRCLE_PERIOD };
 }
 
-// Decides if a group sways left and right. The whole group moves together, so a row or V keeps its
-// shape. The swing is limited so no ship leaves the screen. Returns null for a straight group.
-function pickMotion(sway, slots) {
-  if (!sway || sway.amplitude <= 0 || Math.random() >= sway.chance) {
+// The sway of a wave: EVERY ship of the wave sways the same distance, in the same direction, on the same clock
+// (see swayClock), so neighbours keep their distance. Returns null when the wave does not sway.
+function waveSwayMotion(sway) {
+  if (!sway || sway.amplitude <= 0) {
     return null;
   }
-  var minX = ENEMY_WIDTH / 2 + 2;
-  var maxX = viewWidth - ENEMY_WIDTH / 2 - 2;
-  var room = Infinity;
-  for (var i = 0; i < slots.length; i++) {
-    room = Math.min(room, slots[i].x - minX, maxX - slots[i].x);
-  }
-  var amplitude = Math.min(sway.amplitude, room);
+  var amplitude = Math.min(sway.amplitude, LANE_SWAY_PAD);
   if (amplitude < 6) {
-    return null; // too close to the screen edge: this group flies straight
+    return null;
   }
-  return {
-    amp: Math.random() < 0.5 ? -amplitude : amplitude, // the sign decides which way it swings first
-    freq: (Math.PI * 2) / sway.period
-  };
+  return { amp: amplitude, freq: (Math.PI * 2) / sway.period };
 }
 
 function beginWave(index) {
@@ -259,6 +324,9 @@ function beginWave(index) {
   waveState.groupIndex = 0;
   waveState.groupTimer = 0;
   waveHpLost = false; // every wave starts "perfect"
+  waveState.pathRollIndex = -1;
+  waveState.pathRoll = null;
+  waveState.pathWait = 0;
   playWaveSound();
 }
 
@@ -300,7 +368,24 @@ function updateWaveSpawning(dt) {
     if (waveState.groupTimer > 0) {
       return;
     }
-    spawnGroup(def.groups[waveState.groupIndex], def.speed, def.sway, def);
+    var group = def.groups[waveState.groupIndex];
+    // A special path needs open space: the group may wait a little for it (PATH_WAIT_MAX), then flies a normal way
+    if (waveState.pathRollIndex !== waveState.groupIndex) {
+      waveState.pathRollIndex = waveState.groupIndex;
+      waveState.pathRoll = rollPathType(group, def);
+      waveState.pathWait = 0;
+    }
+    var pathNow = null;
+    if (waveState.pathRoll) {
+      if (pathZoneClear()) {
+        pathNow = waveState.pathRoll;
+      } else if (waveState.pathWait < PATH_WAIT_MAX) {
+        waveState.pathWait += dt;
+        return;
+      }
+    }
+    waveState.pathRollIndex = -1;
+    spawnGroup(group, def.speed, def.sway, def, pathNow);
     waveState.groupIndex += 1;
     if (waveState.groupIndex >= def.groups.length) {
       if (def.loop) {
@@ -343,7 +428,7 @@ function updateTargetRescue(dt) {
   rescueTimer = -1;
   var def = stageWaves[waveState.index];
   // spawnEnemy makes it the correct target (none is active) and clears targetLost
-  spawnEnemy(pickSpawnX(), -ENEMY_HEIGHT, def ? def.speed : 62);
+  spawnEnemy(pickLaneX(), -ENEMY_HEIGHT, def ? def.speed : 62, def ? waveSwayMotion(def.sway) : null);
 }
 
 // Answer accuracy of the run in percent: correct answers / (correct + wrong shots + missed targets)
