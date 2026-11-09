@@ -515,15 +515,18 @@ function drawShip() {
     }
   }
 
-  // Engine flame (flickers)
-  var flameLength = Math.floor(totalTime * 20) % 2 === 0 ? 2 : 3;
-  ctx.fillStyle = '#ffd21f';
-  ctx.fillRect(left + 3 * PIXEL, top + SHIP_HEIGHT, PIXEL, PIXEL * flameLength);
-  ctx.fillRect(left + 7 * PIXEL, top + SHIP_HEIGHT, PIXEL, PIXEL * flameLength);
+  // Engine flame (flickers): yellow core, orange middle, and a red tip that blinks on and off
+  var flameRows = Math.floor(totalTime * 20) % 2 === 0 ? 2 : 3;
+  var flameCols = [3, 7];
+  for (var f = 0; f < flameCols.length; f++) {
+    for (var part = 0; part < flameRows; part++) {
+      ctx.fillStyle = SHIP_FLAME_COLORS[part];
+      ctx.fillRect(left + flameCols[f] * PIXEL, top + SHIP_HEIGHT + part * PIXEL, PIXEL, PIXEL);
+    }
+  }
   ctx.globalAlpha = 1;
 }
 
-// Shield bubble around the ship
 function drawShield() {
   if (!shieldActive || currentState === STATE_GAME_OVER) {
     return;
