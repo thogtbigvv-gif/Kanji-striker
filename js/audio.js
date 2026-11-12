@@ -15,11 +15,34 @@ function getAudio() {
     } catch (error) {
       return null;
     }
+    buildAudioOutput();
   }
   if (audioContext.state === 'suspended') {
     audioContext.resume();
   }
   return audioContext;
+}
+
+// All sounds go through one volume control and a compressor, so many sounds at once (a busy endless wave)
+// never clip or crackle. If the browser cannot do that, the sounds go straight to the speakers.
+function buildAudioOutput() {
+  audioOutput = audioContext.destination;
+  try {
+    var master = audioContext.createGain();
+    master.gain.value = MASTER_VOLUME;
+    if (typeof audioContext.createDynamicsCompressor === 'function') {
+      var limiter = audioContext.createDynamicsCompressor();
+      limiter.threshold.value = -12;
+      limiter.ratio.value = 8;
+      master.connect(limiter);
+      limiter.connect(audioContext.destination);
+    } else {
+      master.connect(audioContext.destination);
+    }
+    audioOutput = master;
+  } catch (error) {
+    audioOutput = audioContext.destination;
+  }
 }
 
 function playTone(frequency, duration, type, volume, delay, endFrequency) {
@@ -38,7 +61,7 @@ function playTone(frequency, duration, type, volume, delay, endFrequency) {
   gain.gain.setValueAtTime(volume, startAt);
   gain.gain.linearRampToValueAtTime(0.0001, startAt + duration);
   oscillator.connect(gain);
-  gain.connect(audio.destination);
+  gain.connect(audioOutput || audio.destination);
   oscillator.start(startAt);
   oscillator.stop(startAt + duration + 0.02);
 }
