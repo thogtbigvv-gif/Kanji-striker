@@ -181,13 +181,24 @@ window.addEventListener('keydown', function (event) {
 
 // ---------- Buttons ----------
 // PLAY goes straight into the next stage (the very first time the help screen comes first)
+// PRESS START opens the mode screen (CAMPAIGN or ENDLESS); the very first time the help screen comes first
 startGameButton.addEventListener('click', function () {
   if (!readStorage(KEY_HELP)) {
     showHowTo(true);
   } else {
-    startGame();
+    showModeSelect();
   }
 });
+modeCampaignButton.addEventListener('click', function () {
+  if (!startGame()) {
+    modeMessage.textContent = 'STAGE NOT READY';
+    setTimeout(function () {
+      modeMessage.textContent = '';
+    }, 1800);
+  }
+});
+modeEndlessButton.addEventListener('click', startEndless);
+modeBackButton.addEventListener('click', showMenu);
 galaxyMapButton.addEventListener('click', showGalaxyMap);
 howToButton.addEventListener('click', function () {
   showHowTo(false);
@@ -196,7 +207,7 @@ howBackButton.addEventListener('click', function () {
   writeStorage(KEY_HELP, '1');
   if (howPlayAfter) {
     howPlayAfter = false;
-    startGame();
+    showModeSelect();
   } else {
     showMenu();
   }
@@ -271,6 +282,8 @@ resetProgressButton.addEventListener('click', function () {
   removeStorage(KEY_HELP);
   totalXp = 0;
   removeStorage(KEY_XP);
+  endlessBest = 0;
+  removeStorage(KEY_ENDLESS_BEST);
   campaign = freshCampaign();
   campaignReadOnly = false;
   removeStorage(KEY_CAMPAIGN);
