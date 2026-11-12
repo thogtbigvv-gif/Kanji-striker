@@ -16,6 +16,11 @@ var KEY_SOUND = 'kanjiStrikerSound';
 var KEY_CAMPAIGN = 'kanjiStrikerCampaign'; // new key; the keys above are never changed
 var KEY_HELP = 'kanjiStrikerHelpSeen';       // set after the HOW TO PLAY screen was shown once
 var KEY_XP = 'kanjiStrikerXp';             // total XP earned from stage results (added in v0.4.0)
+var KEY_ENDLESS_BEST = 'kanjiStrikerEndlessBest'; // best score of the ENDLESS mode (added in v0.7.0)
+
+// ---------- Game modes (v0.7.0) ----------
+var MODE_CAMPAIGN = 'campaign'; // galaxy stages, one correct kanji per question
+var MODE_ENDLESS = 'endless';   // waves never stop; every ship can be shot down for points
 
 // ---------- Gameplay tuning ----------
 var FIRE_INTERVAL = 0.2;   // seconds between shots
@@ -375,3 +380,28 @@ var STAGE_TUNING = {
 // The Boss Gate stage (5): normal waves 1-2 with these values, then the boss fight
 STAGE_TUNING[5] = { speed: 1.1, gap: 0.9, sway: 1.0, extraGroups: [], specials: ['fast', 'big'], paths: ['zigzag', 'side'], pathChance: 0.35 };
 var DEFAULT_TUNING = { speed: 1.0, gap: 1.0, sway: 1.0, extraGroups: [], specials: [], paths: [], pathChance: 0 };
+
+// ---------- Endless mode (v0.7.0) ----------
+// Every ship that appears can be shot down. The ship that carries the kanji of the question bar is the BONUS target.
+// Waves never stop: speed, group size, special ships and enemy fire all grow with the wave number.
+var ENDLESS_ESCAPE_DAMAGE = 4;    // HP lost when a ship reaches the bottom (the small mini ships of a splitter are free)
+var ENDLESS_KILL_POINTS = 4;      // base points of a normal ship (x combo multiplier x ship kind); a BONUS kanji gives 10
+var ENDLESS_HEAL_COMBO = 10;      // every this many kills in a row heal the ship (campaign uses COMBO_HEAL_EVERY)
+var ENDLESS_POWERUP_EVERY = 8;    // a capsule drops every this many ordinary kills (BONUS kanji use POWERUP_EVERY)
+var ENDLESS_BOSS_EVERY = 5;       // every 5th wave is a boss wave
+var ENDLESS_SPEED_START = 62;     // ship speed of wave 1 (pixels per second at the reference height)
+var ENDLESS_SPEED_STEP = 5;       // speed added by every wave
+var ENDLESS_SPEED_MAX = 150;      // the speed never grows past this
+var ENDLESS_WAVE_NAMES = ['Warm Up', 'Rush Hour', 'Swarm', 'Crossfire', 'Meteor Storm', 'Overdrive'];
+
+// ---------- Polish: screen shake, floating points, master volume (v0.7.1) ----------
+var SHAKE_ENABLED = true;     // false = never shake the screen (it is also off when the device asks for reduced motion)
+var SHAKE_HURT = 6;           // pixels of shake when the ship takes real damage ...
+var SHAKE_HURT_TIME = 0.25;   // ... for this many seconds (the shake fades out)
+var SHAKE_BOMB = 9;
+var SHAKE_BOMB_TIME = 0.35;
+var SHAKE_BOSS_DOWN = 10;
+var SHAKE_BOSS_DOWN_TIME = 0.7;
+var FLOATER_LIFE = 0.9;       // seconds a floating "+points" text stays on screen
+var FLOATER_RISE = 46;        // pixels per second it floats upwards
+var MASTER_VOLUME = 0.85;     // 0-1, all sounds go through one volume control and a limiter
