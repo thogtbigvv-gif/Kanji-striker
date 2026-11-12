@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="KANJI STRIKER - A retro arcade space shooter for learning Japanese Kanji.">
   <meta name="theme-color" content="#0a0a0c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kanji Striker">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>KANJI STRIKER</title>
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Cpath fill=%27%23ffd21f%27 d=%27M7 1h2v3h2v3h2v4h-2v2H5v-2H3V7h2V4h2z%27/%3E%3Cpath fill=%27%23d4143c%27 d=%27M6 12h4v2H6z%27/%3E%3C/svg%3E">
@@ -17,6 +23,7 @@
   <script src="js/waves.js" defer></script>
   <script src="js/enemies.js" defer></script>
   <script src="js/arcade.js" defer></script>
+  <script src="js/endless.js" defer></script>
   <script src="js/game.js" defer></script>
   <script src="js/render.js" defer></script>
   <script src="js/input.js" defer></script>
@@ -55,7 +62,7 @@
         <p id="menuNext" class="menu-next" role="status"></p>
 
         <nav id="mainMenuNav" class="menu-nav" aria-label="Main menu">
-          <button id="startGameButton" class="menu-button menu-button-primary" type="button" aria-label="Play the next stage">PRESS START</button>
+          <button id="startGameButton" class="menu-button menu-button-primary" type="button" aria-label="Choose a game mode">PRESS START</button>
           <button id="galaxyMapButton" class="menu-button" type="button" aria-label="Open the galaxy map">GALAXY MAP</button>
           <div class="menu-row">
             <button id="kanjiCollectionButton" class="menu-button menu-button-small" type="button" aria-label="Open kanji collection">KANJI</button>
@@ -66,6 +73,29 @@
         <p class="menu-credit" aria-hidden="true">FREE PLAY &middot; CREDIT 99</p>
       </div>
     </main>
+
+    <!-- GAME MODE (opens after PRESS START) -->
+    <section id="modeSection" class="screen screen-mode" aria-labelledby="modeTitle" hidden>
+      <header class="panel-header">
+        <h2 id="modeTitle" class="panel-title">SELECT MODE</h2>
+      </header>
+      <div class="mode-list">
+        <button id="modeCampaignButton" class="mode-card" type="button" aria-label="Play the campaign">
+          <span class="mode-card-title">CAMPAIGN</span>
+          <span class="mode-card-desc">Galaxy-н stage-үүд. Монгол утгад таарах kanji-г буудаж, boss-той тулна.</span>
+          <span id="modeCampaignMeta" class="mode-card-meta"></span>
+        </button>
+        <button id="modeEndlessButton" class="mode-card mode-card-endless" type="button" aria-label="Play the endless mode">
+          <span class="mode-card-title">ENDLESS</span>
+          <span class="mode-card-desc">Төгсгөлгүй. Гарч ирсэн бүх хөлгийг устга! Wave бүр хүндэрнэ, 5 wave тутамд boss.</span>
+          <span id="modeEndlessMeta" class="mode-card-meta"></span>
+        </button>
+        <p id="modeMessage" class="mode-message" role="status"></p>
+      </div>
+      <div class="panel-actions">
+        <button id="modeBackButton" class="menu-button" type="button" aria-label="Back to main menu">BACK</button>
+      </div>
+    </section>
 
     <!-- KANJI COLLECTION -->
     <section id="collectionSection" class="screen screen-collection" aria-labelledby="collectionTitle" hidden>
@@ -107,6 +137,7 @@
         <li class="how-item"><span class="how-icon">&#10039;</span><div><h3>BOMB</h3><p>Дэлгэцийг хоёр товш. Буруу хөлгүүд бүгд устна.</p></div></li>
         <li class="how-item"><span class="how-icon">&raquo;</span><div><h3>DASH</h3><p>Хуруугаа хурдан хажуу тийш шудр. Хөлөг түр аюулгүй болно.</p></div></li>
         <li class="how-item"><span class="how-icon">STRPB</span><div><h3>POWER-UPS</h3><p>Унасан капсулыг хөлгөөрөө цохиж ав.</p></div></li>
+        <li class="how-item"><span class="how-icon">&infin;</span><div><h3>ENDLESS</h3><p>Төгсгөлгүй горимд гарч ирсэн бүх хөлгийг бууд. Доор нь гарсан хөлөг тутамд HP хасагдана. Дээрх утгад таарах kanji бол bonus оноотой.</p></div></li>
       </ul>
       <div class="panel-actions">
         <button id="howBackButton" class="menu-button menu-button-primary" type="button">GOT IT</button>
@@ -145,7 +176,7 @@
       </header>
 
       <div id="questionBar" class="question-bar" role="status" aria-live="polite">
-        <span class="question-label">SHOOT THE KANJI FOR</span>
+        <span id="questionLabel" class="question-label">SHOOT THE KANJI FOR</span>
         <span id="questionMeaning" class="question-meaning">-</span>
       </div>
 
@@ -252,7 +283,7 @@
 
     <!-- APP FOOTER -->
     <footer id="appFooter" class="app-footer">
-      <small id="versionLabel">v0.6.0</small>
+      <small id="versionLabel">v0.7.1</small>
     </footer>
 
   </div>
