@@ -256,9 +256,30 @@ function burst(x, y, color) {
       y: y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      life: 0.5,
+      life: particleLife,
       color: color
     });
+  }
+}
+
+// Short screen shake (a stronger one replaces a weaker one that is still running)
+function addShake(magnitude, time) {
+  if (!SHAKE_ENABLED || reduceMotion) {
+    return;
+  }
+  var left = shakeTime > 0 ? shakeMag * (shakeTime / shakeTotal) : 0;
+  if (magnitude >= left) {
+    shakeMag = magnitude;
+    shakeTotal = time;
+    shakeTime = time;
+  }
+}
+
+// A small text that floats up from where something was shot down (the points it gave)
+function addFloater(x, y, text, color) {
+  floaters.push({ x: x, y: y, text: text, color: color, life: FLOATER_LIFE });
+  if (floaters.length > 24) {
+    floaters.shift(); // never more than a few at once, even in a very busy endless wave
   }
 }
 
@@ -291,6 +312,7 @@ function loseHp(amount, quiet) {
   powerLevel = Math.max(0, powerLevel - 1); // real damage costs one weapon level
   combo = 0;
   damageFlash = 0.25;
+  addShake(SHAKE_HURT, SHAKE_HURT_TIME);
   if (hp <= 0) {
     hp = 0;
     currentState = STATE_GAME_OVER;
@@ -313,6 +335,9 @@ function correctHit(data, x, y, kind) {
   var levelBefore = weaponLevel();
   combo += 1;
   answered += 1;
+  if (gameMode === MODE_ENDLESS) {
+    endlessKills += 1;
+  }
   runStats.correct += 1;
   if (combo > runStats.maxCombo) {
     runStats.maxCombo = combo;
@@ -320,6 +345,7 @@ function correctHit(data, x, y, kind) {
   var kindScore = (ENEMY_KINDS[kind] || ENEMY_KINDS.normal).score; // fast x1.5, big x2
   var points = Math.round(10 * Math.min(combo, MAX_SCORE_MULTIPLIER) * kindScore);
   score += points;
+  addFloater(x, y, '+' + points, '#5dff8a');
   recordHit(data.kanji);
   noteRunKanji(data.kanji, true);
 
