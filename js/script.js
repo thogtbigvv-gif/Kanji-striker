@@ -9,6 +9,7 @@
      js/waves.js     wave system, stage plan, stage complete
      js/enemies.js   questions, enemy spawning, damage and answer rules
      js/arcade.js    enemy fire, boss, bomb, power-up capsules
+     js/endless.js   endless mode: wave generator, kill rules, start
      js/game.js      start / pause / menu, gameplay update, game loop
      js/render.js    screens, HUD, canvas size, drawing
      js/input.js     touch / mouse / keyboard, buttons, window events
