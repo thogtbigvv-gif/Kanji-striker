@@ -43,6 +43,9 @@ function loadSavedData() {
     }
   }
 
+  var savedEndless = parseInt(readStorage(KEY_ENDLESS_BEST), 10);
+  endlessBest = isNaN(savedEndless) ? 0 : savedEndless;
+
   soundEnabled = readStorage(KEY_SOUND) !== 'off';
   totalXp = safeCount(readStorage(KEY_XP));
 
@@ -55,6 +58,15 @@ function saveBestScore() {
 
 // Saves the score as the best score if it is higher. Returns true when it is a new best.
 function commitBestScore() {
+  if (gameMode === MODE_ENDLESS) {
+    // the endless mode keeps its own best score, so it never mixes with the campaign HI-SCORE
+    if (score > endlessBest) {
+      endlessBest = score;
+      writeStorage(KEY_ENDLESS_BEST, String(endlessBest));
+      return true;
+    }
+    return false;
+  }
   if (score > bestScore) {
     bestScore = score;
     saveBestScore();
