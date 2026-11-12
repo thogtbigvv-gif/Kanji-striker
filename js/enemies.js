@@ -133,37 +133,6 @@ function pickDecoy() {
   return weightedPick(pool);
 }
 
-// Picks a spawn position that does not overlap enemies that just spawned
-function pickSpawnX() {
-  var margin = ENEMY_WIDTH / 2 + 4;
-  var span = viewWidth - margin * 2;
-  if (span <= 0) {
-    return viewWidth / 2;
-  }
-  var needed = ENEMY_WIDTH + 8;
-  var bestX = margin + Math.random() * span;
-  var bestGap = -1;
-  for (var attempt = 0; attempt < 10; attempt++) {
-    var x = margin + Math.random() * span;
-    var gap = Infinity;
-    for (var i = 0; i < enemies.length; i++) {
-      var other = enemies[i];
-      if (other.dead || other.y > 12) {
-        continue; // far below the spawn line, cannot overlap
-      }
-      gap = Math.min(gap, Math.abs(other.x - x));
-    }
-    if (gap > bestGap) {
-      bestGap = gap;
-      bestX = x;
-    }
-    if (gap >= needed) {
-      break;
-    }
-  }
-  return bestX;
-}
-
 // Builds one enemy object of the given kind (used for normal spawns and for the mini ships of a splitter)
 function buildEnemy(data, isTarget, x, y, speed, motion, kind) {
   var def = ENEMY_KINDS[kind];
