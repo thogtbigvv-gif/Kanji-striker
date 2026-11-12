@@ -1467,3 +1467,76 @@ button:focus-visible {
     display: none;
   }
 }
+
+/* ---------- GAME MODE SCREEN (v0.7.0) ---------- */
+.screen-mode {
+  padding: 20px 16px 12px;
+  gap: 14px;
+}
+
+.mode-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  min-height: 48px;
+  padding: 16px;
+  font-family: inherit;
+  text-align: left;
+  color: #ffd21f;
+  background-color: #14141c;
+  border: 3px solid #ffd21f;
+  box-shadow: 0 4px 0 #8a6d00;
+  cursor: pointer;
+}
+
+.mode-card:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 #8a6d00;
+}
+
+.mode-card-endless {
+  color: #ff6b86;
+  border-color: #ff6b86;
+  box-shadow: 0 4px 0 #7a0a22;
+}
+
+.mode-card-endless:active {
+  box-shadow: 0 0 0 #7a0a22;
+}
+
+.mode-card-title {
+  font-size: 1.3rem;
+  font-weight: bold;
+  letter-spacing: 3px;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.mode-card-desc {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #d6dbe6;
+}
+
+.mode-card-meta {
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  color: #6fb7ff;
+}
+
+.mode-message {
+  min-height: 1.2em;
+  text-align: center;
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: #ff6b86;
+}
