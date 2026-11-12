@@ -42,6 +42,15 @@ var galaxyList = document.getElementById('galaxyList');
 var galaxyContinueButton = document.getElementById('galaxyContinueButton');
 var galaxyBackButton = document.getElementById('galaxyBackButton');
 
+var modeSection = document.getElementById('modeSection');
+var modeCampaignButton = document.getElementById('modeCampaignButton');
+var modeEndlessButton = document.getElementById('modeEndlessButton');
+var modeBackButton = document.getElementById('modeBackButton');
+var modeCampaignMeta = document.getElementById('modeCampaignMeta');
+var modeEndlessMeta = document.getElementById('modeEndlessMeta');
+var modeMessage = document.getElementById('modeMessage');
+var questionLabel = document.getElementById('questionLabel');
+
 var resultsSection = document.getElementById('resultsSection');
 var resultsKicker = document.getElementById('resultsKicker');
 var resultsTitle = document.getElementById('resultsTitle');
@@ -110,6 +119,17 @@ var player = {
 };
 
 var stars = [];
+var particleLife = 0.5;       // seconds a spark lives (it fades out over this time)
+var floaters = [];            // floating texts: { x, y, text, color, life }
+var shakeTime = 0;            // seconds of screen shake left
+var shakeTotal = 0.01;        // length of the current shake (for the fade out)
+var shakeMag = 0;             // strength of the current shake in pixels
+var reduceMotion = false;     // true when the device asks for less motion: no screen shake
+try {
+  reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+} catch (error) {
+  /* ignore: shake stays allowed */
+}
 
 // Numbers of one run (added to the stage result)
 function newRunStats() {
@@ -147,6 +167,9 @@ var fireTimer = 0;
 var damageFlash = 0;
 var gameOverAt = 0;
 var bestScore = 0;
+var gameMode = MODE_CAMPAIGN; // MODE_CAMPAIGN or MODE_ENDLESS (set when a run starts)
+var endlessBest = 0;          // best score of the endless mode (saved separately from bestScore)
+var endlessKills = 0;         // ships shot down in the current endless run
 var newBest = false;
 var toast = { text: '', color: '#ffffff', time: 0 };
 var progress = {};
@@ -162,6 +185,7 @@ var campaign = null;          // saved campaign progress (see storage.js)
 var campaignReadOnly = false; // true if the saved campaign data comes from a newer version
 var soundEnabled = true;
 var audioContext = null;
+var audioOutput = null;      // where the sounds are sent (see buildAudioOutput in audio.js)
 
 // ---------- Stage / wave state ----------
 var currentStageId = null;     // id of the stage being played, e.g. "w1-s1"
