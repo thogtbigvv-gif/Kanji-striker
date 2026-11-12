@@ -17,6 +17,7 @@ function showOnly(section, showFooter) {
   resultsSection.hidden = section !== resultsSection;
   galaxySection.hidden = section !== galaxySection;
   howSection.hidden = section !== howSection;
+  modeSection.hidden = section !== modeSection;
   gameSection.hidden = section !== gameSection;
   appFooter.hidden = !showFooter;
 }
@@ -63,6 +64,18 @@ function showHowTo(playAfter) {
 
 function showGame() {
   showOnly(gameSection, false);
+}
+
+// Game mode screen: CAMPAIGN or ENDLESS (opens after PRESS START)
+function showModeSelect() {
+  modeMessage.textContent = '';
+  var nextId = debugStageId || getContinueStageId();
+  var next = nextId ? CAMPAIGN_STAGES[nextId] : null;
+  modeCampaignMeta.textContent = !next ? 'NO STAGE READY'
+    : isStageCompleted(nextId) ? 'ALL READY STAGES CLEARED'
+    : 'NEXT: STAGE ' + next.worldId + '-' + next.number + '  ' + next.name.toUpperCase();
+  modeEndlessMeta.textContent = 'BEST ' + endlessBest;
+  showOnly(modeSection, true);
 }
 
 function showCollection() {
@@ -661,13 +674,17 @@ function drawEnemy(enemy) {
 // The question itself is shown in the HTML question bar above the canvas (see updateHud).
 // Here only the small wave and stage labels are drawn in the top corners.
 function drawQuestion() {
-  if (!currentStage) {
+  var endless = gameMode === MODE_ENDLESS;
+  if (!currentStage && !endless) {
     return;
   }
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 10px "Courier New", monospace';
-  var waveText = stageWaves[waveState.index] && stageWaves[waveState.index].boss ? 'BOSS BATTLE' : 'WAVE ' + (waveState.index + 1) + '/' + stageWaves.length;
-  var stageText = 'STAGE ' + currentStage.worldId + '-' + currentStage.number;
+  var isBossWave = stageWaves[waveState.index] && stageWaves[waveState.index].boss;
+  var waveText = isBossWave ? 'BOSS BATTLE'
+    : endless ? 'WAVE ' + (waveState.index + 1)
+    : 'WAVE ' + (waveState.index + 1) + '/' + stageWaves.length;
+  var stageText = endless ? 'ENDLESS  KILLS ' + endlessKills : 'STAGE ' + currentStage.worldId + '-' + currentStage.number;
   ctx.textAlign = 'left';
   ctx.fillStyle = '#000000';
   ctx.fillText(waveText, 9, 12);
@@ -712,10 +729,11 @@ function drawWaveBanner() {
   ctx.fillStyle = '#ffffff';
   ctx.fillText(def.name.toUpperCase(), centerX, centerY + 33);
 
-  if (waveState.index === 0 && currentStage) {
+  if (waveState.index === 0 && (currentStage || gameMode === MODE_ENDLESS)) {
     ctx.font = 'bold 12px "Courier New", monospace';
     ctx.fillStyle = '#6fb7ff';
-    ctx.fillText('STAGE ' + currentStage.worldId + '-' + currentStage.number + '  ' + currentStage.name.toUpperCase(), centerX, centerY + 58);
+    ctx.fillText(gameMode === MODE_ENDLESS ? 'ENDLESS MODE   SHOOT EVERYTHING!'
+      : 'STAGE ' + currentStage.worldId + '-' + currentStage.number + '  ' + currentStage.name.toUpperCase(), centerX, centerY + 58);
   }
   ctx.globalAlpha = 1;
 }
@@ -862,9 +880,34 @@ function drawOverlayText(title, subtitle, color) {
   }
 }
 
+// Floating "+points" texts
+function drawFloaters() {
+  if (floaters.length === 0) {
+    return;
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 14px "Courier New", monospace';
+  for (var i = 0; i < floaters.length; i++) {
+    var f = floaters[i];
+    var x = Math.max(24, Math.min(viewWidth - 24, f.x));
+    ctx.globalAlpha = Math.max(0, Math.min(1, f.life / 0.35));
+    ctx.fillStyle = '#000000';
+    ctx.fillText(f.text, x + 1, f.y + 1);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, x, f.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
 function render() {
+  ctx.save();
+  if (shakeTime > 0 && !reduceMotion) {
+    var shakeNow = shakeMag * (shakeTime / shakeTotal); // the shake fades out
+    ctx.translate((Math.random() * 2 - 1) * shakeNow, (Math.random() * 2 - 1) * shakeNow);
+  }
   ctx.fillStyle = '#050508';
-  ctx.fillRect(0, 0, viewWidth, viewHeight);
+  ctx.fillRect(-24, -24, viewWidth + 48, viewHeight + 48); // a little bigger than the screen, so a shake shows no gaps
 
   // Stars
   ctx.fillStyle = '#ffffff';
@@ -900,9 +943,12 @@ function render() {
 
   // Particles
   for (var p = 0; p < particles.length; p++) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, particles[p].life / particleLife)); // sparks fade out
     ctx.fillStyle = particles[p].color;
     ctx.fillRect(Math.round(particles[p].x), Math.round(particles[p].y), 3, 3);
   }
+  ctx.globalAlpha = 1;
+  drawFloaters();
 
   // Red flash when hurt
   if (damageFlash > 0) {
@@ -938,13 +984,21 @@ function render() {
         viewWidth / 2, viewHeight / 2 + 66);
     }
   } else if (currentState === STATE_GAME_OVER) {
-    drawOverlayText('GAME OVER', 'SCORE ' + score + '   BEST ' + bestScore, '#ff6b86');
+    var shownBest = gameMode === MODE_ENDLESS ? endlessBest : bestScore;
+    drawOverlayText('GAME OVER', 'SCORE ' + score + '   BEST ' + shownBest, '#ff6b86');
     ctx.fillStyle = '#6fb7ff';
     ctx.font = 'bold 14px "Courier New", monospace';
     ctx.fillText('TAP THE SCREEN TO PLAY AGAIN', viewWidth / 2, viewHeight / 2 + 48);
+    var extraY = viewHeight / 2 + 72;
+    if (gameMode === MODE_ENDLESS) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('WAVE ' + (waveState.index + 1) + '   KILLS ' + endlessKills + '   COMBO x' + runStats.maxCombo, viewWidth / 2, extraY);
+      extraY += 24;
+    }
     if (newBest) {
       ctx.fillStyle = '#ffd21f';
-      ctx.fillText('NEW BEST SCORE!', viewWidth / 2, viewHeight / 2 + 72);
+      ctx.fillText('NEW BEST SCORE!', viewWidth / 2, extraY);
     }
   }
+  ctx.restore();
 }
