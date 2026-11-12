@@ -10,11 +10,19 @@ function startStage(stageId) {
   }
   var stage = CAMPAIGN_STAGES[stageId];
   var pools = buildStagePools(stage);
+  gameMode = MODE_CAMPAIGN;
   currentStageId = stageId;
   currentStage = stage;
   questionPool = pools.targets;
   decoyPool = pools.decoys;
   stageWaves = getWavesForStage(stage);
+  beginRun();
+  return true;
+}
+
+// Everything a new run needs, for a campaign stage and for the endless mode alike.
+// The caller sets gameMode, currentStageId / currentStage, questionPool, decoyPool and stageWaves first.
+function beginRun() {
   stageCompleteFired = false;
   stageResult = null;
   swayClock = 0;
@@ -33,6 +41,8 @@ function startStage(stageId) {
   bullets = [];
   particles = [];
   powerups = [];
+  floaters = [];
+  shakeTime = 0;
   enemyBullets = [];
   boss = null;
   shieldActive = false;
@@ -68,6 +78,8 @@ function startStage(stageId) {
   newBest = false;
   totalTime = 0;
   answered = 0;
+  endlessKills = 0;
+  questionLabel.textContent = gameMode === MODE_ENDLESS ? 'BONUS KANJI FOR' : 'SHOOT THE KANJI FOR';
   pickQuestion();
   resetQuitButton();
   updateHud();
@@ -84,19 +96,24 @@ function startStage(stageId) {
   player.pointerId = null;
   beginWave(0);
   startLoop();
-  return true;
 }
 
-// START GAME: plays the stage the campaign says is next
+// Plays the stage the campaign says is next. Returns false when nothing could be started.
 function startGame() {
   var stageId = debugStageId || getContinueStageId();
   if (!stageId || !startStage(stageId)) {
     showStageNotReady();
+    return false;
   }
+  return true;
 }
 
-// Tap after GAME OVER: try the same stage again
+// Tap after GAME OVER: try the same stage (or a new endless run) again
 function restartCurrentStage() {
+  if (gameMode === MODE_ENDLESS) {
+    startEndless();
+    return;
+  }
   if (!currentStageId || !startStage(currentStageId)) {
     backToMenu();
   }
@@ -333,7 +350,14 @@ function updateGameplay(dt) {
       var escapedTarget = isActiveTarget(enemy);
       enemy.dead = true;
       if (escapedTarget) {
-        targetMissed(TARGET_ESCAPE_DAMAGE);
+        targetMissed(gameMode === MODE_ENDLESS ? ENDLESS_ESCAPE_DAMAGE : TARGET_ESCAPE_DAMAGE);
+        if (currentState === STATE_GAME_OVER) {
+          sweepDead();
+          return;
+        }
+      } else if (gameMode === MODE_ENDLESS && enemy.kind !== 'mini') {
+        // endless mode: every ship that gets past you costs a little HP
+        loseHp(ENDLESS_ESCAPE_DAMAGE);
         if (currentState === STATE_GAME_OVER) {
           sweepDead();
           return;
@@ -381,7 +405,7 @@ function updateGameplay(dt) {
       }
       // A bullet fired for an OLD question flies through wrong ships: the question changed while it was in the
       // air, so the player cannot be punished for it. It can still hit the new correct target.
-      if (b.qid !== questionSerial && !isActiveTarget(e)) {
+      if (gameMode !== MODE_ENDLESS && b.qid !== questionSerial && !isActiveTarget(e)) {
         continue;
       }
       if (Math.abs(b.x - e.x) > e.w / 2 + BULLET_HIT_PADDING) {
@@ -421,6 +445,8 @@ function updateGameplay(dt) {
     if (wasCorrect) {
       burst(target.x, target.y + target.h / 2, '#5dff8a');
       correctHit(target.data, target.x, target.y, target.kind);
+    } else if (gameMode === MODE_ENDLESS) {
+      endlessKill(target); // endless mode: every ship is a good target
     } else {
       burst(target.x, target.y + target.h / 2, '#ff6b86');
       wrongHit(target.data);
@@ -556,6 +582,16 @@ function updateEffects(dt) {
   }
   if (toast.time > 0) {
     toast.time -= dt;
+  }
+  if (shakeTime > 0) {
+    shakeTime = Math.max(0, shakeTime - dt);
+  }
+  for (i = floaters.length - 1; i >= 0; i--) {
+    floaters[i].y -= FLOATER_RISE * dt;
+    floaters[i].life -= dt;
+    if (floaters[i].life <= 0) {
+      floaters.splice(i, 1);
+    }
   }
 
   for (i = particles.length - 1; i >= 0; i--) {
