@@ -62,12 +62,12 @@
         <p id="menuNext" class="menu-next" role="status"></p>
 
         <nav id="mainMenuNav" class="menu-nav" aria-label="Main menu">
-          <button id="startGameButton" class="menu-button menu-button-primary" type="button" aria-label="Choose a game mode">PRESS START</button>
-          <button id="galaxyMapButton" class="menu-button" type="button" aria-label="Open the galaxy map">GALAXY MAP</button>
+          <button id="startGameButton" class="menu-button menu-button-primary" type="button">PRESS START</button>
+          <button id="galaxyMapButton" class="menu-button" type="button">GALAXY MAP</button>
           <div class="menu-row">
-            <button id="kanjiCollectionButton" class="menu-button menu-button-small" type="button" aria-label="Open kanji collection">KANJI</button>
-            <button id="howToButton" class="menu-button menu-button-small" type="button" aria-label="How to play">HELP</button>
-            <button id="settingsButton" class="menu-button menu-button-small" type="button" aria-label="Open settings">SETTINGS</button>
+            <button id="kanjiCollectionButton" class="menu-button menu-button-small" type="button">KANJI</button>
+            <button id="howToButton" class="menu-button menu-button-small" type="button">HELP</button>
+            <button id="settingsButton" class="menu-button menu-button-small" type="button">SETTINGS</button>
           </div>
         </nav>
         <p class="menu-credit" aria-hidden="true">FREE PLAY &middot; CREDIT 99</p>
@@ -80,20 +80,20 @@
         <h2 id="modeTitle" class="panel-title">SELECT MODE</h2>
       </header>
       <div class="mode-list">
-        <button id="modeCampaignButton" class="mode-card" type="button" aria-label="Play the campaign">
+        <button id="modeCampaignButton" class="mode-card" type="button">
           <span class="mode-card-title">CAMPAIGN</span>
-          <span class="mode-card-desc">Galaxy-н stage-үүд. Монгол утгад таарах kanji-г буудаж, boss-той тулна.</span>
+          <span class="mode-card-desc" lang="mn">Galaxy-н stage-үүд. Монгол утгад таарах kanji-г буудаж, boss-той тулна.</span>
           <span id="modeCampaignMeta" class="mode-card-meta"></span>
         </button>
-        <button id="modeEndlessButton" class="mode-card mode-card-endless" type="button" aria-label="Play the endless mode">
+        <button id="modeEndlessButton" class="mode-card mode-card-endless" type="button">
           <span class="mode-card-title">ENDLESS</span>
-          <span class="mode-card-desc">Төгсгөлгүй. Гарч ирсэн бүх хөлгийг устга! Wave бүр хүндэрнэ, 5 wave тутамд boss.</span>
+          <span class="mode-card-desc" lang="mn">Төгсгөлгүй. Гарч ирсэн бүх хөлгийг устга! Wave бүр хүндэрнэ, 5 wave тутамд boss.</span>
           <span id="modeEndlessMeta" class="mode-card-meta"></span>
         </button>
         <p id="modeMessage" class="mode-message" role="status"></p>
       </div>
       <div class="panel-actions">
-        <button id="modeBackButton" class="menu-button" type="button" aria-label="Back to main menu">BACK</button>
+        <button id="modeBackButton" class="menu-button" type="button">BACK</button>
       </div>
     </section>
 
@@ -106,7 +106,7 @@
       </header>
       <div id="collectionGrid" class="collection-grid" role="list" aria-label="Kanji list"></div>
       <div class="panel-actions">
-        <button id="collectionBackButton" class="menu-button" type="button" aria-label="Back to main menu">BACK</button>
+        <button id="collectionBackButton" class="menu-button" type="button">BACK</button>
       </div>
     </section>
 
@@ -116,12 +116,12 @@
         <h2 id="settingsTitle" class="panel-title">SETTINGS</h2>
       </header>
       <div class="settings-list">
-        <button id="soundToggleButton" class="menu-button" type="button" aria-label="Turn sound on or off">SOUND: ON</button>
-        <button id="resetProgressButton" class="menu-button menu-button-danger" type="button" aria-label="Reset all saved progress">RESET PROGRESS</button>
+        <button id="soundToggleButton" class="menu-button" type="button">SOUND: ON</button>
+        <button id="resetProgressButton" class="menu-button menu-button-danger" type="button">RESET PROGRESS</button>
         <p id="settingsMessage" class="settings-message" role="status"></p>
       </div>
       <div class="panel-actions">
-        <button id="settingsBackButton" class="menu-button" type="button" aria-label="Back to main menu">BACK</button>
+        <button id="settingsBackButton" class="menu-button" type="button">BACK</button>
       </div>
     </section>
 
@@ -131,13 +131,13 @@
         <h2 id="howTitle" class="panel-title">HOW TO PLAY</h2>
       </header>
       <ul class="how-list">
-        <li class="how-item"><span class="how-icon">&#9664;&#9654;</span><div><h3>MOVE</h3><p>Хуруугаа чирж хөлгөө хөдөлгө.</p></div></li>
-        <li class="how-item"><span class="how-icon">&#9679;</span><div><h3>SHOOT</h3><p>Хуруугаа нэг газар түр барь. Хөлөг өөрөө буудна.</p></div></li>
-        <li class="how-item"><span class="how-icon">&#26085;</span><div><h3>TARGET</h3><p>Дээр гарсан монгол утгад таарах kanji-тай хөлгийг буудна. Буруу kanji буудвал HP хасагдана.</p></div></li>
-        <li class="how-item"><span class="how-icon">&#10039;</span><div><h3>BOMB</h3><p>Дэлгэцийг хоёр товш. Буруу хөлгүүд бүгд устна.</p></div></li>
-        <li class="how-item"><span class="how-icon">&raquo;</span><div><h3>DASH</h3><p>Хуруугаа хурдан хажуу тийш шудр. Хөлөг түр аюулгүй болно.</p></div></li>
-        <li class="how-item"><span class="how-icon">STRPB</span><div><h3>POWER-UPS</h3><p>Унасан капсулыг хөлгөөрөө цохиж ав.</p></div></li>
-        <li class="how-item"><span class="how-icon">&infin;</span><div><h3>ENDLESS</h3><p>Төгсгөлгүй горимд гарч ирсэн бүх хөлгийг бууд. Доор нь гарсан хөлөг тутамд HP хасагдана. Дээрх утгад таарах kanji бол bonus оноотой.</p></div></li>
+        <li class="how-item"><span class="how-icon">&#9664;&#9654;</span><div><h3>MOVE</h3><p lang="mn">Хуруугаа чирж хөлгөө хөдөлгө.</p></div></li>
+        <li class="how-item"><span class="how-icon">&#9679;</span><div><h3>SHOOT</h3><p lang="mn">Хуруугаа нэг газар түр барь. Хөлөг өөрөө буудна.</p></div></li>
+        <li class="how-item"><span class="how-icon">&#26085;</span><div><h3>TARGET</h3><p lang="mn">Дээр гарсан монгол утгад таарах kanji-тай хөлгийг буудна. Буруу kanji буудвал HP хасагдана.</p></div></li>
+        <li class="how-item"><span class="how-icon">&#10039;</span><div><h3>BOMB</h3><p lang="mn">Дэлгэцийг хоёр товш. Буруу хөлгүүд бүгд устна.</p></div></li>
+        <li class="how-item"><span class="how-icon">&raquo;</span><div><h3>DASH</h3><p lang="mn">Хуруугаа хурдан хажуу тийш шудр. Хөлөг түр аюулгүй болно.</p></div></li>
+        <li class="how-item"><span class="how-icon">&#9670;</span><div><h3>POWER-UPS</h3><p lang="mn">Унасан капсулыг хөлгөөрөө цохиж ав.</p></div></li>
+        <li class="how-item"><span class="how-icon">&infin;</span><div><h3>ENDLESS</h3><p lang="mn">Төгсгөлгүй горимд гарч ирсэн бүх хөлгийг бууд. Доор нь гарсан хөлөг тутамд HP хасагдана. Дээрх утгад таарах kanji бол bonus оноотой.</p></div></li>
       </ul>
       <div class="panel-actions">
         <button id="howBackButton" class="menu-button menu-button-primary" type="button">GOT IT</button>
@@ -152,8 +152,8 @@
       </header>
       <div id="galaxyList" class="galaxy-list"></div>
       <div class="galaxy-actions">
-        <button id="galaxyContinueButton" class="menu-button menu-button-primary" type="button" aria-label="Continue the campaign">CONTINUE</button>
-        <button id="galaxyBackButton" class="menu-button" type="button" aria-label="Back to main menu">BACK</button>
+        <button id="galaxyContinueButton" class="menu-button menu-button-primary" type="button">CONTINUE</button>
+        <button id="galaxyBackButton" class="menu-button" type="button">BACK</button>
       </div>
     </section>
 
@@ -187,8 +187,8 @@
       </div>
 
       <footer id="gameControls" class="game-controls" aria-label="Game controls">
-        <button id="pauseButton" class="control-button" type="button" aria-label="Pause game">PAUSE</button>
-        <button id="backToMenuButton" class="control-button control-button-danger" type="button" aria-label="Back to main menu">MENU</button>
+        <button id="pauseButton" class="control-button" type="button">PAUSE</button>
+        <button id="backToMenuButton" class="control-button control-button-danger" type="button">MENU</button>
       </footer>
     </section>
 
@@ -275,15 +275,15 @@
       </div>
 
       <div class="results-actions">
-        <button id="resultsNextButton" class="menu-button menu-button-primary results-next-button" type="button" aria-label="Play the next stage">NEXT STAGE</button>
-        <button id="resultsRetryButton" class="menu-button" type="button" aria-label="Retry this stage">RETRY</button>
-        <button id="resultsMapButton" class="menu-button" type="button" aria-label="Open the galaxy map">GALAXY MAP</button>
+        <button id="resultsNextButton" class="menu-button menu-button-primary results-next-button" type="button">NEXT STAGE</button>
+        <button id="resultsRetryButton" class="menu-button" type="button">RETRY</button>
+        <button id="resultsMapButton" class="menu-button" type="button">GALAXY MAP</button>
       </div>
     </section>
 
     <!-- APP FOOTER -->
     <footer id="appFooter" class="app-footer">
-      <small id="versionLabel">v0.7.1</small>
+      <small id="versionLabel">v0.7.2</small>
     </footer>
 
   </div>
