@@ -318,6 +318,9 @@ function waveSwayMotion(sway) {
 }
 
 function beginWave(index) {
+  if (gameMode === MODE_ENDLESS && !stageWaves[index]) {
+    stageWaves[index] = buildEndlessWave(index); // endless mode: the next wave is made when it is needed
+  }
   waveState.index = index;
   waveState.phase = 'intro';
   waveState.timer = WAVE_INTRO_TIME;
@@ -339,7 +342,7 @@ function updateWaveSpawning(dt) {
 
   if (waveState.phase === 'gap') {
     waveState.timer -= dt;
-    if (waveState.timer <= 0 && waveState.index + 1 < stageWaves.length) {
+    if (waveState.timer <= 0 && (gameMode === MODE_ENDLESS || waveState.index + 1 < stageWaves.length)) {
       beginWave(waveState.index + 1);
     }
     return;
@@ -466,7 +469,7 @@ function checkWaveCleared() {
   if (targetLost) {
     return; // the correct target was missed: the rescue ship must come first
   }
-  var isLastWave = waveState.index + 1 >= stageWaves.length;
+  var isLastWave = gameMode !== MODE_ENDLESS && waveState.index + 1 >= stageWaves.length; // endless never ends
   awardWaveBonus(isLastWave); // the bonus is part of the score before the stage result is made
   if (!isLastWave) {
     waveState.phase = 'gap';
