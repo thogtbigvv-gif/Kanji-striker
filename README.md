@@ -17,7 +17,7 @@
 - **Power-up capsules:** Shield (S), Slow time (T), Repair (R), Power (P) and Bomb (B). Fly into a capsule to collect it.
 - **Bombs:** Double tap the screen (or press `B`) to destroy every wrong ship and enemy bullet. The correct kanji ship survives, so you still have to answer.
 - **Dash:** Flick your finger sideways (or press `Space` / `Shift`) to dash. The ship is a ghost during the dash. Cooldown 1.2 s.
-- **Stage results screen (now wired in v0.4.0):** Score, accuracy, best combo, XP, 1–3 stars and a kanji learning summary (new, correct, incorrect, needs review).
+- **Stage results screen:** Score, accuracy, best combo, XP, 1–3 stars and a kanji learning summary (new, correct, incorrect, needs review).
 - **Kanji collection:** See which kanji you have discovered.
 - **Sound effects:** Simple generated beeps (no audio files). Can be turned off in Settings.
 - **Two game modes (v0.7.0):** PRESS START opens a mode screen. **CAMPAIGN** is the galaxy stage game. **ENDLESS** never stops: every ship that appears can be shot down for points, the waves get harder, and every 5th wave is a boss.
@@ -35,6 +35,7 @@
 | Move ship | Drag your finger or mouse | `←` / `→` |
 | Shoot | Hold still for a moment | Hold the mouse button still (the keyboard only moves the ship) |
 | Bomb | Double tap | `B` |
+| Dash | Flick sideways | `Space` / `Shift` |
 
 ---
 
@@ -105,22 +106,20 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
-## 🆕 v0.4.0 changes
+## 📜 Changelog
+
+### v0.4.0
 
 - Clearing a stage now saves campaign progress (stage unlocks, best score, best stars, plays). Game over counts as an attempt.
 - Stage results screen is connected: stars, XP, kanji learning summary, NEXT STAGE / RETRY / MENU.
 - Total XP is saved in `kanjiStrikerXp` and cleared by RESET PROGRESS.
 
----
-
-## 🗺️ v0.5.0 changes
+### v0.5.0
 
 - New **Galaxy Map** screen: START GAME opens it. All worlds and stages are listed with stars, the next stage is highlighted, locked stages are greyed, worlds without kanji show COMING SOON. Tap a stage to play it, or press CONTINUE.
 - The results screen's GALAXY MAP button now opens this screen.
 
----
-
-## 🎨 v0.6.0 changes (UX / UI)
+### v0.6.0 – UX / UI
 
 - Main menu: progress strip (stars, XP, best score), a "next stage" line, **PLAY** continues straight into the next stage, separate **GALAXY MAP**, **KANJI**, **HELP**, **SETTINGS**. Slow starfield drift.
 - **How to play** screen (Mongolian text). Shown automatically the first time you press PLAY. New key `kanjiStrikerHelpSeen`.
@@ -129,18 +128,14 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 - Galaxy Map rows show kanji count or best score. Collection screen has a legend.
 - Accessibility: visible keyboard focus, touch targets at least 48px, brighter small text, reduced-motion support.
 
----
-
-## ♾️ v0.7.0 changes (ENDLESS mode)
+### v0.7.0 – ENDLESS mode
 
 - **Mode screen** after PRESS START: CAMPAIGN (as before) or ENDLESS. The old PLAY-straight-into-the-next-stage is now the CAMPAIGN button.
 - **ENDLESS rules:** every ship can be shot down for points and combo, and shooting a "wrong" kanji costs nothing. The ship that carries the kanji of the question bar is the **BONUS** target (more points, saved to your kanji progress). A ship that reaches the bottom costs 4 HP. 10 kills in a row heal a little, and capsules drop every 8 kills.
 - **Difficulty** grows with each wave: faster ships, bigger groups, fast / armored / splitting ships, enemy fire and special flight paths. Every 5th wave is a boss wave.
 - ENDLESS has its **own best score** (`kanjiStrikerEndlessBest`). It gives no stars, XP or stage unlocks. All numbers are in `js/config.js` under "Endless mode".
 
----
-
-## ✨ v0.7.1 changes (polish, no new gameplay)
+### v0.7.1 – Polish, no new gameplay
 
 - **Game feel:** short screen shake when the ship is hit, when a bomb goes off and when a boss falls (off automatically if the device asks for reduced motion, or set `SHAKE_ENABLED = false`). Floating "+points" texts where a ship was shot down. Sparks now fade out.
 - **Sound:** every sound now goes through one master volume and a limiter, so busy moments (a full endless wave) no longer clip or crackle. Volume: `MASTER_VOLUME` in `js/config.js`.
@@ -149,6 +144,14 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.7.2 – Cleanup, no new gameplay
+
+- **Fix:** the `icons/` folder was missing from the repository, so installing the game as an app and the iPhone home-screen icon did not work. The four icons (192, 512, maskable, Apple touch) are now included.
+- **Accessibility:** button names now match the text you see on them (needed for voice control and screen readers), Mongolian texts are marked as Mongolian, and the placeholder `STRPB` symbol in HOW TO PLAY is replaced by a proper icon.
+- **Code:** removed unused leftovers (`BANNER_HEIGHT`, `ENEMY_COLORS`, `pickSpawnX`). Gameplay, saved data and balance are unchanged.
+
+---
+
 ## 📌 Version
 
-Current version: **v0.7.1** (shown in the footer of the menu).
+Current version: **v0.7.2** (shown in the footer of the menu).
