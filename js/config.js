@@ -173,7 +173,6 @@ var STAGE_CLEAR_BONUS = 500;   // extra, for clearing the last wave of the stage
 // ---------- Sizes and fonts ----------
 var ENEMY_WIDTH = 44;
 var ENEMY_HEIGHT = 54;
-var BANNER_HEIGHT = 48;
 var KANJI_VISIBLE_Y = 12; // an enemy can be hit only after its kanji is below the question banner
 var KANJI_FONT = '"Hiragino Sans", "Yu Gothic", "Noto Sans JP", "Noto Sans CJK JP", "MS Gothic", sans-serif';
 
@@ -209,11 +208,6 @@ var SHIP_WIDTH = SHIP_PIXELS[0].length * PIXEL;
 var SHIP_HEIGHT = SHIP_PIXELS.length * PIXEL;
 
 var ENEMY_PIXEL = 4;
-var ENEMY_COLORS = {
-  B: '#2f7bff',
-  D: '#123a8a',
-  Y: '#ffd21f'
-};
 var ENEMY_PIXELS = [
   'B.......B',
   'BB.YYY.BB',
