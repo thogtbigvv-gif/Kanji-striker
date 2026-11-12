@@ -174,6 +174,7 @@ function damageBoss(amount, big) {
 function defeatBoss() {
   boss.state = 'dying';
   boss.dyingTimer = BOSS_DYING_TIME;
+  addShake(SHAKE_BOSS_DOWN, SHAKE_BOSS_DOWN_TIME);
   waveState.phase = 'bossdown'; // no more ships spawn while the boss explodes
   score += BOSS_DEFEAT_BONUS;
   bonusScore += BOSS_DEFEAT_BONUS;
@@ -203,6 +204,7 @@ function useBomb() {
   bombs -= 1;
   runStats.bombsUsed += 1;
   bombFlash = 0.4;
+  addShake(SHAKE_BOMB, SHAKE_BOMB_TIME);
   var cleared = 0;
   for (var i = 0; i < enemies.length; i++) {
     var en = enemies[i];
