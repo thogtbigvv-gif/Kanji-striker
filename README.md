@@ -20,6 +20,7 @@
 - **Stage results screen (now wired in v0.4.0):** Score, accuracy, best combo, XP, 1–3 stars and a kanji learning summary (new, correct, incorrect, needs review).
 - **Kanji collection:** See which kanji you have discovered.
 - **Sound effects:** Simple generated beeps (no audio files). Can be turned off in Settings.
+- **Two game modes (v0.7.0):** PRESS START opens a mode screen. **CAMPAIGN** is the galaxy stage game. **ENDLESS** never stops: every ship that appears can be shot down for points, the waves get harder, and every 5th wave is a boss.
 - **Mobile-first design:** Optimized for portrait smartphone browsers with responsive Canvas rendering.
 - **Zero dependencies:** Pure **HTML5, CSS3 and Vanilla JavaScript**. No frameworks, no npm, no build tools.
 
@@ -44,6 +45,8 @@ Kanji-striker/
 │
 ├── index.html        # Page structure and all screens (menu, collection, settings, game, results)
 ├── style.css         # Retro pixel-art styling and mobile layout
+├── manifest.webmanifest  # Install-as-app settings
+├── icons/            # App icons (192, 512, maskable, Apple touch)
 └── js/
     ├── data.js       # Kanji list (kanji + Mongolian meaning), worlds and stages
     ├── config.js     # Tuning numbers, sprites, enemy kinds, wave plans
@@ -53,13 +56,14 @@ Kanji-striker/
     ├── waves.js      # Wave system, stage plan, stage complete
     ├── enemies.js    # Questions, enemy spawning, damage and answer rules
     ├── arcade.js     # Enemy fire, boss, bombs, power-up capsules
+    ├── endless.js    # Endless mode: wave generator, kill rules, start
     ├── game.js       # Start / pause / menu, gameplay update, game loop
     ├── render.js     # Screens, HUD, canvas size, drawing
     ├── input.js      # Touch / mouse / keyboard, buttons, window events
     └── script.js     # Startup
 ```
 
-The scripts are plain `<script>` files (not ES modules) that share global variables, so **the load order in `index.html` matters**. Keep it exactly as listed above: `data → config → state → storage → audio → waves → enemies → arcade → game → render → input → script`.
+The scripts are plain `<script>` files (not ES modules) that share global variables, so **the load order in `index.html` matters**. Keep it exactly as listed above: `data → config → state → storage → progression → audio → waves → enemies → arcade → endless → game → render → input → script`.
 
 ---
 
@@ -80,6 +84,7 @@ Progress is stored in the browser with `localStorage`. These keys must never be 
 - `kanjiStrikerSound`
 - `kanjiStrikerCampaign`
 - `kanjiStrikerXp`
+- `kanjiStrikerEndlessBest` (added in v0.7.0)
 
 Settings → **RESET PROGRESS** clears all saved data.
 
@@ -126,6 +131,24 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+## ♾️ v0.7.0 changes (ENDLESS mode)
+
+- **Mode screen** after PRESS START: CAMPAIGN (as before) or ENDLESS. The old PLAY-straight-into-the-next-stage is now the CAMPAIGN button.
+- **ENDLESS rules:** every ship can be shot down for points and combo, and shooting a "wrong" kanji costs nothing. The ship that carries the kanji of the question bar is the **BONUS** target (more points, saved to your kanji progress). A ship that reaches the bottom costs 4 HP. 10 kills in a row heal a little, and capsules drop every 8 kills.
+- **Difficulty** grows with each wave: faster ships, bigger groups, fast / armored / splitting ships, enemy fire and special flight paths. Every 5th wave is a boss wave.
+- ENDLESS has its **own best score** (`kanjiStrikerEndlessBest`). It gives no stars, XP or stage unlocks. All numbers are in `js/config.js` under "Endless mode".
+
+---
+
+## ✨ v0.7.1 changes (polish, no new gameplay)
+
+- **Game feel:** short screen shake when the ship is hit, when a bomb goes off and when a boss falls (off automatically if the device asks for reduced motion, or set `SHAKE_ENABLED = false`). Floating "+points" texts where a ship was shot down. Sparks now fade out.
+- **Sound:** every sound now goes through one master volume and a limiter, so busy moments (a full endless wave) no longer clip or crackle. Volume: `MASTER_VOLUME` in `js/config.js`.
+- **Install as an app:** added `manifest.webmanifest`, icons and phone meta tags. On a phone use "Add to Home Screen" and the game opens full screen without the browser bar.
+- Fix: a ship escaping in ENDLESS no longer plays the hurt sound twice.
+
+---
+
 ## 📌 Version
 
-Current version: **v0.6.0** (shown in the footer of the menu).
+Current version: **v0.7.1** (shown in the footer of the menu).
