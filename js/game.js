@@ -96,6 +96,7 @@ function beginRun() {
   answered = 0;
   endlessKills = 0;
   questionLabel.textContent = gameMode === MODE_ENDLESS ? 'BONUS KANJI FOR' : 'SHOOT THE KANJI FOR';
+  resetChallengeState();
   pickQuestion();
   resetQuitButton();
   updateHud();
