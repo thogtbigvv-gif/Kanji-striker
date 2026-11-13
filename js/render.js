@@ -2,6 +2,61 @@
 /* js/render.js - screen switching, HUD, canvas size and everything that is drawn.
    Load after game.js. */
 
+// ---------- Small helpers ----------
+var STAR_COUNT = 60; // background stars on the game canvas
+
+// Canvas font string: bold monospace text of the given pixel size
+function monoFont(size) {
+  return 'bold ' + size + 'px "Courier New", monospace';
+}
+
+// Removes every child of an element
+function clearChildren(element) {
+  while (element.firstChild) {
+    element.removeChild(element.firstChild);
+  }
+}
+
+// Creates <tag class="className">text</tag> (text is optional)
+function makeEl(tag, className, text) {
+  var element = document.createElement(tag);
+  element.className = className;
+  if (text !== undefined) {
+    element.textContent = text;
+  }
+  return element;
+}
+
+// Text with a dark drop shadow: the shadow is drawn first, `offset` pixels right and down (default 1)
+function drawShadowText(text, x, y, color, offset) {
+  var shift = offset === undefined ? 1 : offset;
+  ctx.fillStyle = '#000000';
+  ctx.fillText(text, x + shift, y + shift);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+
+// Pixel-art sprite: rows of characters where '.' is empty.
+// palette = object (character -> colour) or one flat colour for every pixel.
+function drawSprite(rows, palette, left, top, size) {
+  var flat = typeof palette === 'string';
+  if (flat) {
+    ctx.fillStyle = palette;
+  }
+  for (var row = 0; row < rows.length; row++) {
+    for (var col = 0; col < rows[row].length; col++) {
+      var key = rows[row][col];
+      if (key === '.') {
+        continue;
+      }
+      if (!flat) {
+        ctx.fillStyle = palette[key];
+      }
+      ctx.fillRect(left + col * size, top + row * size, size, size);
+    }
+  }
+}
+
 // ---------- Learning message (shown under the question) ----------
 function showToast(text, color) {
   toast.text = text;
@@ -29,18 +84,18 @@ function showMenu() {
 
 // Progress strip and the "next stage" line on the main menu
 function updateMenuInfo() {
-  var stars = 0;
+  var earnedStars = 0;
   var maxStars = 0;
   for (var w = 0; w < CAMPAIGN_WORLDS.length; w++) {
     if (!CAMPAIGN_WORLDS[w].ready) {
       continue;
     }
     for (var s = 0; s < CAMPAIGN_WORLDS[w].stages.length; s++) {
-      stars += getStageProgress(CAMPAIGN_WORLDS[w].stages[s].id).stars;
+      earnedStars += getStageProgress(CAMPAIGN_WORLDS[w].stages[s].id).stars;
       maxStars += 3;
     }
   }
-  menuStars.textContent = stars + '/' + maxStars;
+  menuStars.textContent = earnedStars + '/' + maxStars;
   menuXp.textContent = String(totalXp);
   menuBest.textContent = String(bestScore);
 
@@ -101,9 +156,8 @@ function starText(count) {
 function makeStageRow(stage, continueId) {
   var done = isStageCompleted(stage.id);
   var playable = isStagePlayable(stage.id) || (stage.id === debugStageId && stage.ready);
-  var row = document.createElement('button');
+  var row = makeEl('button', 'stage-row');
   row.type = 'button';
-  row.className = 'stage-row';
   if (done) {
     row.className += ' is-done';
   }
@@ -115,25 +169,13 @@ function makeStageRow(stage, continueId) {
     row.disabled = true;
   }
 
-  var num = document.createElement('span');
-  num.className = 'stage-num';
-  num.textContent = stage.boss ? 'B' : String(stage.number);
-  var name = document.createElement('span');
-  name.className = 'stage-name';
-  name.textContent = stage.name;
-  var subLine = document.createElement('span');
-  subLine.className = 'stage-sub';
   var info = getStageProgress(stage.id);
-  subLine.textContent = done ? 'Best ' + info.bestScore : stage.boss ? 'Boss fight' : stage.kanji.length + ' new kanji';
+  var num = makeEl('span', 'stage-num', stage.boss ? 'B' : String(stage.number));
+  var name = makeEl('span', 'stage-name', stage.name);
+  var subLine = makeEl('span', 'stage-sub',
+    done ? 'Best ' + info.bestScore : stage.boss ? 'Boss fight' : stage.kanji.length + ' new kanji');
   name.appendChild(subLine);
-  var status = document.createElement('span');
-  status.className = 'stage-status';
-  var progressInfo = getStageProgress(stage.id);
-  if (done) {
-    status.textContent = starText(progressInfo.stars);
-  } else {
-    status.textContent = playable ? 'PLAY' : 'LOCKED';
-  }
+  var status = makeEl('span', 'stage-status', done ? starText(info.stars) : playable ? 'PLAY' : 'LOCKED');
   row.appendChild(num);
   row.appendChild(name);
   row.appendChild(status);
@@ -149,9 +191,7 @@ function makeStageRow(stage, continueId) {
 }
 
 function buildGalaxyMap() {
-  while (galaxyList.firstChild) {
-    galaxyList.removeChild(galaxyList.firstChild);
-  }
+  clearChildren(galaxyList);
   var continueId = getContinueStageId();
   var totalStars = 0;
   var maxStars = 0;
@@ -160,23 +200,14 @@ function buildGalaxyMap() {
     var world = CAMPAIGN_WORLDS[w];
     var unlocked = world.ready && isWorldUnlocked(world.id);
     var worldStars = 0;
-    var card = document.createElement('div');
-    card.className = 'world-card' + (unlocked ? '' : ' is-locked');
+    var card = makeEl('div', 'world-card' + (unlocked ? '' : ' is-locked'));
 
-    var head = document.createElement('div');
-    head.className = 'world-head';
-    var title = document.createElement('span');
-    title.className = 'world-title';
-    title.textContent = 'WORLD ' + world.id + ' - ' + world.name.toUpperCase();
-    var level = document.createElement('span');
-    level.className = 'world-level';
-    level.textContent = world.jlpt;
-    head.appendChild(title);
-    head.appendChild(level);
+    var head = makeEl('div', 'world-head');
+    head.appendChild(makeEl('span', 'world-title', 'WORLD ' + world.id + ' - ' + world.name.toUpperCase()));
+    head.appendChild(makeEl('span', 'world-level', world.jlpt));
     card.appendChild(head);
 
-    var info = document.createElement('p');
-    info.className = 'world-info';
+    var info = makeEl('p', 'world-info');
     card.appendChild(info);
 
     if (!world.ready) {
@@ -211,27 +242,17 @@ function showGalaxyMap() {
 
 // ---------- Stage results screen ----------
 function fillChips(container, kanjiList) {
-  while (container.firstChild) {
-    container.removeChild(container.firstChild);
-  }
+  clearChildren(container);
   if (kanjiList.length === 0) {
-    var none = document.createElement('span');
-    none.className = 'chip-empty';
-    none.textContent = '-';
-    container.appendChild(none);
+    container.appendChild(makeEl('span', 'chip-empty', '-'));
     return;
   }
   for (var i = 0; i < kanjiList.length; i++) {
     var item = KANJI_BY_CHAR[kanjiList[i]];
-    var chip = document.createElement('span');
-    chip.className = 'chip';
-    var charSpan = document.createElement('span');
-    charSpan.className = 'chip-char';
+    var chip = makeEl('span', 'chip');
+    var charSpan = makeEl('span', 'chip-char', kanjiList[i]);
     charSpan.lang = 'ja'; // Japanese glyph shapes, not the Chinese ones
-    charSpan.textContent = kanjiList[i];
-    var meaningSpan = document.createElement('span');
-    meaningSpan.className = 'chip-meaning';
-    meaningSpan.textContent = item ? item.meaning : '';
+    var meaningSpan = makeEl('span', 'chip-meaning', item ? item.meaning : '');
     chip.appendChild(charSpan);
     chip.appendChild(meaningSpan);
     container.appendChild(chip);
@@ -331,9 +352,7 @@ function showResults() {
 
 // ---------- Kanji collection screen ----------
 function buildCollection() {
-  while (collectionGrid.firstChild) {
-    collectionGrid.removeChild(collectionGrid.firstChild);
-  }
+  clearChildren(collectionGrid);
 
   var collected = 0;
   for (var i = 0; i < KANJI_LIST.length; i++) {
@@ -341,15 +360,12 @@ function buildCollection() {
     var entry = progress[item.kanji];
     var hits = entry && typeof entry.hits === 'number' ? entry.hits : 0;
 
-    var cell = document.createElement('div');
-    cell.className = 'kanji-cell';
+    var cell = makeEl('div', 'kanji-cell');
     cell.setAttribute('role', 'listitem');
 
-    var charSpan = document.createElement('span');
-    charSpan.className = 'kanji-cell-char';
+    var charSpan = makeEl('span', 'kanji-cell-char');
     charSpan.lang = 'ja';
-    var meaningSpan = document.createElement('span');
-    meaningSpan.className = 'kanji-cell-meaning';
+    var meaningSpan = makeEl('span', 'kanji-cell-meaning');
 
     if (hits >= MASTERED_HITS) {
       cell.className += ' is-mastered';
@@ -400,8 +416,7 @@ function updateHud() {
 // ---------- Canvas size ----------
 function createStars() {
   stars = [];
-  var count = 60;
-  for (var i = 0; i < count; i++) {
+  for (var i = 0; i < STAR_COUNT; i++) {
     stars.push({
       x: Math.random() * viewWidth,
       y: Math.random() * viewHeight,
@@ -485,15 +500,8 @@ function drawDashGhosts() {
     var ghost = dashGhosts[g];
     var ghostLeft = Math.round(ghost.x - SHIP_WIDTH / 2);
     var ghostTop = Math.round(ghost.y - SHIP_HEIGHT / 2);
-    ctx.globalAlpha = Math.max(0, ghost.life / 0.25) * 0.4;
-    ctx.fillStyle = '#66e0ff';
-    for (var row = 0; row < SHIP_PIXELS.length; row++) {
-      for (var col = 0; col < SHIP_PIXELS[row].length; col++) {
-        if (SHIP_PIXELS[row][col] !== '.') {
-          ctx.fillRect(ghostLeft + col * PIXEL, ghostTop + row * PIXEL, PIXEL, PIXEL);
-        }
-      }
-    }
+    ctx.globalAlpha = Math.max(0, ghost.life / DASH_GHOST_LIFE) * 0.4;
+    drawSprite(SHIP_PIXELS, '#66e0ff', ghostLeft, ghostTop, PIXEL);
   }
   ctx.globalAlpha = 1;
 }
@@ -519,16 +527,7 @@ function drawShip() {
     ctx.globalAlpha = 0.55; // a see-through ship = a ghost: nothing can hurt it
   }
 
-  for (var row = 0; row < SHIP_PIXELS.length; row++) {
-    for (var col = 0; col < SHIP_PIXELS[row].length; col++) {
-      var key = SHIP_PIXELS[row][col];
-      if (key === '.') {
-        continue;
-      }
-      ctx.fillStyle = SHIP_COLORS[key];
-      ctx.fillRect(left + col * PIXEL, top + row * PIXEL, PIXEL, PIXEL);
-    }
-  }
+  drawSprite(SHIP_PIXELS, SHIP_COLORS, left, top, PIXEL);
 
   // Engine flame (flickers): yellow core, orange middle, and a red tip that blinks on and off
   var flameRows = Math.floor(totalTime * 20) % 2 === 0 ? 2 : 3;
@@ -558,7 +557,7 @@ function drawPowerups() {
   var half = POWERUP_SIZE / 2;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 14px "Courier New", monospace';
+  ctx.font = monoFont(14);
   for (var i = 0; i < powerups.length; i++) {
     var item = powerups[i];
     var style = POWERUP_STYLE[item.type] || POWERUP_STYLE.slow;
@@ -580,21 +579,15 @@ function drawPowerupStatus() {
   }
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 11px "Courier New", monospace';
+  ctx.font = monoFont(11);
   var y = viewHeight - 12;
   if (slowTimer > 0) {
     var text = 'SLOW ' + Math.ceil(slowTimer) + 's';
-    ctx.fillStyle = '#000000';
-    ctx.fillText(text, viewWidth - 7, y + 1);
-    ctx.fillStyle = '#c58bff';
-    ctx.fillText(text, viewWidth - 8, y);
+    drawShadowText(text, viewWidth - 8, y, '#c58bff');
     y -= 14;
   }
   if (shieldActive) {
-    ctx.fillStyle = '#000000';
-    ctx.fillText('SHIELD', viewWidth - 7, y + 1);
-    ctx.fillStyle = '#66e0ff';
-    ctx.fillText('SHIELD', viewWidth - 8, y);
+    drawShadowText('SHIELD', viewWidth - 8, y, '#66e0ff');
   }
 }
 
@@ -629,16 +622,7 @@ function drawEnemy(enemy) {
     }
   }
 
-  for (var row = 0; row < frame.length; row++) {
-    for (var col = 0; col < frame[row].length; col++) {
-      var key = frame[row][col];
-      if (key === '.') {
-        continue;
-      }
-      ctx.fillStyle = colors[key];
-      ctx.fillRect(left + col * ENEMY_PIXEL, row * ENEMY_PIXEL, ENEMY_PIXEL, ENEMY_PIXEL);
-    }
-  }
+  drawSprite(frame, colors, left, 0, ENEMY_PIXEL);
 
   // Kanji plate
   var plateTop = ENEMY_PIXELS.length * ENEMY_PIXEL + 4;
@@ -681,22 +665,16 @@ function drawQuestion() {
     return;
   }
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 10px "Courier New", monospace';
+  ctx.font = monoFont(10);
   var isBossWave = stageWaves[waveState.index] && stageWaves[waveState.index].boss;
   var waveText = isBossWave ? 'BOSS BATTLE'
     : endless ? 'WAVE ' + (waveState.index + 1)
     : 'WAVE ' + (waveState.index + 1) + '/' + stageWaves.length;
   var stageText = endless ? 'ENDLESS  KILLS ' + endlessKills : 'STAGE ' + currentStage.worldId + '-' + currentStage.number;
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#000000';
-  ctx.fillText(waveText, 9, 12);
-  ctx.fillStyle = '#b4bccb';
-  ctx.fillText(waveText, 8, 11);
+  drawShadowText(waveText, 8, 11, '#b4bccb');
   ctx.textAlign = 'right';
-  ctx.fillStyle = '#000000';
-  ctx.fillText(stageText, viewWidth - 7, 12);
-  ctx.fillStyle = '#b4bccb';
-  ctx.fillText(stageText, viewWidth - 8, 11);
+  drawShadowText(stageText, viewWidth - 8, 11, '#b4bccb');
   ctx.textAlign = 'center';
 }
 
@@ -719,20 +697,14 @@ function drawWaveBanner() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  ctx.font = 'bold 34px "Courier New", monospace';
-  ctx.fillStyle = '#000000';
-  ctx.fillText(title, centerX + 2, centerY + 2);
-  ctx.fillStyle = def.boss ? '#ff4d6d' : '#ffd21f';
-  ctx.fillText(title, centerX, centerY);
+  ctx.font = monoFont(34);
+  drawShadowText(title, centerX, centerY, def.boss ? '#ff4d6d' : '#ffd21f', 2);
 
-  ctx.font = 'bold 16px "Courier New", monospace';
-  ctx.fillStyle = '#000000';
-  ctx.fillText(def.name.toUpperCase(), centerX + 1, centerY + 34);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(def.name.toUpperCase(), centerX, centerY + 33);
+  ctx.font = monoFont(16);
+  drawShadowText(def.name.toUpperCase(), centerX, centerY + 33, '#ffffff');
 
   if (waveState.index === 0 && (currentStage || gameMode === MODE_ENDLESS)) {
-    ctx.font = 'bold 12px "Courier New", monospace';
+    ctx.font = monoFont(12);
     ctx.fillStyle = '#6fb7ff';
     ctx.fillText(gameMode === MODE_ENDLESS ? 'ENDLESS MODE   SHOOT EVERYTHING!'
       : 'STAGE ' + currentStage.worldId + '-' + currentStage.number + '  ' + currentStage.name.toUpperCase(), centerX, centerY + 58);
@@ -748,10 +720,7 @@ function drawToast() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 18px ' + KANJI_FONT;
-  ctx.fillStyle = '#000000';
-  ctx.fillText(toast.text, viewWidth / 2 + 1, 51);
-  ctx.fillStyle = toast.color;
-  ctx.fillText(toast.text, viewWidth / 2, 50);
+  drawShadowText(toast.text, viewWidth / 2, 50, toast.color);
   ctx.globalAlpha = 1;
 }
 
@@ -771,11 +740,8 @@ function drawFirePaused() {
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 11px "Courier New", monospace';
-  ctx.fillStyle = '#000000';
-  ctx.fillText('HOLD STILL TO FIRE', viewWidth / 2 + 1, viewHeight - 11);
-  ctx.fillStyle = '#8f99a8';
-  ctx.fillText('HOLD STILL TO FIRE', viewWidth / 2, viewHeight - 12);
+  ctx.font = monoFont(11);
+  drawShadowText('HOLD STILL TO FIRE', viewWidth / 2, viewHeight - 12, '#8f99a8');
 }
 
 // Small label in the bottom-left corner while a power-up weapon is active
@@ -787,11 +753,8 @@ function drawWeaponLabel() {
   var text = WEAPON_NAMES[level] + (powerLevel > 0 ? ' +P' + powerLevel : '');
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 11px "Courier New", monospace';
-  ctx.fillStyle = '#000000';
-  ctx.fillText(text, 9, viewHeight - 11);
-  ctx.fillStyle = WEAPON_COLORS[level];
-  ctx.fillText(text, 8, viewHeight - 12);
+  ctx.font = monoFont(11);
+  drawShadowText(text, 8, viewHeight - 12, WEAPON_COLORS[level]);
 }
 
 function drawBoss() {
@@ -804,16 +767,7 @@ function drawBoss() {
   var colors = boss.flash > 0 ? BOSS_FLASH_COLORS : BOSS_COLORS[boss.phase - 1];
   var left = Math.round(boss.x - BOSS_W / 2);
   var top = Math.round(boss.y);
-  for (var row = 0; row < BOSS_PIXELS.length; row++) {
-    for (var col = 0; col < BOSS_PIXELS[row].length; col++) {
-      var key = BOSS_PIXELS[row][col];
-      if (key === '.') {
-        continue;
-      }
-      ctx.fillStyle = colors[key];
-      ctx.fillRect(left + col * BOSS_PIXEL, top + row * BOSS_PIXEL, BOSS_PIXEL, BOSS_PIXEL);
-    }
-  }
+  drawSprite(BOSS_PIXELS, colors, left, top, BOSS_PIXEL);
 }
 
 // Boss life bar under the question banner
@@ -832,11 +786,8 @@ function drawBossBar() {
   ctx.fillRect(left, top, Math.round(width * ratio), height);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 11px "Courier New", monospace';
-  ctx.fillStyle = '#000000';
-  ctx.fillText('BOSS', 11, top + height / 2 + 1);
-  ctx.fillStyle = '#ff6b86';
-  ctx.fillText('BOSS', 10, top + height / 2);
+  ctx.font = monoFont(11);
+  drawShadowText('BOSS', 10, top + height / 2, '#ff6b86');
 }
 
 // Shots of the enemies and the boss
@@ -859,12 +810,9 @@ function drawBombStock() {
   }
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 11px "Courier New", monospace';
+  ctx.font = monoFont(11);
   var text = 'BOMB x' + bombs + (bombs > 0 ? '  (DOUBLE TAP)' : '');
-  ctx.fillStyle = '#000000';
-  ctx.fillText(text, 9, viewHeight - 27);
-  ctx.fillStyle = bombs > 0 ? '#ff6b86' : '#8f99a8';
-  ctx.fillText(text, 8, viewHeight - 28);
+  drawShadowText(text, 8, viewHeight - 28, bombs > 0 ? '#ff6b86' : '#8f99a8');
 }
 
 function drawOverlayText(title, subtitle, color) {
@@ -873,11 +821,11 @@ function drawOverlayText(title, subtitle, color) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = color;
-  ctx.font = 'bold 32px "Courier New", monospace';
+  ctx.font = monoFont(32);
   ctx.fillText(title, viewWidth / 2, viewHeight / 2 - 20);
   if (subtitle) {
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px "Courier New", monospace';
+    ctx.font = monoFont(16);
     ctx.fillText(subtitle, viewWidth / 2, viewHeight / 2 + 16);
   }
 }
@@ -889,15 +837,12 @@ function drawFloaters() {
   }
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = 'bold 14px "Courier New", monospace';
+  ctx.font = monoFont(14);
   for (var i = 0; i < floaters.length; i++) {
     var f = floaters[i];
     var x = Math.max(24, Math.min(viewWidth - 24, f.x));
     ctx.globalAlpha = Math.max(0, Math.min(1, f.life / 0.35));
-    ctx.fillStyle = '#000000';
-    ctx.fillText(f.text, x + 1, f.y + 1);
-    ctx.fillStyle = f.color;
-    ctx.fillText(f.text, x, f.y);
+    drawShadowText(f.text, x, f.y, f.color);
   }
   ctx.globalAlpha = 1;
 }
@@ -979,7 +924,7 @@ function render() {
     drawOverlayText(stageResult && stageResult.boss ? 'BOSS DEFEATED' : 'STAGE COMPLETE',
       'ALL ' + stageWaves.length + ' WAVES CLEARED', '#5dff8a');
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.font = monoFont(14);
     ctx.fillText('SCORE ' + score + '   BEST ' + bestScore, viewWidth / 2, viewHeight / 2 + 44);
     if (stageResult) {
       ctx.fillText('ACCURACY ' + stageResult.accuracy + '%   MAX COMBO x' + stageResult.maxCombo,
@@ -989,7 +934,7 @@ function render() {
     var shownBest = gameMode === MODE_ENDLESS ? endlessBest : bestScore;
     drawOverlayText('GAME OVER', 'SCORE ' + score + '   BEST ' + shownBest, '#ff6b86');
     ctx.fillStyle = '#6fb7ff';
-    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.font = monoFont(14);
     ctx.fillText('TAP THE SCREEN TO PLAY AGAIN', viewWidth / 2, viewHeight / 2 + 48);
     var extraY = viewHeight / 2 + 72;
     if (gameMode === MODE_ENDLESS) {
