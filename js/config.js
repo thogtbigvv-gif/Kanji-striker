@@ -404,3 +404,21 @@ var SHAKE_BOSS_DOWN_TIME = 0.7;
 var FLOATER_LIFE = 0.9;       // seconds a floating "+points" text stays on screen
 var FLOATER_RISE = 46;        // pixels per second it floats upwards
 var MASTER_VOLUME = 0.85;     // 0-1, all sounds go through one volume control and a limiter
+
+// ---------- Learning challenges (Phase 2) ----------
+// Besides the normal "shoot the kanji for this meaning" question, a question can also be a READING, a VOCABULARY
+// or a CONTEXT challenge (see js/challenges.js). The ships, the shooting and the scoring stay exactly the same: only
+// the question bar and the text on the ship plates change. Everything here can be tuned without touching the code.
+var CHALLENGE_ENABLED = true;               // false = the game plays exactly like before (kanji questions only)
+var CHALLENGE_IN_ENDLESS = false;           // the ENDLESS mode keeps the plain kanji questions
+var CHALLENGE_SKIP_STAGE_KINDS = ['learn']; // the "New Kanji" stage only introduces kanji
+var CHALLENGE_WEIGHTS = { kanji: 5, reading: 2, vocab: 2, context: 1.5 }; // relative chance of every question type
+var CHALLENGE_MIN_HITS = 1;                 // a kanji must have been answered correctly this often before it gets a harder question
+var CHALLENGE_MAX_STREAK = 2;               // the same question type is never asked more than this many times in a row (new types: once)
+var CHALLENGE_RECENT_MEMORY = 6;            // the last few asked words / sentences are not repeated
+var CHALLENGE_MIN_OPTIONS = 8;              // fewer wrong options than this = fall back to the plain kanji question
+var CHALLENGE_MAX_OPTIONS = 24;             // wrong options prepared per question (more than enough for one screen)
+var CHALLENGE_LABEL_MAX_CHARS = { reading: 8, vocab: 22, context: 22 }; // longer answers do not fit on a ship plate
+var CHALLENGE_PLATE_WIDTH = 52;             // drawn width of a ship plate that carries a text answer (the hitbox stays ENEMY_WIDTH)
+var CHALLENGE_PLATE_MIN_FONT = 9;           // smallest font used on a plate
+var CHALLENGE_WRONG_TOAST_TIME = 3.0;       // seconds the explanation of a wrong answer stays on screen (it never pauses the game)
