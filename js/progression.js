@@ -205,7 +205,7 @@ function loadProgression() {
     var cleaned = cleanProgression(migrateProgression(parsed));
     progressionLastJson = saved;
     return cleaned;
-  } catch (error) {
+  } catch {
     // Keep a copy of the unreadable data instead of silently losing it (the copy is never overwritten)
     if (!readStorage(KEY_PROGRESSION + 'Corrupt')) {
       writeStorage(KEY_PROGRESSION + 'Corrupt', saved);
