@@ -5,7 +5,7 @@
 function readStorage(key) {
   try {
     return window.localStorage.getItem(key);
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -13,7 +13,7 @@ function readStorage(key) {
 function writeStorage(key, value) {
   try {
     window.localStorage.setItem(key, value);
-  } catch (error) {
+  } catch {
     /* ignore */
   }
 }
@@ -21,7 +21,7 @@ function writeStorage(key, value) {
 function removeStorage(key) {
   try {
     window.localStorage.removeItem(key);
-  } catch (error) {
+  } catch {
     /* ignore */
   }
 }
@@ -38,7 +38,7 @@ function loadSavedData() {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         progress = parsed;
       }
-    } catch (error) {
+    } catch {
       progress = {};
     }
   }
@@ -172,7 +172,7 @@ function loadCampaign() {
       throw new Error('bad campaign data');
     }
     return cleanCampaign(parsed);
-  } catch (error) {
+  } catch {
     // Keep a copy of the unreadable data instead of silently losing it
     if (!readStorage(KEY_CAMPAIGN + 'Corrupt')) {
       writeStorage(KEY_CAMPAIGN + 'Corrupt', saved);
