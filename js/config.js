@@ -71,6 +71,7 @@ var TARGET_CRASH_DAMAGE = 15;  // the correct kanji crashed into the ship
 var DECOY_CRASH_DAMAGE = 10;   // a wrong kanji crashed into the ship (same as shooting a wrong kanji)
 var REF_HEIGHT = 640;      // screen height the enemy speed is tuned for
 var MAX_DPR = 3;           // limits canvas size on very dense Android screens
+var MAX_PARTICLES = 240;   // most sparks on screen at once, so a bomb in a busy endless wave cannot slow down a weak phone
 
 // Power-up capsules: every POWERUP_EVERY-th correct answer drops a capsule where the target was destroyed.
 // Fly the ship into it to collect it. Bullets pass through capsules, and missed capsules just fall away.
