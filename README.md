@@ -49,10 +49,12 @@ Kanji-striker/
 ├── manifest.webmanifest  # Install-as-app settings
 ├── icons/            # App icons (192, 512, maskable, Apple touch)
 └── js/
-    ├── data.js       # Kanji list (kanji + Mongolian meaning), worlds and stages
+    ├── data.js       # Kanji list (meaning, readings, vocabulary, example sentences, JLPT), worlds and stages
+    ├── kanji-info.js # Safe helper functions to read the kanji learning data
     ├── config.js     # Tuning numbers, sprites, enemy kinds, wave plans
     ├── state.js      # Page elements and game variables
     ├── storage.js    # localStorage: best score, kanji progress, campaign progress
+    ├── progression.js # Player level, progression save, credit API, combat stats
     ├── audio.js      # Sound effects
     ├── waves.js      # Wave system, stage plan, stage complete
     ├── enemies.js    # Questions, enemy spawning, damage and answer rules
