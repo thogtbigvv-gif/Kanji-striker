@@ -589,7 +589,7 @@ function completeStage() {
         xp: stageResult.xpTotal
       }
     }));
-  } catch (error) {
+  } catch {
     /* ignore: STATE_STAGE_COMPLETE and stageResult are still set */
   }
 }
