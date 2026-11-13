@@ -988,6 +988,18 @@ button:focus-visible {
   animation: questionPop 0.3s ease-out;
 }
 
+/* Sentence questions (Context challenge) are longer than a single word */
+.question-meaning.is-long {
+  font-size: 1.3rem;
+  line-height: 1.25;
+}
+
+.question-reading {
+  font-size: 0.8rem;
+  color: var(--c-blue);
+  text-align: center;
+}
+
 @keyframes questionPop {
   from {
     transform: scale(1.25);
