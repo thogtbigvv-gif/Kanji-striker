@@ -127,7 +127,7 @@ var shakeMag = 0;             // strength of the current shake in pixels
 var reduceMotion = false;     // true when the device asks for less motion: no screen shake
 try {
   reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-} catch (error) {
+} catch {
   /* ignore: shake stays allowed */
 }
 
@@ -205,7 +205,7 @@ try {
   if (debugParam && CAMPAIGN_STAGES[debugParam]) {
     debugStageId = debugParam;
   }
-} catch (error) {
+} catch {
   /* ignore: no test hook */
 }
 
