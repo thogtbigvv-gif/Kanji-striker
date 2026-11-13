@@ -26,6 +26,9 @@ var MODE_ENDLESS = 'endless';   // waves never stop; every ship can be shot down
 var FIRE_INTERVAL = 0.2;   // seconds between shots
 var BULLET_SPEED = 560;    // pixels per second
 var BULLET_HIT_PADDING = 3; // extra pixels on each side of an enemy where a bullet still counts as a hit
+var BULLET_OFFSCREEN_Y = -10; // a bullet higher than this has left the screen and is removed
+var ARMOR_HIT_FLASH = 0.12;   // seconds an armored ship flashes after a hit that only cracks its armor
+var MAX_FRAME_TIME = 0.05;    // longest time step (seconds) simulated in one frame, so a lag spike never skips ahead
 var PLAYER_FOLLOW = 16;    // how fast the ship follows the finger (per second)
 var RELATIVE_CONTROL = true;   // true: the ship moves by how far the finger moved (finger can be anywhere)
                                // false: the ship goes to the exact spot where the finger is
@@ -52,6 +55,7 @@ var DASH_COOLDOWN = 1.2;      // seconds from the start of a dash until the next
 var DASH_FLICK_DIST = 70;     // the finger must move this many pixels ...
 var DASH_FLICK_TIME = 0.1;    // ... within this many seconds to count as a flick
 var DASH_MIN_ROOM = 25;       // no dash when the screen edge is closer than this in the flick direction (pixels)
+var DASH_GHOST_LIFE = 0.25;   // seconds an afterimage of the dash takes to fade out
 
 // Smart questions: kanji the player struggles with are asked and shown more often,
 // new kanji sooner, and well-known kanji less often.
