@@ -35,6 +35,7 @@ var howBackButton = document.getElementById('howBackButton');
 var hpBarFill = document.getElementById('hpBarFill');
 var questionMeaning = document.getElementById('questionMeaning');
 var questionBar = document.getElementById('questionBar');
+var questionReading = document.getElementById('questionReading'); // small reading line under a sentence question
 
 var galaxySection = document.getElementById('galaxySection');
 var galaxySummary = document.getElementById('galaxySummary');
@@ -137,6 +138,7 @@ function newRunStats() {
 }
 
 var question = KANJI_LIST[0];
+var challenge = null;          // the learning challenge of the current question (reading / vocab / context), null = plain kanji question
 var questionPool = KANJI_LIST; // kanji that can become the question (replaced by the stage's own kanji)
 var decoyPool = KANJI_LIST;    // kanji that can appear as wrong answers (stage kanji + its review kanji)
 var enemies = [];
@@ -171,7 +173,7 @@ var gameMode = MODE_CAMPAIGN; // MODE_CAMPAIGN or MODE_ENDLESS (set when a run s
 var endlessBest = 0;          // best score of the endless mode (saved separately from bestScore)
 var endlessKills = 0;         // ships shot down in the current endless run
 var newBest = false;
-var toast = { text: '', color: '#ffffff', time: 0 };
+var toast = { text: '', color: '#ffffff', time: 0, lines: [] }; // lines = optional smaller lines under the text
 var progress = {};
 var totalXp = 0;              // total XP from all stage results (saved)
 var runKanji = {};            // kanji -> { correct, wrong } counted during the current run
