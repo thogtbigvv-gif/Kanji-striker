@@ -9,6 +9,7 @@
 ## ✨ Features
 
 - **Arcade shooter gameplay:** Drag to move your ship. Hold your finger still for a moment and the ship starts shooting, so you never fire by accident while moving.
+- **Learning challenges (Phase 2):** From the second stage on, a question can also be a **Reading** challenge (read a word, shoot the right reading), a **Vocabulary** challenge (shoot the Mongolian meaning of a word) or a **Context** challenge (shoot the translation of a sentence). All settings are in `config.js` ("Learning challenges"); `CHALLENGE_ENABLED = false` turns them off.
 - **Learn while you play:** A Mongolian meaning is shown as the question. Shoot the enemy ship that carries the matching kanji. Shooting a wrong kanji costs HP and resets your combo.
 - **Campaign:** 5 galaxies (JLPT N5 → N1), each with 5 stages: New Kanji, Review Run, Big Waves, Hard Fight and Boss Gate. Progress is saved by stage.
 - **Wave system:** Every stage is played in waves (introduction, formation attack, mixed attack, final wave).
@@ -51,6 +52,7 @@ Kanji-striker/
 └── js/
     ├── data.js       # Kanji list (meaning, readings, vocabulary, example sentences, JLPT), worlds and stages
     ├── kanji-info.js # Safe helper functions to read the kanji learning data
+    ├── challenges.js # Reading / Vocabulary / Context questions (text on ships, question bar, feedback)
     ├── config.js     # Tuning numbers, sprites, enemy kinds, wave plans
     ├── state.js      # Page elements and game variables
     ├── storage.js    # localStorage: best score, kanji progress, campaign progress
