@@ -3,6 +3,12 @@
    Load after arcade.js. */
 
 // ---------- Game control ----------
+// Pause button text and its screen-reader label
+function setPauseButton(paused) {
+  pauseButton.textContent = paused ? 'RESUME' : 'PAUSE';
+  pauseButton.setAttribute('aria-label', paused ? 'Resume game' : 'Pause game');
+}
+
 // Starts one stage. Returns false (and changes nothing) when the stage cannot be played.
 function startStage(stageId) {
   if (getStageStartProblem(stageId) !== '') {
@@ -20,23 +26,8 @@ function startStage(stageId) {
   return true;
 }
 
-// Everything a new run needs, for a campaign stage and for the endless mode alike.
-// The caller sets gameMode, currentStageId / currentStage, questionPool, decoyPool and stageWaves first.
-function beginRun() {
-  stageCompleteFired = false;
-  stageResult = null;
-  swayClock = 0;
-  lastLaneStart = -1;
-  targetLost = false;
-  rescueTimer = -1;
-
-  combatStats = getCombatStats(); // the run's combat numbers are fixed here (see progression.js)
-  hp = combatStats.maxHp;
-  score = 0;
-  combo = 0;
-  updateHud();
-  getAudio();
-
+// Empties the play field: ships, shots, capsules, effects, boss and every power-up / dash state
+function resetBattlefield() {
   enemies = [];
   bullets = [];
   particles = [];
@@ -58,13 +49,38 @@ function beginRun() {
   dashDir = 0;
   dashGhosts = [];
   flickTrail = [];
-  runStats = newRunStats();
-  runKanji = {};
+}
+
+// Remembers how many times every kanji was answered correctly before this run (to find the NEW kanji afterwards)
+function recordPriorHits() {
   priorHits = {};
   for (var k = 0; k < KANJI_LIST.length; k++) {
     var saved = progress[KANJI_LIST[k].kanji];
     priorHits[KANJI_LIST[k].kanji] = saved && typeof saved.hits === 'number' ? saved.hits : 0;
   }
+}
+
+// Everything a new run needs, for a campaign stage and for the endless mode alike.
+// The caller sets gameMode, currentStageId / currentStage, questionPool, decoyPool and stageWaves first.
+function beginRun() {
+  stageCompleteFired = false;
+  stageResult = null;
+  swayClock = 0;
+  lastLaneStart = -1;
+  targetLost = false;
+  rescueTimer = -1;
+
+  combatStats = getCombatStats(); // the run's combat numbers are fixed here (see progression.js)
+  hp = combatStats.maxHp;
+  score = 0;
+  combo = 0;
+  updateHud();
+  getAudio();
+
+  resetBattlefield();
+  runStats = newRunStats();
+  runKanji = {};
+  recordPriorHits();
   if (resultsTimer !== null) {
     clearTimeout(resultsTimer);
     resultsTimer = null;
@@ -85,8 +101,7 @@ function beginRun() {
   updateHud();
 
   currentState = STATE_PLAYING;
-  pauseButton.textContent = 'PAUSE';
-  pauseButton.setAttribute('aria-label', 'Pause game');
+  setPauseButton(false);
 
   showGame();
   viewWidth = 0;
@@ -150,8 +165,7 @@ function pauseGame() {
   }
   currentState = STATE_PAUSED;
   resetDrag();
-  pauseButton.textContent = 'RESUME';
-  pauseButton.setAttribute('aria-label', 'Resume game');
+  setPauseButton(true);
 }
 
 function resumeGame() {
@@ -159,8 +173,7 @@ function resumeGame() {
     return;
   }
   currentState = STATE_PLAYING;
-  pauseButton.textContent = 'PAUSE';
-  pauseButton.setAttribute('aria-label', 'Pause game');
+  setPauseButton(false);
 }
 
 function togglePause() {
@@ -244,15 +257,11 @@ function separatedY(enemy, index, wantedY) {
   return Math.max(enemy.y, Math.min(wantedY, limit)); // never pushed backwards
 }
 
-function updateGameplay(dt) {
-  var scale = sizeScale();
-  var i;
-  var j;
-
-  // Aim-lock fire: the ship shoots only while the finger (or the mouse button) rests on one spot for
-  // AIM_DELAY seconds. Move the finger (or lift it) to stop shooting, so a wrong kanji in the lane can be
-  // let pass safely. The cooldown keeps counting down even when the finger is lifted, so tapping quickly
-  // can never shoot faster than FIRE_INTERVAL.
+// Aim-lock fire: the ship shoots only while the finger (or the mouse button) rests on one spot for
+// AIM_DELAY seconds. Move the finger (or lift it) to stop shooting, so a wrong kanji in the lane can be
+// let pass safely. The cooldown keeps counting down even when the finger is lifted, so tapping quickly
+// can never shoot faster than FIRE_INTERVAL.
+function fireWeapon(dt) {
   updateFireControl(dt);
   if (player.isDragging && player.fireHeld) {
     fireTimer -= dt;
@@ -260,86 +269,85 @@ function updateGameplay(dt) {
       fireTimer += combatStats.fireInterval;
       var startY = player.y - SHIP_HEIGHT / 2;
       var level = weaponLevel();
-      var offsets = [];
       for (var n = 0; n < level; n++) {
-        offsets.push((n - (level - 1) / 2) * BULLET_SPREAD); // bullets side by side, centred on the ship
-      }
-      for (var o = 0; o < offsets.length; o++) {
-        bullets.push({ x: player.x + offsets[o], y: startY, prevY: startY, qid: questionSerial, dead: false });
+        var offset = (n - (level - 1) / 2) * BULLET_SPREAD; // bullets side by side, centred on the ship
+        bullets.push({ x: player.x + offset, y: startY, prevY: startY, qid: questionSerial, dead: false });
         runStats.shotsFired += 1;
       }
     }
   } else if (fireTimer > 0) {
     fireTimer = Math.max(0, fireTimer - dt);
   }
+}
 
-  updatePowerups(dt, scale);
-  var speedFactor = slowTimer > 0 ? SLOW_FACTOR : 1;
-  swayClock += dt * speedFactor; // one clock for every swaying ship, so they all move in sync
-
-  // Spawn enemies: the Wave System decides what appears and when
-  updateWaveSpawning(dt);
-  updateTargetRescue(dt);
-
-  // Move bullets (they remember the previous position so fast bullets cannot skip an enemy)
-  for (i = 0; i < bullets.length; i++) {
+// Moves the bullets (they remember the previous position so fast bullets cannot skip an enemy)
+function moveBullets(dt) {
+  for (var i = 0; i < bullets.length; i++) {
     bullets[i].prevY = bullets[i].y;
     bullets[i].y -= combatStats.bulletSpeed * dt;
-    if (bullets[i].y < -10) {
+    if (bullets[i].y < BULLET_OFFSCREEN_Y) {
       bullets[i].dead = true;
     }
   }
+}
 
-  // Move enemies, then check bottom edge and player collisions
-  for (i = 0; i < enemies.length; i++) {
+// Moves one enemy: hit flash, sideways path (sway / zigzag / circle / fly-in / drift) and the fall
+function moveEnemy(enemy, index, dt, scale, speedFactor) {
+  if (enemy.hitFlash > 0) {
+    enemy.hitFlash -= dt;
+  }
+  if (enemy.swayAmp !== 0) {
+    enemy.age += dt * speedFactor; // the SLOW power-up slows the sideways motion too
+    // plain sway follows the shared clock (all ships in sync); zigzag / circle keep their own clock
+    var phase = (enemy.path === '' ? swayClock : enemy.age) * enemy.swayFreq;
+    if (enemy.path === 'zigzag') {
+      // triangle wave: straight sideways runs with sharp turns
+      enemy.x = enemy.baseX + enemy.swayAmp * (2 / Math.PI) * Math.asin(Math.sin(phase));
+    } else {
+      enemy.x = enemy.baseX + enemy.swayAmp * Math.sin(phase);
+    }
+    if (enemy.orbitY !== 0) {
+      // circle path: the vertical part of the loop is added on top of the normal fall
+      var orbitNow = enemy.orbitY * (Math.cos(phase) - 1);
+      enemy.y += orbitNow - enemy.orbitOff;
+      enemy.orbitOff = orbitNow;
+    }
+  }
+  if (enemy.entering) {
+    // side path: fly in from the screen edge to the lane, then fall straight
+    var enterStep = PATH_SIDE_SPEED * dt * speedFactor;
+    var enterDiff = enemy.baseX - enemy.x;
+    if (Math.abs(enterDiff) <= enterStep) {
+      enemy.x = enemy.baseX;
+      enemy.entering = false;
+    } else {
+      enemy.x += enterDiff > 0 ? enterStep : -enterStep;
+    }
+  }
+  if (enemy.vx !== 0) {
+    // Mini ships drift sideways and bounce off the screen edges
+    var edge = enemy.w / 2 + 2;
+    enemy.x += enemy.vx * dt;
+    if (enemy.x < edge) {
+      enemy.x = edge;
+      enemy.vx = Math.abs(enemy.vx);
+    } else if (enemy.x > viewWidth - edge) {
+      enemy.x = viewWidth - edge;
+      enemy.vx = -Math.abs(enemy.vx);
+    }
+  }
+  enemy.y = separatedY(enemy, index, enemy.y + enemy.speed * scale * speedFactor * dt);
+}
+
+// Moves every enemy, then handles splitting, leaving the screen and crashing into the ship.
+// Returns true when the game ended during this step.
+function updateEnemies(dt, scale, speedFactor) {
+  for (var i = 0; i < enemies.length; i++) {
     var enemy = enemies[i];
     if (enemy.dead) {
       continue;
     }
-    if (enemy.hitFlash > 0) {
-      enemy.hitFlash -= dt;
-    }
-    if (enemy.swayAmp !== 0) {
-      enemy.age += dt * speedFactor; // the SLOW power-up slows the sideways motion too
-      // plain sway follows the shared clock (all ships in sync); zigzag / circle keep their own clock
-      var phase = (enemy.path === '' ? swayClock : enemy.age) * enemy.swayFreq;
-      if (enemy.path === 'zigzag') {
-        // triangle wave: straight sideways runs with sharp turns
-        enemy.x = enemy.baseX + enemy.swayAmp * (2 / Math.PI) * Math.asin(Math.sin(phase));
-      } else {
-        enemy.x = enemy.baseX + enemy.swayAmp * Math.sin(phase);
-      }
-      if (enemy.orbitY !== 0) {
-        // circle path: the vertical part of the loop is added on top of the normal fall
-        var orbitNow = enemy.orbitY * (Math.cos(phase) - 1);
-        enemy.y += orbitNow - enemy.orbitOff;
-        enemy.orbitOff = orbitNow;
-      }
-    }
-    if (enemy.entering) {
-      // side path: fly in from the screen edge to the lane, then fall straight
-      var enterStep = PATH_SIDE_SPEED * dt * speedFactor;
-      var enterDiff = enemy.baseX - enemy.x;
-      if (Math.abs(enterDiff) <= enterStep) {
-        enemy.x = enemy.baseX;
-        enemy.entering = false;
-      } else {
-        enemy.x += enterDiff > 0 ? enterStep : -enterStep;
-      }
-    }
-    if (enemy.vx !== 0) {
-      // Mini ships drift sideways and bounce off the screen edges
-      var edge = enemy.w / 2 + 2;
-      enemy.x += enemy.vx * dt;
-      if (enemy.x < edge) {
-        enemy.x = edge;
-        enemy.vx = Math.abs(enemy.vx);
-      } else if (enemy.x > viewWidth - edge) {
-        enemy.x = viewWidth - edge;
-        enemy.vx = -Math.abs(enemy.vx);
-      }
-    }
-    enemy.y = separatedY(enemy, i, enemy.y + enemy.speed * scale * speedFactor * dt);
+    moveEnemy(enemy, i, dt, scale, speedFactor);
 
     if (enemy.kind === 'split' && enemy.y > viewHeight * SPLIT_AT_Y) {
       splitEnemy(enemy);
@@ -352,15 +360,13 @@ function updateGameplay(dt) {
       if (escapedTarget) {
         targetMissed(gameMode === MODE_ENDLESS ? ENDLESS_ESCAPE_DAMAGE : TARGET_ESCAPE_DAMAGE);
         if (currentState === STATE_GAME_OVER) {
-          sweepDead();
-          return;
+          return true;
         }
       } else if (gameMode === MODE_ENDLESS && enemy.kind !== 'mini') {
         // endless mode: every ship that gets past you costs a little HP
         loseHp(ENDLESS_ESCAPE_DAMAGE);
         if (currentState === STATE_GAME_OVER) {
-          sweepDead();
-          return;
+          return true;
         }
       }
       continue;
@@ -376,29 +382,22 @@ function updateGameplay(dt) {
         loseHp(DECOY_CRASH_DAMAGE);
       }
       if (currentState === STATE_GAME_OVER) {
-        sweepDead();
-        return;
+        return true;
       }
     }
   }
+  return false;
+}
 
-  // Shooting ships, the boss and the shots they fire
-  updateEnemyFire(dt, speedFactor);
-  updateBoss(dt, speedFactor);
-  updateEnemyBullets(dt, scale, speedFactor);
-  if (currentState === STATE_GAME_OVER) {
-    sweepDead();
-    return;
-  }
-
-  // Bullets hitting enemies: one bullet hits at most one enemy (the lowest one it reaches)
-  for (i = 0; i < bullets.length; i++) {
+// Bullets hitting enemies: one bullet hits at most one enemy (the lowest one it reaches)
+function resolveBulletHits() {
+  for (var i = 0; i < bullets.length; i++) {
     var b = bullets[i];
     if (b.dead) {
       continue;
     }
     var target = null;
-    for (j = 0; j < enemies.length; j++) {
+    for (var j = 0; j < enemies.length; j++) {
       var e = enemies[j];
       if (e.dead || e.y <= KANJI_VISIBLE_Y) {
         continue;
@@ -434,7 +433,7 @@ function updateGameplay(dt) {
     // Armored ship (big): the first hit only cracks the armor, the answer counts when it is destroyed
     if (target.armor > 1) {
       target.armor -= 1;
-      target.hitFlash = 0.12;
+      target.hitFlash = ARMOR_HIT_FLASH;
       burst(b.x, b.y, '#b99bff');
       playTone(300, 0.05, 'square', 0.05);
       continue;
@@ -455,7 +454,37 @@ function updateGameplay(dt) {
       }
     }
   }
+}
 
+// One step of the gameplay: shooting, spawning, movement, enemy fire and every kind of hit
+function updateGameplay(dt) {
+  var scale = sizeScale();
+
+  fireWeapon(dt);
+  updatePowerups(dt, scale);
+  var speedFactor = slowTimer > 0 ? SLOW_FACTOR : 1;
+  swayClock += dt * speedFactor; // one clock for every swaying ship, so they all move in sync
+
+  // Spawn enemies: the Wave System decides what appears and when
+  updateWaveSpawning(dt);
+  updateTargetRescue(dt);
+
+  moveBullets(dt);
+  if (updateEnemies(dt, scale, speedFactor)) {
+    sweepDead();
+    return;
+  }
+
+  // Shooting ships, the boss and the shots they fire
+  updateEnemyFire(dt, speedFactor);
+  updateBoss(dt, speedFactor);
+  updateEnemyBullets(dt, scale, speedFactor);
+  if (currentState === STATE_GAME_OVER) {
+    sweepDead();
+    return;
+  }
+
+  resolveBulletHits();
   sweepDead();
   checkWaveCleared();
 }
@@ -480,8 +509,8 @@ function gameLoop(timestamp) {
   if (dt < 0) {
     dt = 0;
   }
-  if (dt > 0.05) {
-    dt = 0.05;
+  if (dt > MAX_FRAME_TIME) {
+    dt = MAX_FRAME_TIME;
   }
 
   if (currentState === STATE_PLAYING) {
@@ -525,7 +554,7 @@ function updateDash(dt) {
     return;
   }
   var step = Math.min(dt, dashTimer);
-  dashGhosts.push({ x: player.x, y: player.y, life: 0.25 });
+  dashGhosts.push({ x: player.x, y: player.y, life: DASH_GHOST_LIFE });
   player.x = clampX(player.x + dashDir * (DASH_DISTANCE / DASH_TIME) * step);
   dashTimer -= dt;
   if (dashTimer <= 0) {
