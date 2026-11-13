@@ -52,7 +52,7 @@ canvas.addEventListener('pointerdown', function (event) {
   if (canvas.setPointerCapture) {
     try {
       canvas.setPointerCapture(event.pointerId);
-    } catch (error) {
+    } catch {
       /* ignore */
     }
   }
@@ -155,7 +155,7 @@ function lockPageScroll() {
   try {
     document.documentElement.style.overscrollBehavior = 'none';
     document.body.style.overscrollBehavior = 'none';
-  } catch (error) {
+  } catch {
     /* ignore */
   }
 }
