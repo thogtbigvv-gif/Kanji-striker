@@ -149,6 +149,7 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 - **Fix:** the `icons/` folder was missing from the repository, so installing the game as an app and the iPhone home-screen icon did not work. The four icons (192, 512, maskable, Apple touch) are now included.
 - **Accessibility:** button names now match the text you see on them (needed for voice control and screen readers), Mongolian texts are marked as Mongolian, and the placeholder `STRPB` symbol in HOW TO PLAY is replaced by a proper icon.
 - **Stylesheet:** the colour palette now lives in one place (`:root` at the top of `style.css`), so a colour is changed once instead of in 30 places. Looks exactly the same.
+- **Kanji display:** the kanji in the Collection and in the result chips are marked as Japanese (`lang="ja"`), so a phone with a Chinese system language still draws the Japanese shape of each character. The kanji font list is defined once (`--font-kanji` in `style.css`).
 - **Performance:** at most `MAX_PARTICLES` sparks exist at once (`js/config.js`), so a bomb in a busy ENDLESS wave cannot slow down an older phone.
 - **Code:** removed unused leftovers (`BANNER_HEIGHT`, `ENEMY_COLORS`, `pickSpawnX`). Gameplay, saved data and balance are unchanged.
 
