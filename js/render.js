@@ -28,9 +28,16 @@ function makeEl(tag, className, text) {
 }
 
 // Text with a dark drop shadow: the shadow is drawn first, `offset` pixels right and down (default 1)
-function drawShadowText(text, x, y, color, offset) {
+// maxWidth (optional): the text is squeezed to fit instead of running off the screen
+function drawShadowText(text, x, y, color, offset, maxWidth) {
   var shift = offset === undefined ? 1 : offset;
   ctx.fillStyle = '#000000';
+  if (maxWidth) {
+    ctx.fillText(text, x + shift, y + shift, maxWidth);
+    ctx.fillStyle = color;
+    ctx.fillText(text, x, y, maxWidth);
+    return;
+  }
   ctx.fillText(text, x + shift, y + shift);
   ctx.fillStyle = color;
   ctx.fillText(text, x, y);
@@ -58,10 +65,12 @@ function drawSprite(rows, palette, left, top, size) {
 }
 
 // ---------- Learning message (shown under the question) ----------
-function showToast(text, color) {
+// lines (optional) = smaller lines under the text, time (optional) = seconds on screen
+function showToast(text, color, lines, time) {
   toast.text = text;
   toast.color = color;
-  toast.time = 1.8;
+  toast.lines = Array.isArray(lines) ? lines : [];
+  toast.time = typeof time === 'number' ? time : 1.8;
 }
 
 // ---------- Screen switching ----------
@@ -401,10 +410,17 @@ function updateHud() {
   var hpPercent = Math.max(0, Math.min(100, Math.round((hp / combatStats.maxHp) * 100)));
   hpBarFill.style.width = hpPercent + '%';
   hpBarFill.className = 'hp-fill' + (hpPercent <= 30 ? ' is-low' : hpPercent <= 60 ? ' is-mid' : '');
-  var meaningText = question ? question.meaning.toUpperCase() : '-';
-  if (meaningText !== lastQuestionText) {
-    lastQuestionText = meaningText;
+  var barInfo = getQuestionBarInfo(); // the kanji question, or a reading / vocabulary / context challenge
+  var meaningText = barInfo.text;
+  var barKey = barInfo.label + '|' + meaningText + '|' + barInfo.reading;
+  if (barKey !== lastQuestionText) {
+    lastQuestionText = barKey;
+    questionLabel.textContent = barInfo.label;
     questionMeaning.textContent = meaningText;
+    questionMeaning.classList.toggle('is-long', barInfo.long);
+    questionMeaning.lang = challenge ? 'ja' : '';
+    questionReading.textContent = barInfo.reading;
+    questionReading.hidden = !barInfo.reading;
     questionBar.classList.remove('is-new');
     void questionBar.offsetWidth; // restarts the short highlight animation
     questionBar.classList.add('is-new');
@@ -591,6 +607,26 @@ function drawPowerupStatus() {
   }
 }
 
+// Text answers of the challenge questions: fitted on the plate once per text, then reused
+var plateTextPlans = {};
+function plateTextMeasure(text, size) {
+  ctx.font = 'bold ' + size + 'px ' + KANJI_FONT;
+  return ctx.measureText(text).width;
+}
+
+function drawPlateLabel(text, centerY, plateWidth, plateHeight) {
+  var plan = plateTextPlans[text];
+  if (!plan) {
+    plan = planPlateText(text, plateTextMeasure, plateWidth - 6, plateHeight - 2);
+    plateTextPlans[text] = plan;
+  }
+  ctx.font = 'bold ' + plan.size + 'px ' + KANJI_FONT;
+  var top = centerY - (plan.lines.length * plan.lineH) / 2 + plan.lineH / 2;
+  for (var i = 0; i < plan.lines.length; i++) {
+    ctx.fillText(plan.lines[i], 0, top + i * plan.lineH);
+  }
+}
+
 function drawEnemy(enemy) {
   var def = ENEMY_KINDS[enemy.kind] || ENEMY_KINDS.normal;
   var colors = enemy.hitFlash > 0 ? ENEMY_FLASH_COLORS : def.colors;
@@ -627,18 +663,25 @@ function drawEnemy(enemy) {
   // Kanji plate
   var plateTop = ENEMY_PIXELS.length * ENEMY_PIXEL + 4;
   var plateHeight = ENEMY_HEIGHT - plateTop;
-  var plateLeft = -ENEMY_WIDTH / 2;
+  // A challenge question puts a text answer on the plate (a little wider, for longer words); the hitbox is unchanged
+  var hasLabel = typeof enemy.label === 'string' && enemy.label !== '';
+  var plateWidth = hasLabel ? CHALLENGE_PLATE_WIDTH : ENEMY_WIDTH;
+  var plateLeft = -plateWidth / 2;
   ctx.fillStyle = '#0b0b10';
-  ctx.fillRect(plateLeft, plateTop, ENEMY_WIDTH, plateHeight);
+  ctx.fillRect(plateLeft, plateTop, plateWidth, plateHeight);
   ctx.strokeStyle = def.border;
   ctx.lineWidth = 2;
-  ctx.strokeRect(plateLeft, plateTop, ENEMY_WIDTH, plateHeight);
+  ctx.strokeRect(plateLeft, plateTop, plateWidth, plateHeight);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 24px ' + KANJI_FONT;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(enemy.data.kanji, 0, plateTop + plateHeight / 2 + 1);
+  if (hasLabel) {
+    drawPlateLabel(enemy.label, plateTop + plateHeight / 2 + 1, plateWidth, plateHeight);
+  } else {
+    ctx.font = 'bold 24px ' + KANJI_FONT;
+    ctx.fillText(enemy.data.kanji, 0, plateTop + plateHeight / 2 + 1);
+  }
 
   // Armor pips above a big ship: one filled pip for every hit it can still take
   if (def.armor > 1) {
@@ -720,7 +763,15 @@ function drawToast() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = 'bold 18px ' + KANJI_FONT;
-  drawShadowText(toast.text, viewWidth / 2, 50, toast.color);
+  drawShadowText(toast.text, viewWidth / 2, 50, toast.color, 1, viewWidth - 16);
+  // Optional smaller lines (reading, meaning, short explanation) after a challenge question
+  var lines = toast.lines || [];
+  var lineY = 50;
+  for (var i = 0; i < lines.length && i < 3; i++) {
+    lineY += i === 0 ? 20 : 15;
+    ctx.font = (i === 0 ? 'bold 14px ' : 'bold 12px ') + KANJI_FONT;
+    drawShadowText(lines[i], viewWidth / 2, lineY, i === 0 ? '#ffffff' : '#b4bccb', 1, viewWidth - 16);
+  }
   ctx.globalAlpha = 1;
 }
 
