@@ -12,7 +12,7 @@ function getAudio() {
     }
     try {
       audioContext = new AudioClass();
-    } catch (error) {
+    } catch {
       return null;
     }
     buildAudioOutput();
@@ -40,7 +40,7 @@ function buildAudioOutput() {
       master.connect(audioContext.destination);
     }
     audioOutput = master;
-  } catch (error) {
+  } catch {
     audioOutput = audioContext.destination;
   }
 }
