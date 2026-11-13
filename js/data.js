@@ -17,7 +17,8 @@ var KANJI_LIST = [
     vocabulary: [
       { word: '日曜日', reading: 'にちようび', meaning: 'Ням гараг' },
       { word: '毎日', reading: 'まいにち', meaning: 'Өдөр бүр' },
-      { word: '誕生日', reading: 'たんじょうび', meaning: 'Төрсөн өдөр' }
+      { word: '誕生日', reading: 'たんじょうび', meaning: 'Төрсөн өдөр' },
+      { word: '日', reading: 'ひ', meaning: 'Нар, өдөр' }
     ],
     examples: [
       { sentence: '今日は何日ですか。', reading: 'きょうはなんにちですか。', meaning: 'Өнөөдөр хэдний өдөр вэ?' }
@@ -29,7 +30,8 @@ var KANJI_LIST = [
     vocabulary: [
       { word: '月曜日', reading: 'げつようび', meaning: 'Даваа гараг' },
       { word: '今月', reading: 'こんげつ', meaning: 'Энэ сар' },
-      { word: '一月', reading: 'いちがつ', meaning: 'Нэгдүгээр сар' }
+      { word: '一月', reading: 'いちがつ', meaning: 'Нэгдүгээр сар' },
+      { word: '月', reading: 'つき', meaning: 'Сар' }
     ],
     examples: [
       { sentence: '今夜は月がきれいです。', reading: 'こんやはつきがきれいです。', meaning: 'Өнөө орой сар үзэсгэлэнтэй байна.' }
@@ -364,7 +366,8 @@ var KANJI_LIST = [
     vocabulary: [
       { word: '中国', reading: 'ちゅうごく', meaning: 'Хятад' },
       { word: '一日中', reading: 'いちにちじゅう', meaning: 'Өдөржин' },
-      { word: '中学校', reading: 'ちゅうがっこう', meaning: 'Дунд сургууль' }
+      { word: '中学校', reading: 'ちゅうがっこう', meaning: 'Дунд сургууль' },
+      { word: '中', reading: 'なか', meaning: 'Дотор' }
     ],
     examples: [
       { sentence: 'かばんの中にペンがあります。', reading: 'かばんのなかにペンがあります。', meaning: 'Цүнхэнд үзэг байна.' }
