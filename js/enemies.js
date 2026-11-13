@@ -217,7 +217,7 @@ function splitEnemy(enemy) {
 }
 
 function burst(x, y, color) {
-  for (var i = 0; i < 12; i++) {
+  for (var i = 0; i < 12 && particles.length < MAX_PARTICLES; i++) {
     var angle = Math.random() * Math.PI * 2;
     var speed = 40 + Math.random() * 120;
     particles.push({
