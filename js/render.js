@@ -227,6 +227,7 @@ function fillChips(container, kanjiList) {
     chip.className = 'chip';
     var charSpan = document.createElement('span');
     charSpan.className = 'chip-char';
+    charSpan.lang = 'ja'; // Japanese glyph shapes, not the Chinese ones
     charSpan.textContent = kanjiList[i];
     var meaningSpan = document.createElement('span');
     meaningSpan.className = 'chip-meaning';
@@ -346,6 +347,7 @@ function buildCollection() {
 
     var charSpan = document.createElement('span');
     charSpan.className = 'kanji-cell-char';
+    charSpan.lang = 'ja';
     var meaningSpan = document.createElement('span');
     meaningSpan.className = 'kanji-cell-meaning';
 
