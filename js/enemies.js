@@ -106,6 +106,11 @@ function pickQuestion() {
     promote.isTarget = true;
     promote.qid = questionSerial;
   }
+
+  // Phase 2: the question may become a reading / vocabulary / context challenge (see challenges.js).
+  // Only the text shown changes; the target ship is still the one flagged above.
+  challenge = buildChallengeFor(question);
+  relabelEnemies();
 }
 
 // A wrong-answer kanji that is not the question and not already on screen
@@ -154,6 +159,7 @@ function buildEnemy(data, isTarget, x, y, speed, motion, kind) {
     isTarget: isTarget,
     qid: questionSerial,
     dead: false,
+    label: nextChallengeLabel(isTarget), // text answer of a challenge question (null = the plate shows the kanji)
     kind: kind,
     w: w,
     h: h,
@@ -325,10 +331,13 @@ function correctHit(data, x, y, kind) {
     hp += healed;
   }
 
-  showToast(
-    data.kanji + ' = ' + data.meaning.toUpperCase() + '   +' + points + (healed > 0 ? '   +' + healed + ' HP' : ''),
-    '#5dff8a'
-  );
+  var rewardText = '+' + points + (healed > 0 ? '   +' + healed + ' HP' : '');
+  var learned = getChallengeFeedback(true, rewardText);
+  if (learned) {
+    showToast(learned.text, '#5dff8a', learned.lines);
+  } else {
+    showToast(data.kanji + ' = ' + data.meaning.toUpperCase() + '   ' + rewardText, '#5dff8a');
+  }
   playCorrectSound();
   if (healed > 0) {
     playTone(1320, 0.12, 'square', 0.06, 0.2);
@@ -348,11 +357,22 @@ function correctHit(data, x, y, kind) {
   updateHud();
 }
 
+// After a wrong answer (or a missed target): the correct answer, its reading and meaning, and a short explanation.
+// A plain kanji question keeps its usual message. `shown` is the kanji of the ship that was shot (or the question).
+function showWrongAnswerToast(shown) {
+  var learned = getChallengeFeedback(false, '');
+  if (learned) {
+    showToast(learned.text, '#ff6b86', learned.lines, CHALLENGE_WRONG_TOAST_TIME);
+  } else {
+    showToast(shown.kanji + ' = ' + shown.meaning.toUpperCase(), '#ff6b86');
+  }
+}
+
 function wrongHit(data) {
   runStats.wrong += 1;
   recordMiss(question.kanji);
   noteRunKanji(question.kanji, false);
-  showToast(data.kanji + ' = ' + data.meaning.toUpperCase(), '#ff6b86');
+  showWrongAnswerToast(data);
   loseHp(WRONG_HIT_DAMAGE, true);
   if (currentState !== STATE_GAME_OVER) {
     playWrongSound();
@@ -364,7 +384,7 @@ function targetMissed(amount) {
   runStats.missed += 1;
   recordMiss(question.kanji);
   noteRunKanji(question.kanji, false);
-  showToast(question.kanji + ' = ' + question.meaning.toUpperCase(), '#ff6b86');
+  showWrongAnswerToast(question);
   targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
   loseHp(amount);
 }
