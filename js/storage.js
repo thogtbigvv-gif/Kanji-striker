@@ -50,6 +50,7 @@ function loadSavedData() {
   totalXp = safeCount(readStorage(KEY_XP));
 
   campaign = loadCampaign();
+  loadLearning(); // spaced repetition data (js/srs.js)
 }
 
 function saveBestScore() {
