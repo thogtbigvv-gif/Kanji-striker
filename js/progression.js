@@ -339,8 +339,108 @@ function spendCredits(amount, txId) {
   return commitCreditChange(-value, txId || '');
 }
 
+// ---------- Ship upgrades (v0.10.0) ----------
+// Upgrades are bought with credits (earned by playing) and gated by the player level (earned by XP).
+// The levels are stored in progressionData.upgrades; the numbers each level gives are in config.js ("Ship upgrades").
+function getUpgradeLevel(id) {
+  if (UPGRADE_IDS.indexOf(id) === -1) {
+    return 0;
+  }
+  return Math.min(UPGRADE_MAX_LEVEL, safeCount(getProgression().upgrades[id]));
+}
+
+// Credits the NEXT level costs (0 = invalid id or already at the maximum)
+function getUpgradeCost(id) {
+  if (UPGRADE_IDS.indexOf(id) === -1) {
+    return 0;
+  }
+  var level = getUpgradeLevel(id);
+  return level >= UPGRADE_MAX_LEVEL ? 0 : UPGRADE_BASE_COST[id] * (level + 1);
+}
+
+// Player level the NEXT level needs (0 = invalid id or already at the maximum)
+function getUpgradeRequirement(id) {
+  var level = getUpgradeLevel(id);
+  return UPGRADE_IDS.indexOf(id) === -1 || level >= UPGRADE_MAX_LEVEL ? 0 : UPGRADE_LEVEL_REQ[level];
+}
+
+// Buys the next level of an upgrade. Credits and level are saved together (all or nothing).
+// Returns { ok, reason, id, level, cost, balance }. reason: invalid | max | level | insufficient | readonly | failed
+function buyUpgrade(id) {
+  if (UPGRADE_IDS.indexOf(id) === -1) {
+    return { ok: false, reason: 'invalid', balance: getCredits() };
+  }
+  var current = getProgression();
+  var level = getUpgradeLevel(id);
+  if (level >= UPGRADE_MAX_LEVEL) {
+    return { ok: false, reason: 'max', id: id, level: level, balance: current.credits };
+  }
+  if (getPlayerLevel() < UPGRADE_LEVEL_REQ[level]) {
+    return { ok: false, reason: 'level', id: id, level: level, need: UPGRADE_LEVEL_REQ[level], balance: current.credits };
+  }
+  var cost = getUpgradeCost(id);
+  if (current.credits < cost) {
+    return { ok: false, reason: 'insufficient', id: id, level: level, cost: cost, balance: current.credits };
+  }
+  var next = cloneProgression(current);
+  next.credits -= cost;
+  next.upgrades[id] = level + 1;
+  if (!persistProgression(next)) {
+    return { ok: false, reason: progressionReadOnly ? 'readonly' : 'failed', id: id, level: level, balance: current.credits };
+  }
+  progressionData = next;
+  return { ok: true, id: id, level: level + 1, cost: cost, balance: next.credits };
+}
+
+// Gives every upgrade back for the full price, so trying a different build never costs anything
+function respecUpgrades() {
+  var current = getProgression();
+  var refund = 0;
+  var next = cloneProgression(current);
+  for (var i = 0; i < UPGRADE_IDS.length; i++) {
+    var id = UPGRADE_IDS[i];
+    for (var l = 1; l <= getUpgradeLevel(id); l++) {
+      refund += UPGRADE_BASE_COST[id] * l;
+    }
+    next.upgrades[id] = 0;
+  }
+  next.credits = Math.min(CREDITS_MAX, current.credits + refund);
+  if (!persistProgression(next)) {
+    return { ok: false, reason: progressionReadOnly ? 'readonly' : 'failed', balance: current.credits };
+  }
+  progressionData = next;
+  return { ok: true, refund: refund, balance: next.credits };
+}
+
+// Credits a run pays when it ends. cleared / stars / firstClear only matter for a cleared campaign stage.
+// A run pays once (creditsAwarded). Returns the amount that was added (0 = nothing).
+function awardRunCredits(cleared, stars, firstClear) {
+  if (creditsAwarded) {
+    return 0;
+  }
+  creditsAwarded = true;
+  var amount = Math.min(CREDITS_ANSWER_CAP, runStats.correct * CREDITS_PER_ANSWER);
+  if (gameMode === MODE_ENDLESS) {
+    amount += Math.min(ENDLESS_CREDIT_CAP, Math.floor(score / ENDLESS_CREDIT_SCORE_DIV));
+  }
+  if (cleared) {
+    amount += CREDITS_STAGE_CLEAR + stars * CREDITS_PER_STAR;
+    amount += firstClear ? CREDITS_FIRST_CLEAR : 0;
+    amount += currentStage && currentStage.boss ? CREDITS_BOSS_CLEAR : 0;
+  }
+  runCredits = 0;
+  if (amount > 0) {
+    var paid = addCredits(amount, 'run:' + Date.now() + ':' + Math.floor(Math.random() * 1000000));
+    if (paid.ok) {
+      runCredits = amount;
+    }
+  }
+  return runCredits;
+}
+
 // ---------- Combat stats (the single source of the player's combat numbers) ----------
-// Phase 1: returns EXACTLY the baseline values from config.js (no upgrades, weapons or modules yet).
+// With no upgrades bought this returns EXACTLY the baseline values from config.js (gameplay unchanged).
+// v0.10.0: the six ship upgrades change maxHp, playerFollow, fireInterval, weaponDamage, shieldCapacity, startBombs and dashCooldown.
 // Later phases will change what is returned here; the game code that reads these values stays the same.
 //   maxHp          - ship hit points (HP at stage start, heal / repair limit, HP bar scale)
 //   playerFollow   - how fast the ship follows the finger (per second)
@@ -351,16 +451,24 @@ function spendCredits(amount, txId) {
 //   shieldCapacity - permanent shield buffer (0 = none; the S capsule is a separate temporary system)
 // The wrong-answer penalty (WRONG_HIT_DAMAGE) and the combo reset are NOT stats: they always stay as they are.
 function getCombatStats() {
+  var hull = getUpgradeLevel('hull');
+  var shield = getUpgradeLevel('shield');
+  var engine = getUpgradeLevel('engine');
+  var power = getUpgradeLevel('weaponPower');
+  var rate = getUpgradeLevel('fireRate');
+  var energy = getUpgradeLevel('energy');
   return {
-    maxHp: MAX_HP,
-    playerFollow: PLAYER_FOLLOW,
-    fireInterval: FIRE_INTERVAL,
+    maxHp: MAX_HP + hull * UPG_HULL_HP,
+    playerFollow: PLAYER_FOLLOW * (1 + engine * UPG_ENGINE_FOLLOW),
+    fireInterval: FIRE_INTERVAL * (1 - rate * UPG_FIRE_RATE),
     bulletSpeed: BULLET_SPEED,
-    weaponDamage: 1,
+    weaponDamage: 1 + power * UPG_WEAPON_DAMAGE,
     comboHealEvery: COMBO_HEAL_EVERY,
     healAmount: HEAL_AMOUNT,
     repairAmount: REPAIR_AMOUNT,
-    shieldCapacity: 0
+    shieldCapacity: shield * UPG_SHIELD_BUFFER,
+    startBombs: Math.min(MAX_BOMBS, BOMB_START + Math.floor(energy / UPG_ENERGY_BOMB_EVERY)),
+    dashCooldown: Math.max(DASH_COOLDOWN_MIN, DASH_COOLDOWN - engine * UPG_ENGINE_DASH)
   };
 }
 
