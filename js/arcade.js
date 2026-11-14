@@ -237,7 +237,7 @@ function pickPowerupType() {
   var weights = {
     shield: shieldActive ? 0 : 1,
     slow: slowTimer > 0 ? SLOW_ACTIVE_WEIGHT : 1,
-    repair: hp <= LOW_HP_LIMIT ? REPAIR_LOW_HP_WEIGHT : (hp < combatStats.maxHp ? REPAIR_HURT_WEIGHT : 0),
+    repair: hp <= LOW_HP_LIMIT * combatStats.maxHp / MAX_HP ? REPAIR_LOW_HP_WEIGHT : (hp < combatStats.maxHp ? REPAIR_HURT_WEIGHT : 0),
     power: powerLevel >= MAX_POWER_LEVEL ? 0 : POWER_WEIGHT,
     bomb: bombs >= MAX_BOMBS ? 0 : BOMB_WEIGHT
   };
