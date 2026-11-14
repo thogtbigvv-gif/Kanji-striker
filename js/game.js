@@ -45,7 +45,8 @@ function resetBattlefield() {
   shieldActive = false;
   slowTimer = 0;
   powerLevel = 0;
-  bombs = BOMB_START;
+  bombs = combatStats.startBombs;
+  shieldBuffer = combatStats.shieldCapacity;
   bombFlash = 0;
   tapStart = null;
   lastTapAt = 0;
@@ -73,6 +74,8 @@ function beginRun() {
   stageResult = null;
   srsResetRun();
   resetAdaptive();
+  creditsAwarded = false;
+  runCredits = 0;
   swayClock = 0;
   lastLaneStart = -1;
   targetLost = false;
@@ -546,7 +549,7 @@ function startDash(dir) {
   dashDir = dir;
   dashTimer = DASH_TIME;
   dashInvuln = DASH_TIME + DASH_GRACE;
-  dashCooldown = DASH_COOLDOWN;
+  dashCooldown = combatStats.dashCooldown;
   playTone(300, 0.12, 'sawtooth', 0.06, 0, 900);
   return true;
 }
