@@ -52,6 +52,7 @@ Kanji-striker/
 └── js/
     ├── data.js       # Kanji list (meaning, readings, vocabulary, example sentences, JLPT), worlds and stages
     ├── kanji-info.js # Safe helper functions to read the kanji learning data
+    ├── srs.js        # Spaced repetition: review schedule, mastery, weak kanji, review queue (Phase 3)
     ├── challenges.js # Reading / Vocabulary / Context questions (text on ships, question bar, feedback)
     ├── config.js     # Tuning numbers, sprites, enemy kinds, wave plans
     ├── state.js      # Page elements and game variables
