@@ -23,6 +23,7 @@
   <script src="js/audio.js" defer></script>
   <script src="js/waves.js" defer></script>
   <script src="js/challenges.js" defer></script>
+  <script src="js/srs.js" defer></script>
   <script src="js/enemies.js" defer></script>
   <script src="js/arcade.js" defer></script>
   <script src="js/endless.js" defer></script>
@@ -104,7 +105,8 @@
       <header class="panel-header">
         <h2 id="collectionTitle" class="panel-title">KANJI COLLECTION</h2>
         <p id="collectionSummary" class="panel-summary" role="status">COLLECTED 0 / 0</p>
-        <p class="legend" aria-hidden="true"><span class="legend-dot legend-seen"></span>Seen <span class="legend-dot legend-mastered"></span>Mastered (3 hits) <span class="legend-dot legend-locked"></span>Locked</p>
+        <p id="collectionReview" class="panel-summary panel-review" role="status"></p>
+        <p class="legend" aria-hidden="true"><span class="legend-dot legend-seen"></span>Seen <span class="legend-dot legend-mastered"></span>Strong (3 hits) <span class="legend-dot legend-locked"></span>Locked</p>
       </header>
       <div id="collectionGrid" class="collection-grid" role="list" aria-label="Kanji list"></div>
       <div class="panel-actions">
