@@ -500,6 +500,9 @@ function awardWaveBonus(isLastWave) {
   if (isLastWave) {
     bonus += STAGE_CLEAR_BONUS;
   }
+  if (combatStats.shieldCapacity > 0) {
+    shieldBuffer = Math.min(combatStats.shieldCapacity, shieldBuffer + combatStats.shieldCapacity * SHIELD_WAVE_REGEN);
+  }
   score += bonus;
   bonusScore += bonus;
   showToast((isLastWave ? 'STAGE CLEAR' : 'WAVE CLEAR') + (perfect ? '  PERFECT' : '') + '   +' + bonus,
@@ -539,7 +542,8 @@ function calcStars(accuracy, hpLeft) {
 
 // Works out stars and XP, saves the stage result (this is what unlocks the next stage)
 function finishStageRewards() {
-  var stars = calcStars(stageResult.accuracy, stageResult.hp);
+  var hpPercent = Math.round((stageResult.hp / combatStats.maxHp) * 100); // STAR_3_MIN_HP is a percent, so a bigger hull is no free star
+  var stars = calcStars(stageResult.accuracy, hpPercent);
   var xpAnswers = stageResult.correct * XP_PER_ANSWER;
   var xpWaves = stageResult.wavesCleared * XP_PER_WAVE;
   var xpBonus = stars === 3 ? XP_THREE_STAR_BONUS : 0;
@@ -550,10 +554,14 @@ function finishStageRewards() {
   stageResult.xpWaves = xpWaves;
   stageResult.xpBonus = xpBonus;
   stageResult.xpTotal = xpTotal;
+  var wasCleared = !!(campaign.stages[currentStageId] && campaign.stages[currentStageId].completed);
   stageResult.saved = recordStageResult(currentStageId, score, true, stars);
   if (stageResult.saved) {
     totalXp += xpTotal;
     saveXp();
+    stageResult.credits = awardRunCredits(true, stars, !wasCleared);
+  } else {
+    stageResult.credits = 0;
   }
 }
 
@@ -635,7 +643,8 @@ function completeStage() {
         bombsUsed: stageResult.bombsUsed,
         time: stageResult.time,
         stars: stageResult.stars,
-        xp: stageResult.xpTotal
+        xp: stageResult.xpTotal,
+        credits: stageResult.credits
       }
     }));
   } catch {
