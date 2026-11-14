@@ -149,6 +149,16 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.10.1 – Logic audit fixes
+
+- **Fix:** a stage could leave the player with a question that had no ship to shoot (about 45% of the time in a headless test). When no ship of the stage's own kanji is flying, a review-kanji ship now becomes the target.
+- **Fix:** RESET PROGRESS now also clears the review (SRS) data.
+- **Fix:** a locked stage opened with `?stage=` no longer pays credits.
+- **Fix:** adaptive difficulty counts a question once (the first result), not every wrong shot.
+- See `AUDIT.md` for the full list, including open items.
+
+---
+
 ### v0.10.0 – Ship upgrades and credits (game logic; no shop screen yet)
 
 - **Credits:** every run pays when it ends: 1 per correct answer (max 80), plus for a cleared campaign stage 30 + 15 per star, +60 the first time, +50 for a boss stage. A game over still pays the answer credits. Endless adds 1 credit per 150 points (max 120). A run pays only once.
@@ -190,4 +200,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.10.0** (shown in the footer of the menu).
+Current version: **v0.10.1** (shown in the footer of the menu).
