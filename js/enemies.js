@@ -64,6 +64,7 @@ function weightedPick(list, extraWeight) {
 function pickQuestion() {
   var onScreen = {};
   var promote = null; // a ship already flying that becomes the new correct target (no empty waiting time)
+  var fallback = null; // same, but carrying a review kanji of the stage (used only when no ship of the stage's own kanji flies)
   var i;
   for (i = 0; i < enemies.length; i++) {
     var en = enemies[i];
@@ -77,9 +78,17 @@ function pickQuestion() {
     if (en.kind !== 'split' && en.kind !== 'mini' && !en.entering &&
         en.data !== question && questionPool.indexOf(en.data) !== -1 && (promote === null || en.y < promote.y)) {
       promote = en;
+    } else if (en.kind !== 'split' && en.kind !== 'mini' && !en.entering && en.data !== question &&
+        decoyPool.indexOf(en.data) !== -1 && (fallback === null || en.y < fallback.y)) {
+      fallback = en;
     }
   }
 
+  // No ship of the stage's own kanji is flying: a review-kanji ship becomes the target instead of leaving the
+  // player with a question that has no ship (the audit measured about 45% of a stage with no target to shoot)
+  if (promote === null && fallback !== null) {
+    promote = fallback;
+  }
   // Wave-linked review (srs.js): a missed kanji coming back, or a kanji of an earlier stage that needs review.
   // A flying ship takes it over only while its kanji is still hidden above the screen.
   var forced = srsForcedKanji(onScreen);
