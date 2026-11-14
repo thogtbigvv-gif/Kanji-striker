@@ -399,6 +399,147 @@ function markLearningChanged() {
   }
 }
 
+// ---------- wave-linked review (v0.8.0) ----------
+// The review data above decides how OFTEN a kanji is asked. These helpers decide WHERE the waves ask it:
+//  1. Review injection: kanji of EARLIER stages that are overdue / recently wrong / weak come back as questions
+//     (more often during a boss wave), so a stage never only teaches its own kanji.
+//  2. In-run retry: a kanji that was missed is asked again a few questions later in the same run.
+//  3. Confusion memory: a kanji the player mixed up with the question appears as a decoy more often.
+var reviewPool = [];      // kanji of earlier stages that need review (campaign only; empty in endless)
+var retryQueue = [];      // [{ kanji, at }] kanji to ask again once runQuestionNo reaches `at`
+var retryCount = {};      // kanji -> retries queued in this run
+var runQuestionNo = 0;    // questions asked in this run
+var lastReviewNo = -99;   // question number of the last forced (retry / review) question
+var confusions = {};      // question kanji -> { decoy kanji: times it was shot instead } (this session)
+
+function srsResetRun() {
+  retryQueue = [];
+  retryCount = {};
+  runQuestionNo = 0;
+  lastReviewNo = -99;
+}
+
+// Kanji of the stages BEFORE this one that need a review right now, most urgent first
+function buildReviewPool(stage) {
+  var list = [];
+  if (!SRS_ENABLED || !stage) {
+    return list;
+  }
+  var own = {};
+  var ownItems = buildStagePools(stage).targets;
+  var i;
+  for (i = 0; i < ownItems.length; i++) {
+    own[ownItems[i].kanji] = true;
+  }
+  var chars = [];
+  for (i = 0; i < CAMPAIGN_ORDER.length; i++) {
+    var earlier = CAMPAIGN_STAGES[CAMPAIGN_ORDER[i]];
+    if (earlier.id === stage.id) {
+      break;
+    }
+    if (earlier.ready) {
+      chars = chars.concat(earlier.kanji, earlier.review);
+    }
+  }
+  var items = kanjiItemsFor(chars);
+  var now = Date.now();
+  for (i = 0; i < items.length; i++) {
+    if (own[items[i].kanji]) {
+      continue;
+    }
+    var status = getKanjiStatus(items[i].kanji, now);
+    var tier = srsReviewTier(status, now);
+    if (tier >= 1 && tier <= 3) {
+      var cat = srsFocusCategory(status);
+      list.push({ item: items[i], tier: tier, overdue: cat ? status.categories[cat].overdueMs : 0 });
+    }
+  }
+  list.sort(function (a, b) {
+    return a.tier - b.tier || b.overdue - a.overdue;
+  });
+  return list.slice(0, SRS_REVIEW_POOL_MAX).map(function (entry) {
+    return entry.item;
+  });
+}
+
+// The player missed this kanji: it comes back later in the same run
+function srsQueueRetry(kanji) {
+  if (!SRS_ENABLED || !KANJI_BY_CHAR[kanji] || (retryCount[kanji] || 0) >= SRS_RETRY_MAX) {
+    return;
+  }
+  for (var i = 0; i < retryQueue.length; i++) {
+    if (retryQueue[i].kanji === kanji) {
+      return; // already waiting
+    }
+  }
+  retryCount[kanji] = (retryCount[kanji] || 0) + 1;
+  retryQueue.push({ kanji: kanji, at: runQuestionNo + SRS_RETRY_GAP });
+}
+
+// The player shot `shown` while the question was `asked`: remember the pair (both directions count)
+function srsNoteConfusion(asked, shown) {
+  if (!asked || !shown || asked === shown) {
+    return;
+  }
+  if (!confusions[asked]) {
+    confusions[asked] = {};
+  }
+  confusions[asked][shown] = (confusions[asked][shown] || 0) + 1;
+}
+
+// Weight of a decoy kanji for the CURRENT question: confused pairs appear more often
+function srsDecoyMultiplier(item) {
+  if (!SRS_ENABLED || !question) {
+    return 1;
+  }
+  var a = confusions[question.kanji];
+  var b = confusions[item.kanji];
+  var count = (a && a[item.kanji] ? a[item.kanji] : 0) + (b && b[question.kanji] ? b[question.kanji] : 0);
+  return Math.min(SRS_CONFUSION_MAX, 1 + count * SRS_CONFUSION_STEP);
+}
+
+// Called once per new question. Returns a kanji that MUST be asked now (a due retry first, then a review
+// injection), or null for the normal pick. `onScreen` = kanji that already fly as ships (never asked twice at once).
+function srsForcedKanji(onScreen) {
+  runQuestionNo += 1;
+  if (!SRS_ENABLED || runQuestionNo - lastReviewNo < SRS_REVIEW_MIN_GAP) {
+    return null;
+  }
+  var i;
+  for (i = 0; i < retryQueue.length; i++) {
+    var entry = retryQueue[i];
+    var item = KANJI_BY_CHAR[entry.kanji];
+    if (entry.at <= runQuestionNo && item && item !== question && !onScreen[entry.kanji]) {
+      return item;
+    }
+  }
+  if (reviewPool.length === 0 || runQuestionNo <= SRS_REVIEW_WARMUP) {
+    return null;
+  }
+  var def = stageWaves[waveState.index];
+  var chance = def && def.boss ? SRS_REVIEW_INJECT_BOSS : SRS_REVIEW_INJECT;
+  if (Math.random() >= chance) {
+    return null;
+  }
+  var pool = [];
+  for (i = 0; i < reviewPool.length; i++) {
+    if (reviewPool[i] !== question && !onScreen[reviewPool[i].kanji]) {
+      pool.push(reviewPool[i]);
+    }
+  }
+  return pool.length > 0 ? weightedPick(pool) : null;
+}
+
+// The forced kanji was used as the question: it is no longer waiting
+function srsForcedUsed(item) {
+  lastReviewNo = runQuestionNo;
+  for (var i = retryQueue.length - 1; i >= 0; i--) {
+    if (retryQueue[i].kanji === item.kanji) {
+      retryQueue.splice(i, 1);
+    }
+  }
+}
+
 // ---------- saving and loading ----------
 function flushLearning() {
   if (learningSaveTimer !== null) {
