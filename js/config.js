@@ -485,3 +485,15 @@ var SRS_RETRY_GAP = 3;               // a kanji that was missed comes back after
 var SRS_RETRY_MAX = 2;               // ... at most this many times per kanji per run
 var SRS_CONFUSION_STEP = 0.8;        // a decoy the player confused with the question gets +this weight per mistake
 var SRS_CONFUSION_MAX = 3.5;         // limit of that weight
+
+// Adaptive difficulty (v0.9.0): the campaign watches the last answers and eases or raises the pace a little.
+// 1 = the stage's normal numbers. Endless mode has its own ramp and is not affected.
+var ADAPT_ENABLED = true;
+var ADAPT_WINDOW = 8;          // how many recent answers are looked at
+var ADAPT_MIN_SAMPLES = 4;     // no change before this many answers
+var ADAPT_UP_ACCURACY = 0.9;   // recent accuracy at or above this: the game gets a little faster
+var ADAPT_DOWN_ACCURACY = 0.6; // recent accuracy at or below this: the game gets a little calmer
+var ADAPT_STEP = 0.03;         // change per answer
+var ADAPT_MIN = 0.85;          // slowest: ship speed x0.85, shooters x0.85, longer pauses between groups
+var ADAPT_MAX = 1.2;           // fastest: ship speed x1.2, shooters x1.2, shorter pauses
+var ADAPT_LOW_HP = 0.3;        // HP at or below this share of max HP: always ease off
