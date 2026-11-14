@@ -149,6 +149,13 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.9.0 – Adaptive difficulty (game logic, no UI change)
+
+- The campaign looks at the last 8 answers. Accuracy of 90% or more makes ships up to 20% faster, shooters up to 20% more common and the pauses between groups shorter. Accuracy of 60% or less (or HP at 30% or lower) eases everything down to 85%. The change is gradual (3% per answer).
+- ENDLESS mode keeps its own ramp. Set `ADAPT_ENABLED = false` in `config.js` to switch it off. All numbers are under "Adaptive difficulty".
+
+---
+
 ### v0.8.0 – Wave-linked review (learning logic, no UI change)
 
 - **Review injection (campaign):** kanji of EARLIER stages that are overdue, recently wrong or weak (from `srs.js`) now come back as questions: about 25% of questions, 50% during a boss wave. The first 2 questions of a run and two in a row are never review questions, so the stage's own new kanji come first.
@@ -172,4 +179,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.8.0** (shown in the footer of the menu).
+Current version: **v0.9.0** (shown in the footer of the menu).
