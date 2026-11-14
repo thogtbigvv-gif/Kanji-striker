@@ -497,3 +497,28 @@ var ADAPT_STEP = 0.03;         // change per answer
 var ADAPT_MIN = 0.85;          // slowest: ship speed x0.85, shooters x0.85, longer pauses between groups
 var ADAPT_MAX = 1.2;           // fastest: ship speed x1.2, shooters x1.2, shorter pauses
 var ADAPT_LOW_HP = 0.3;        // HP at or below this share of max HP: always ease off
+
+// Ship upgrades and credits (v0.10.0). The six upgrade ids and their max level (5) live in progression.js.
+// Effect per upgrade level (the numbers are added up in getCombatStats):
+var UPG_HULL_HP = 10;          // hull:        +10 max HP per level (100 -> 150)
+var UPG_SHIELD_BUFFER = 10;    // shield:      +10 points of permanent shield per level (it absorbs crashes and bullets, NEVER wrong answers)
+var SHIELD_WAVE_REGEN = 0.5;   //              share of the shield that comes back when a wave is cleared
+var UPG_ENGINE_FOLLOW = 0.06;  // engine:      ship follows the finger +6% faster per level ...
+var UPG_ENGINE_DASH = 0.1;     //              ... and the dash cooldown is 0.1 s shorter per level
+var DASH_COOLDOWN_MIN = 0.6;   //              the dash cooldown never goes below this
+var UPG_WEAPON_DAMAGE = 0.15;  // weaponPower: +15% damage against the boss per level
+var UPG_FIRE_RATE = 0.06;      // fireRate:    6% shorter time between shots per level (0.20 s -> 0.14 s)
+var UPG_ENERGY_BOMB_EVERY = 2; // energy:      +1 starting bomb for every 2 levels (never above MAX_BOMBS)
+// Prices: the next level of an upgrade costs UPGRADE_BASE_COST[id] x (next level). All five levels = 15 x base.
+var UPGRADE_BASE_COST = { hull: 80, shield: 120, engine: 80, weaponPower: 100, fireRate: 100, energy: 120 };
+// Player level needed to buy level 1 / 2 / 3 / 4 / 5 of an upgrade (the player level comes from XP)
+var UPGRADE_LEVEL_REQ = [1, 2, 3, 5, 7];
+// Credits: earned at the end of a run (a run that ends in game over pays too, so no run is wasted)
+var CREDITS_PER_ANSWER = 1;        // each correct answer
+var CREDITS_ANSWER_CAP = 80;       // ... at most this many per run
+var CREDITS_STAGE_CLEAR = 30;      // clearing a campaign stage
+var CREDITS_PER_STAR = 15;         // per star of that clear
+var CREDITS_FIRST_CLEAR = 60;      // extra, only the first time a stage is cleared
+var CREDITS_BOSS_CLEAR = 50;       // extra for clearing a boss stage
+var ENDLESS_CREDIT_SCORE_DIV = 150; // endless: 1 credit per this many points ...
+var ENDLESS_CREDIT_CAP = 120;      // ... at most this many (on top of the answer credits)
