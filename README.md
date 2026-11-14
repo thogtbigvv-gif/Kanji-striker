@@ -149,6 +149,17 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.10.0 – Ship upgrades and credits (game logic; no shop screen yet)
+
+- **Credits:** every run pays when it ends: 1 per correct answer (max 80), plus for a cleared campaign stage 30 + 15 per star, +60 the first time, +50 for a boss stage. A game over still pays the answer credits. Endless adds 1 credit per 150 points (max 120). A run pays only once.
+- **Six upgrades, 5 levels each** (`getCombatStats()` adds them up): hull +10 max HP, shield +10 permanent shield points, engine +6% steering and -0.1 s dash cooldown, weaponPower +15% boss damage, fireRate -6% shot interval, energy +1 starting bomb every 2 levels.
+- **Price:** next level = base price x level (see `UPGRADE_BASE_COST`). **Player level gate:** levels 1-5 need player level 1 / 2 / 3 / 5 / 7 (from XP).
+- **Learning stays fair:** the permanent shield absorbs crashes and enemy bullets but NEVER the penalty for a wrong answer or a missed kanji. Stars use HP in percent, so a bigger hull is no free star.
+- **Respec:** `respecUpgrades()` gives every upgrade back for the full price.
+- API (progression.js): `buyUpgrade(id)`, `getUpgradeCost(id)`, `getUpgradeRequirement(id)`, `getUpgradeLevel(id)`, `respecUpgrades()`. Without a shop screen, test in the browser console, e.g. `buyUpgrade('hull')`. Numbers: `config.js`, "Ship upgrades and credits".
+
+---
+
 ### v0.9.0 – Adaptive difficulty (game logic, no UI change)
 
 - The campaign looks at the last 8 answers. Accuracy of 90% or more makes ships up to 20% faster, shooters up to 20% more common and the pauses between groups shorter. Accuracy of 60% or less (or HP at 30% or lower) eases everything down to 85%. The change is gradual (3% per answer).
@@ -179,4 +190,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.9.0** (shown in the footer of the menu).
+Current version: **v0.10.0** (shown in the footer of the menu).
