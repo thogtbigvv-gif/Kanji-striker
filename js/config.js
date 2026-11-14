@@ -422,3 +422,55 @@ var CHALLENGE_LABEL_MAX_CHARS = { reading: 8, vocab: 22, context: 22 }; // longe
 var CHALLENGE_PLATE_WIDTH = 52;             // drawn width of a ship plate that carries a text answer (the hitbox stays ENEMY_WIDTH)
 var CHALLENGE_PLATE_MIN_FONT = 9;           // smallest font used on a plate
 var CHALLENGE_WRONG_TOAST_TIME = 3.0;       // seconds the explanation of a wrong answer stays on screen (it never pauses the game)
+
+// ---------- Spaced repetition (Phase 3) ----------
+// Every kanji is tracked in four categories (kanji recognition, reading, vocabulary, context). Each category gets its own
+// review schedule (js/srs.js). The learning data is saved under its own key; the old progress key is never changed.
+var KEY_LEARNING = 'kanjiStrikerLearning'; // added in Phase 3 (versioned)
+var SRS_ENABLED = true;                    // false = no review priorities (answers are still recorded)
+// Scheduling (a modified SM-2). Intervals are in days.
+var SRS_AGAIN_MINUTES = 10;                // wrong answer: review again after this many minutes
+var SRS_FIRST_HARD_DAYS = 1;               // first success after "new" or after a mistake: hard / good / easy
+var SRS_FIRST_GOOD_DAYS = 3;
+var SRS_FIRST_EASY_DAYS = 7;
+var SRS_HARD_FACTOR = 1.2;                 // later successes: interval x 1.2 (hard), x ease (good), x ease x 1.3 (easy)
+var SRS_EASY_BONUS = 1.3;
+var SRS_EASE_START = 2.5;
+var SRS_EASE_MIN = 1.3;                    // a kanji that keeps failing never grows faster than x1.3 per review
+var SRS_EASE_MAX = 3.0;
+var SRS_EASE_AGAIN = -0.2;                 // ease change after a wrong answer / hard / easy answer
+var SRS_EASE_HARD = -0.15;
+var SRS_EASE_EASY = 0.15;
+var SRS_MAX_DAYS = 180;                    // longest interval
+// The game only knows right / wrong. A right answer counts as: easy = fast, hard = very slow, otherwise good.
+var SRS_EASY_MS = 5000;
+var SRS_HARD_MS = 20000;
+var SRS_MAX_ANSWER_MS = 60000;             // slower than this (pause, waiting for a ship) = no information = good
+// Mastery (per category and overall)
+var MASTERY_MIN_ATTEMPTS = 5;              // a category cannot be mastered with fewer attempts
+var MASTERY_MIN_STREAK = 3;                // ... or with a shorter streak of correct answers
+var MASTERY_MIN_ACCURACY = 0.8;
+var MASTERY_MIN_INTERVAL_DAYS = 14;        // ... or while the next review is closer than this
+var MASTERY_OTHER_CATEGORIES = 2;          // a kanji is mastered when recognition AND this many other categories are
+var MASTERY_REVIEWING_ACCURACY = 0.6;
+// Weak kanji / categories (one wrong answer is never enough)
+var WEAK_MIN_ATTEMPTS = 3;
+var WEAK_ACCURACY = 0.6;
+var WEAK_LAPSES = 2;                       // 2+ wrong answers and the last answer wrong also counts when accuracy < WEAK_LAPSE_ACCURACY
+var WEAK_LAPSE_ACCURACY = 0.75;
+var FORGOTTEN_DAYS = 7;                    // overdue by more than max(this, 3 x interval) = probably forgotten
+var RECENT_WRONG_MS = 30 * 60 * 1000;      // "recently incorrect"
+// How strongly the review state changes the chance that a kanji / question type is asked (1 = normal)
+var SRS_W_OVERDUE = 3;
+var SRS_W_RECENT_WRONG = 2.5;
+var SRS_W_WEAK = 2;
+var SRS_W_NOT_DUE = 0.7;
+var SRS_W_MAINTENANCE = 0.4;               // mastered and not due: only an occasional maintenance review
+var SRS_W_JUST_ASKED = 0.25;               // one of the last SRS_RECENT_KANJI kanji
+var SRS_RECENT_KANJI = 3;
+var SRS_W_CAT_NEW = 1.5;                   // a question type this kanji has not been asked in yet
+var SRS_W_CAT_WEAK = 3;
+var SRS_W_CAT_DUE = 2;
+var SRS_W_CAT_MASTERED = 0.4;
+var SRS_W_CAT_OTHER_WHEN_WEAK = 0.6;       // kanji with a weak category: the other types are asked less (focus on the weakness)
+var SRS_SAVE_DELAY_MS = 1500;              // learning data is saved at most this often (and when the page is hidden)
