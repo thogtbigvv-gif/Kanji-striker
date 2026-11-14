@@ -106,6 +106,7 @@ function startEndless() {
   currentStageId = null;
   currentStage = null;
   questionPool = pools.targets;
+  reviewPool = []; // endless already asks from every unlocked kanji
   decoyPool = pools.decoys;
   stageWaves = [buildEndlessWave(0)];
   beginRun();
