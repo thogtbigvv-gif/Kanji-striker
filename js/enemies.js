@@ -222,7 +222,7 @@ function spawnEnemy(x, y, speed, motion, kind) {
     made.y = motion.startY;
   }
   var waveDef = stageWaves[waveState.index];
-  if (waveDef && waveDef.fire > 0 && (kind === 'normal' || kind === 'fast' || kind === 'big') && Math.random() < waveDef.fire) {
+  if (waveDef && waveDef.fire > 0 && (kind === 'normal' || kind === 'fast' || kind === 'big') && Math.random() < waveDef.fire * adaptFactor()) {
     made.shooter = true;
     made.fireTimer = ENEMY_FIRE_FIRST_MIN + Math.random() * (ENEMY_FIRE_FIRST_MAX - ENEMY_FIRE_FIRST_MIN);
   }
@@ -345,6 +345,7 @@ function correctHit(data, x, y, kind) {
   recordHit(data.kanji);
   noteRunKanji(data.kanji, true);
   srsRecordAnswer(true);
+  adaptNote(true);
 
   // Streak reward: every COMBO_HEAL_EVERY correct answers in a row restore a little HP
   var healed = 0;
@@ -395,6 +396,7 @@ function wrongHit(data) {
   recordMiss(question.kanji);
   noteRunKanji(question.kanji, false);
   srsRecordAnswer(false);
+  adaptNote(false);
   srsQueueRetry(question.kanji);
   srsNoteConfusion(question.kanji, data.kanji);
   showWrongAnswerToast(data);
@@ -410,6 +412,7 @@ function targetMissed(amount) {
   recordMiss(question.kanji);
   noteRunKanji(question.kanji, false);
   srsRecordAnswer(false);
+  adaptNote(false);
   srsQueueRetry(question.kanji);
   showWrongAnswerToast(question);
   targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
