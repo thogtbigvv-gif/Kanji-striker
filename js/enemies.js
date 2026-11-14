@@ -21,8 +21,13 @@ function activeTargetOnScreen() {
   return false;
 }
 
-// How likely a kanji is to be chosen: 1 = normal. Uses the saved hits/misses of the player.
+// How likely a kanji is to be chosen: 1 = normal. Uses the saved hits/misses of the player,
+// then the review state (js/srs.js): overdue, recently wrong and weak kanji come more often.
 function kanjiWeight(item) {
+  return baseKanjiWeight(item) * srsKanjiMultiplier(item.kanji);
+}
+
+function baseKanjiWeight(item) {
   var entry = progress[item.kanji];
   var hits = entry && typeof entry.hits === 'number' ? entry.hits : 0;
   var misses = entry && typeof entry.misses === 'number' ? entry.misses : 0;
@@ -111,6 +116,7 @@ function pickQuestion() {
   // Only the text shown changes; the target ship is still the one flagged above.
   challenge = buildChallengeFor(question);
   relabelEnemies();
+  srsOnQuestion(); // the review system starts timing this question
 }
 
 // A wrong-answer kanji that is not the question and not already on screen
@@ -323,6 +329,7 @@ function correctHit(data, x, y, kind) {
   addFloater(x, y, '+' + points, '#5dff8a');
   recordHit(data.kanji);
   noteRunKanji(data.kanji, true);
+  srsRecordAnswer(true);
 
   // Streak reward: every COMBO_HEAL_EVERY correct answers in a row restore a little HP
   var healed = 0;
@@ -372,6 +379,7 @@ function wrongHit(data) {
   runStats.wrong += 1;
   recordMiss(question.kanji);
   noteRunKanji(question.kanji, false);
+  srsRecordAnswer(false);
   showWrongAnswerToast(data);
   loseHp(WRONG_HIT_DAMAGE, true);
   if (currentState !== STATE_GAME_OVER) {
@@ -384,6 +392,7 @@ function targetMissed(amount) {
   runStats.missed += 1;
   recordMiss(question.kanji);
   noteRunKanji(question.kanji, false);
+  srsRecordAnswer(false);
   showWrongAnswerToast(question);
   targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
   loseHp(amount);
