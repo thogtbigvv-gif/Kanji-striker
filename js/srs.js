@@ -635,6 +635,23 @@ function loadLearning() {
   }
 }
 
+// Settings -> RESET PROGRESS: forgets all review data (memory and storage)
+function resetLearning() {
+  if (learningSaveTimer !== null) {
+    clearTimeout(learningSaveTimer);
+    learningSaveTimer = null;
+  }
+  learning = { version: 1, kanji: {} };
+  learningReadOnly = false;
+  learningDirty = false;
+  srsStatusCache = {};
+  learningRevision += 1;
+  srsRecentKanji = [];
+  confusions = {};
+  removeStorage(KEY_LEARNING);
+  removeStorage(KEY_LEARNING + 'Corrupt');
+}
+
 // Save when the page is hidden or closed (registered once)
 document.addEventListener('visibilitychange', function () {
   if (document.hidden) {
