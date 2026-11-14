@@ -293,7 +293,8 @@ function noteRunKanji(kanji, wasCorrect) {
   }
 }
 
-function loseHp(amount, quiet) {
+// learningHit = true for the penalty of a wrong answer or a missed target: the permanent shield never blocks those
+function loseHp(amount, quiet, learningHit) {
   // A shield blocks the whole hit: no HP loss and the combo stays
   if (shieldActive) {
     shieldActive = false;
@@ -302,6 +303,17 @@ function loseHp(amount, quiet) {
     playTone(520, 0.1, 'square', 0.07);
     playTone(390, 0.14, 'square', 0.07, 0.08);
     return;
+  }
+  if (!learningHit && shieldBuffer > 0) {
+    var absorbed = Math.min(shieldBuffer, amount);
+    shieldBuffer -= absorbed;
+    amount -= absorbed;
+    if (amount <= 0) {
+      damageFlash = 0.1;
+      showToast('HULL SHIELD   ' + Math.ceil(shieldBuffer) + ' LEFT', '#66e0ff');
+      playTone(520, 0.1, 'square', 0.07);
+      return;
+    }
   }
   hp -= amount;
   waveHpLost = true;
@@ -320,6 +332,7 @@ function loseHp(amount, quiet) {
     if (currentStageId) {
       recordStageResult(currentStageId, score, false, 0); // counts the attempt and keeps the stage best score
     }
+    awardRunCredits(false, 0, false); // a failed run still pays its answer credits
     playGameOverSound();
   } else if (!quiet) {
     playHurtSound();
@@ -400,7 +413,7 @@ function wrongHit(data) {
   srsQueueRetry(question.kanji);
   srsNoteConfusion(question.kanji, data.kanji);
   showWrongAnswerToast(data);
-  loseHp(WRONG_HIT_DAMAGE, true);
+  loseHp(WRONG_HIT_DAMAGE, true, true);
   if (currentState !== STATE_GAME_OVER) {
     playWrongSound();
   }
@@ -416,5 +429,5 @@ function targetMissed(amount) {
   srsQueueRetry(question.kanji);
   showWrongAnswerToast(question);
   targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
-  loseHp(amount);
+  loseHp(amount, false, true);
 }
