@@ -419,6 +419,10 @@ function awardRunCredits(cleared, stars, firstClear) {
     return 0;
   }
   creditsAwarded = true;
+  if (gameMode !== MODE_ENDLESS && (!currentStageId || !isStageUnlocked(currentStageId))) {
+    runCredits = 0;
+    return 0; // a locked stage opened with ?stage= pays nothing (it is for testing)
+  }
   var amount = Math.min(CREDITS_ANSWER_CAP, runStats.correct * CREDITS_PER_ANSWER);
   if (gameMode === MODE_ENDLESS) {
     amount += Math.min(ENDLESS_CREDIT_CAP, Math.floor(score / ENDLESS_CREDIT_SCORE_DIV));
