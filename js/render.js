@@ -360,6 +360,21 @@ function showResults() {
 }
 
 // ---------- Kanji collection screen ----------
+// One line about a kanji's review state, e.g. "learning, mastery 42%, due now" (also used as the cell tooltip)
+function describeKanjiReview(review) {
+  var text = review.state + ', mastery ' + Math.round(review.score * 100) + '%';
+  if (review.weak && review.weakest) {
+    text += ', weak: ' + SRS_CATEGORY_NAMES[review.weakest];
+  }
+  if (review.anyDue) {
+    text += ', review due';
+  } else if (review.next > 0) {
+    var days = Math.max(1, Math.round((review.next - Date.now()) / DAY_MS));
+    text += ', next review in ' + days + ' d';
+  }
+  return text;
+}
+
 function buildCollection() {
   clearChildren(collectionGrid);
 
@@ -398,10 +413,28 @@ function buildCollection() {
 
     cell.appendChild(charSpan);
     cell.appendChild(meaningSpan);
+
+    // Review state of a collected kanji (js/srs.js): overall mastery, marked when a review is due or the kanji is weak
+    if (hits >= 1) {
+      var review = getKanjiStatus(item.kanji);
+      var srsSpan = makeEl('span', 'kanji-cell-srs');
+      srsSpan.textContent = Math.round(review.score * 100) + '%';
+      cell.appendChild(srsSpan);
+      if (review.anyDue) {
+        cell.className += ' is-due';
+      }
+      if (review.weak) {
+        cell.className += ' is-weak';
+      }
+      cell.title = describeKanjiReview(review);
+      cell.setAttribute('aria-label', item.kanji + ' - ' + item.meaning + ' - ' + describeKanjiReview(review));
+    }
     collectionGrid.appendChild(cell);
   }
 
   collectionSummary.textContent = 'COLLECTED ' + collected + ' / ' + KANJI_LIST.length;
+  var reviewSum = getReviewSummary();
+  collectionReview.textContent = 'REVIEW DUE ' + reviewSum.due + '  |  WEAK ' + reviewSum.weak + '  |  MASTERED ' + reviewSum.mastered;
 }
 
 // ---------- HUD ----------
