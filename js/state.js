@@ -16,6 +16,7 @@ var backToMenuButton = document.getElementById('backToMenuButton');
 var collectionSection = document.getElementById('collectionSection');
 var collectionSummary = document.getElementById('collectionSummary');
 var collectionGrid = document.getElementById('collectionGrid');
+var collectionReview = document.getElementById('collectionReview');
 var collectionBackButton = document.getElementById('collectionBackButton');
 
 var settingsSection = document.getElementById('settingsSection');
