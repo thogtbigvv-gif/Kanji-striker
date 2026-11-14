@@ -20,7 +20,13 @@ function startStage(stageId) {
   currentStageId = stageId;
   currentStage = stage;
   questionPool = pools.targets;
-  decoyPool = pools.decoys;
+  reviewPool = buildReviewPool(stage); // kanji of earlier stages that need review (see srs.js)
+  decoyPool = pools.decoys.slice();
+  for (var r = 0; r < reviewPool.length; r++) {
+    if (decoyPool.indexOf(reviewPool[r]) === -1) {
+      decoyPool.push(reviewPool[r]); // review kanji may also fly as decoys / appear in challenges
+    }
+  }
   stageWaves = getWavesForStage(stage);
   beginRun();
   return true;
@@ -65,6 +71,7 @@ function recordPriorHits() {
 function beginRun() {
   stageCompleteFired = false;
   stageResult = null;
+  srsResetRun();
   swayClock = 0;
   lastLaneStart = -1;
   targetLost = false;
