@@ -9,17 +9,23 @@ var lastLaneStart = -1; // the lane used by the last group, so the next group tr
 // adaptLevel moves between ADAPT_MIN and ADAPT_MAX depending on the accuracy of the last answers (and low HP).
 // It scales ship speed, enemy fire chance and the pause between groups. Campaign only.
 var adaptLevel = 1;
-var adaptResults = []; // 1 = correct, 0 = wrong shot or missed target
+var adaptResults = []; // 1 = correct, 0 = wrong shot or missed target (the first result of each question)
+var adaptCounted = -1; // serial of the last question that was counted
 
 function resetAdaptive() {
   adaptLevel = 1;
   adaptResults = [];
+  adaptCounted = -1;
 }
 
 function adaptNote(correct) {
   if (!ADAPT_ENABLED || gameMode === MODE_ENDLESS) {
     return;
   }
+  if (adaptCounted === questionSerial) {
+    return; // one question counts once, however many wrong shots it took
+  }
+  adaptCounted = questionSerial;
   adaptResults.push(correct ? 1 : 0);
   while (adaptResults.length > ADAPT_WINDOW) {
     adaptResults.shift();
