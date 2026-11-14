@@ -42,15 +42,18 @@ function baseKanjiWeight(item) {
 }
 
 // Random pick from a list of kanji entries, favouring the ones with a higher weight
-function weightedPick(list) {
+// extraWeight (optional) = a second multiplier per entry (used for the decoys, see srsDecoyMultiplier)
+function weightedPick(list, extraWeight) {
   var total = 0;
   var i;
+  var weights = [];
   for (i = 0; i < list.length; i++) {
-    total += kanjiWeight(list[i]);
+    weights.push(kanjiWeight(list[i]) * (extraWeight ? extraWeight(list[i]) : 1));
+    total += weights[i];
   }
   var roll = Math.random() * total;
   for (i = 0; i < list.length; i++) {
-    roll -= kanjiWeight(list[i]);
+    roll -= weights[i];
     if (roll <= 0) {
       return list[i];
     }
@@ -77,7 +80,19 @@ function pickQuestion() {
     }
   }
 
-  if (promote !== null) {
+  // Wave-linked review (srs.js): a missed kanji coming back, or a kanji of an earlier stage that needs review.
+  // A flying ship takes it over only while its kanji is still hidden above the screen.
+  var forced = srsForcedKanji(onScreen);
+  if (forced !== null && promote !== null && promote.y > KANJI_VISIBLE_Y) {
+    forced = null; // the ship's kanji is already visible: never swap it in front of the player
+  }
+  if (forced !== null) {
+    if (promote !== null) {
+      promote.data = forced;
+    }
+    question = forced;
+    srsForcedUsed(forced);
+  } else if (promote !== null) {
     question = promote.data;
   } else {
     // Nothing usable on screen: new question, not the previous one and not a kanji already flying
@@ -141,7 +156,7 @@ function pickDecoy() {
       }
     }
   }
-  return weightedPick(pool);
+  return weightedPick(pool, srsDecoyMultiplier);
 }
 
 // Builds one enemy object of the given kind (used for normal spawns and for the mini ships of a splitter)
@@ -380,6 +395,8 @@ function wrongHit(data) {
   recordMiss(question.kanji);
   noteRunKanji(question.kanji, false);
   srsRecordAnswer(false);
+  srsQueueRetry(question.kanji);
+  srsNoteConfusion(question.kanji, data.kanji);
   showWrongAnswerToast(data);
   loseHp(WRONG_HIT_DAMAGE, true);
   if (currentState !== STATE_GAME_OVER) {
@@ -393,6 +410,7 @@ function targetMissed(amount) {
   recordMiss(question.kanji);
   noteRunKanji(question.kanji, false);
   srsRecordAnswer(false);
+  srsQueueRetry(question.kanji);
   showWrongAnswerToast(question);
   targetLost = true; // the same question stays; a new target must come (next group or rescue ship)
   loseHp(amount);
