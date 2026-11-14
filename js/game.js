@@ -72,6 +72,7 @@ function beginRun() {
   stageCompleteFired = false;
   stageResult = null;
   srsResetRun();
+  resetAdaptive();
   swayClock = 0;
   lastLaneStart = -1;
   targetLost = false;
