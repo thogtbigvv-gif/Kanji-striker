@@ -147,6 +147,9 @@ var bullets = [];
 var particles = [];
 var powerups = [];      // falling capsules: { type, x, y, dead }
 var shieldActive = false; // true while the ship carries a shield
+var shieldBuffer = 0;     // points left of the permanent shield upgrade (see combatStats.shieldCapacity)
+var runCredits = 0;       // credits earned by the run that just ended (shown later on the results screen)
+var creditsAwarded = false; // true once this run has paid its credits (a run pays only once)
 var slowTimer = 0;        // seconds of SLOW left (0 = not active)
 var runStats = newRunStats(); // numbers of the current run (see newRunStats)
 var waveHpLost = false;   // true when the ship took damage during the current wave (no PERFECT bonus)
