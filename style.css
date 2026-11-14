@@ -355,6 +355,27 @@ body {
   color: var(--c-muted);
 }
 
+/* Review state (Phase 3): mastery percentage, pink when a review is due */
+.kanji-cell-srs {
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  color: var(--c-muted);
+}
+
+.kanji-cell.is-due {
+  border-style: dashed;
+}
+
+.kanji-cell.is-due .kanji-cell-srs,
+.kanji-cell.is-weak .kanji-cell-srs {
+  color: var(--c-pink);
+}
+
+.panel-review {
+  font-size: 0.7rem;
+  color: var(--c-muted);
+}
+
 .kanji-cell.is-locked .kanji-cell-char {
   color: var(--c-border-light);
 }
