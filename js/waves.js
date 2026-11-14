@@ -5,6 +5,55 @@
 var swayClock = 0;      // one shared clock for every swaying ship (reset when a stage starts)
 var lastLaneStart = -1; // the lane used by the last group, so the next group tries another lane
 
+// ---------- Adaptive difficulty (v0.9.0) ----------
+// adaptLevel moves between ADAPT_MIN and ADAPT_MAX depending on the accuracy of the last answers (and low HP).
+// It scales ship speed, enemy fire chance and the pause between groups. Campaign only.
+var adaptLevel = 1;
+var adaptResults = []; // 1 = correct, 0 = wrong shot or missed target
+
+function resetAdaptive() {
+  adaptLevel = 1;
+  adaptResults = [];
+}
+
+function adaptNote(correct) {
+  if (!ADAPT_ENABLED || gameMode === MODE_ENDLESS) {
+    return;
+  }
+  adaptResults.push(correct ? 1 : 0);
+  while (adaptResults.length > ADAPT_WINDOW) {
+    adaptResults.shift();
+  }
+  var target = adaptLevel;
+  if (adaptResults.length >= ADAPT_MIN_SAMPLES) {
+    var sum = 0;
+    for (var i = 0; i < adaptResults.length; i++) {
+      sum += adaptResults[i];
+    }
+    var accuracy = sum / adaptResults.length;
+    if (accuracy >= ADAPT_UP_ACCURACY) {
+      target = ADAPT_MAX;
+    } else if (accuracy <= ADAPT_DOWN_ACCURACY) {
+      target = ADAPT_MIN;
+    } else {
+      target = 1;
+    }
+  }
+  if (combatStats && hp <= combatStats.maxHp * ADAPT_LOW_HP) {
+    target = Math.min(target, ADAPT_MIN); // nearly dead: never speed up
+  }
+  if (adaptLevel < target) {
+    adaptLevel = Math.min(target, adaptLevel + ADAPT_STEP);
+  } else if (adaptLevel > target) {
+    adaptLevel = Math.max(target, adaptLevel - ADAPT_STEP);
+  }
+}
+
+// The multiplier in use (always 1 in endless mode or when switched off)
+function adaptFactor() {
+  return ADAPT_ENABLED && gameMode !== MODE_ENDLESS ? adaptLevel : 1;
+}
+
 // The wave plan of a stage: the base waves, made faster / longer depending on the stage number
 // Adds one single-ship group for every special kind (repeated `times` times), spread evenly through the wave
 function withSpecialGroups(groups, specials, times) {
@@ -388,18 +437,18 @@ function updateWaveSpawning(dt) {
       }
     }
     waveState.pathRollIndex = -1;
-    spawnGroup(group, def.speed, def.sway, def, pathNow);
+    spawnGroup(group, def.speed * adaptFactor(), def.sway, def, pathNow);
     waveState.groupIndex += 1;
     if (waveState.groupIndex >= def.groups.length) {
       if (def.loop) {
         // The boss wave never runs out of kanji ships: the groups start again
         waveState.groupIndex = 0;
-        waveState.groupTimer = def.groupGap;
+        waveState.groupTimer = def.groupGap / adaptFactor();
       } else {
         waveState.phase = 'clearing'; // everything of this wave is on screen now
       }
     } else {
-      waveState.groupTimer = def.groupGap;
+      waveState.groupTimer = def.groupGap / adaptFactor();
     }
   }
 }
