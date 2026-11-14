@@ -479,6 +479,10 @@ function buildChallengeFor(item) {
     var w = CHALLENGE_WEIGHTS[types[i]];
     weights[types[i]] = typeof w === 'number' && w > 0 ? w : 0;
   }
+  // Review state of this kanji: weak / overdue question types are asked more, mastered ones less (js/srs.js)
+  for (i = 0; i < types.length; i++) {
+    weights[types[i]] *= srsCategoryFactor(item.kanji, types[i]);
+  }
   var limit = lastChallengeType === 'kanji' ? CHALLENGE_MAX_STREAK : 1;
   if (challengeStreak >= limit && weights[lastChallengeType] > 0) {
     var others = 0;
