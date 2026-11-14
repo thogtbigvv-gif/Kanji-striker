@@ -149,6 +149,16 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.8.0 – Wave-linked review (learning logic, no UI change)
+
+- **Review injection (campaign):** kanji of EARLIER stages that are overdue, recently wrong or weak (from `srs.js`) now come back as questions: about 25% of questions, 50% during a boss wave. The first 2 questions of a run and two in a row are never review questions, so the stage's own new kanji come first.
+- **In-run retry:** a kanji that was shot wrong or missed is asked again 3 questions later in the same run (at most 2 retries per kanji per run).
+- **Confusion memory:** when the player shoots kanji B while kanji A was asked, B appears as a decoy next to A more often (session memory, not saved).
+- A flying ship only takes over a forced kanji while its kanji is still hidden above the screen, so a kanji never changes in front of the player.
+- ENDLESS mode is unchanged. Saved data and keys are unchanged. All numbers: `config.js`, "Wave-linked review".
+
+---
+
 ### v0.7.2 – Cleanup, no new gameplay
 
 - **Fix:** the `icons/` folder was missing from the repository, so installing the game as an app and the iPhone home-screen icon did not work. The four icons (192, 512, maskable, Apple touch) are now included.
@@ -162,4 +172,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.7.2** (shown in the footer of the menu).
+Current version: **v0.8.0** (shown in the footer of the menu).
