@@ -474,3 +474,14 @@ var SRS_W_CAT_DUE = 2;
 var SRS_W_CAT_MASTERED = 0.4;
 var SRS_W_CAT_OTHER_WHEN_WEAK = 0.6;       // kanji with a weak category: the other types are asked less (focus on the weakness)
 var SRS_SAVE_DELAY_MS = 1500;              // learning data is saved at most this often (and when the page is hidden)
+
+// Wave-linked review (v0.8.0): the review system also shapes WHICH kanji the waves ask, not only how often.
+var SRS_REVIEW_INJECT = 0.25;        // campaign: chance that a question comes from an EARLIER stage's due / weak kanji
+var SRS_REVIEW_INJECT_BOSS = 0.5;    // the same chance during a boss wave (the boss is the "exam")
+var SRS_REVIEW_POOL_MAX = 12;        // at most this many review kanji per stage (most urgent first)
+var SRS_REVIEW_WARMUP = 2;           // the first questions of a run only use the stage's own kanji
+var SRS_REVIEW_MIN_GAP = 2;          // never two review questions in a row
+var SRS_RETRY_GAP = 3;               // a kanji that was missed comes back after this many questions (same run)
+var SRS_RETRY_MAX = 2;               // ... at most this many times per kanji per run
+var SRS_CONFUSION_STEP = 0.8;        // a decoy the player confused with the question gets +this weight per mistake
+var SRS_CONFUSION_MAX = 3.5;         // limit of that weight
