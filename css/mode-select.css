@@ -1,68 +1,425 @@
-/* KANJI STRIKER - game mode screen (CAMPAIGN / ENDLESS). */
+/* KANJI STRIKER - game mode screen (CAMPAIGN / ENDLESS).
+   v0.11.3: arcade look. Two cards with a pixel emblem each, drifting stars, cards that fly in,
+   a breathing glow, a shine that sweeps across, corner brackets and a press flash.
+   Everything is CSS only; the emblems are decoration (aria-hidden). Motion is switched off
+   for people who ask for reduced motion (last block of this file). */
 
-/* ---------- GAME MODE SCREEN (v0.7.0) ---------- */
+/* ---------- SCREEN: backdrop ---------- */
 .screen-mode {
+  position: relative;
+  overflow: hidden;
   padding: 20px 16px 12px;
   gap: 14px;
+  /* A soft gold glow at the top and a pink one at the bottom (static) */
+  background-image:
+    radial-gradient(ellipse at 50% -5%, rgba(255, 210, 31, 0.13), transparent 55%),
+    radial-gradient(ellipse at 50% 105%, rgba(255, 107, 134, 0.13), transparent 55%);
 }
 
+.screen-mode > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Two star layers drifting down at different speeds (each layer loops over its own tile size, so no jump) */
+.screen-mode::before,
+.screen-mode::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.screen-mode::before {
+  opacity: 0.7;
+  background-image:
+    radial-gradient(circle at 30% 20%, var(--c-text) 0 1px, transparent 2px),
+    radial-gradient(circle at 80% 60%, #9cc9ff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 55% 85%, #ffe27a 0 1px, transparent 2px);
+  background-size: 210px 260px, 250px 200px, 170px 280px;
+  animation: modeStarsSlow 44s linear infinite;
+}
+
+.screen-mode::after {
+  opacity: 0.9;
+  background-image:
+    radial-gradient(circle at 70% 30%, var(--c-text) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 20% 75%, #ffe27a 0 1px, transparent 2px);
+  background-size: 140px 180px, 190px 150px;
+  animation: modeStarsFast 17s linear infinite;
+}
+
+@keyframes modeStarsSlow {
+  to {
+    background-position: 0 260px, 0 200px, 0 280px;
+  }
+}
+
+@keyframes modeStarsFast {
+  to {
+    background-position: 0 180px, 0 150px;
+  }
+}
+
+/* ---------- HEADER ---------- */
+.mode-header {
+  gap: 6px;
+}
+
+.screen-mode .panel-title {
+  text-shadow:
+    2px 2px 0 #b36b00,
+    4px 4px 0 #000000,
+    0 0 16px rgba(255, 210, 31, 0.45);
+  animation: modeTitleGlow 3s ease-in-out infinite alternate;
+}
+
+@keyframes modeTitleGlow {
+  from {
+    filter: brightness(1);
+  }
+  to {
+    filter: brightness(1.18);
+  }
+}
+
+/* A pixel line that draws itself under the title */
+.mode-header::after {
+  content: "";
+  display: block;
+  width: 150px;
+  height: 3px;
+  margin-top: 4px;
+  background: linear-gradient(90deg, transparent, var(--c-gold) 20%, var(--c-pink) 80%, transparent);
+  animation: modeLineDraw 0.6s ease-out 0.1s backwards;
+}
+
+@keyframes modeLineDraw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.mode-subtitle {
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: var(--c-muted);
+  animation: modeFadeUp 0.5s ease-out 0.25s backwards;
+}
+
+@keyframes modeFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- CARDS ---------- */
 .mode-list {
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 16px;
+  gap: 18px;
 }
 
 .mode-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  /* one set of colours per card: CAMPAIGN is gold, ENDLESS is pink */
+  --mode-color: var(--c-gold);
+  --mode-dark: var(--c-gold-dark);
+  --mode-glow: rgba(255, 210, 31, 0.5);
+  --enter-x: -48px;
+  --enter-delay: 0.1s;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 14px;
   width: 100%;
   min-height: 48px;
-  padding: 16px;
+  padding: 16px 14px;
   font-family: inherit;
   text-align: left;
-  color: var(--c-gold);
-  background-color: var(--c-panel);
-  border: 3px solid var(--c-gold);
-  box-shadow: 0 4px 0 var(--c-gold-dark);
+  color: var(--mode-color);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05), transparent 45%),
+    var(--c-panel);
+  border: 3px solid var(--mode-color);
+  box-shadow:
+    0 4px 0 var(--mode-dark),
+    0 0 18px -4px var(--mode-glow);
   cursor: pointer;
-}
-
-.mode-card:active {
-  transform: translateY(4px);
-  box-shadow: 0 0 0 var(--c-gold-dark);
+  /* only "backwards": after it ends, the card's own transform is free for the press effect */
+  animation: modeCardIn 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.25) var(--enter-delay) backwards;
+  transition: transform 0.12s ease, filter 0.12s ease;
 }
 
 .mode-card-endless {
-  color: var(--c-pink);
-  border-color: var(--c-pink);
-  box-shadow: 0 4px 0 var(--c-crimson-dark);
+  --mode-color: var(--c-pink);
+  --mode-dark: var(--c-crimson-dark);
+  --mode-glow: rgba(255, 107, 134, 0.5);
+  --enter-x: 48px;
+  --enter-delay: 0.24s;
 }
 
-.mode-card-endless:active {
-  box-shadow: 0 0 0 var(--c-crimson-dark);
+@keyframes modeCardIn {
+  from {
+    opacity: 0;
+    transform: translateX(var(--enter-x)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Layer 1: small corner brackets + a glow inside the border that breathes */
+.mode-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--mode-color), var(--mode-color)) left 5px top 5px / 10px 2px no-repeat,
+    linear-gradient(var(--mode-color), var(--mode-color)) left 5px top 5px / 2px 10px no-repeat,
+    linear-gradient(var(--mode-color), var(--mode-color)) right 5px top 5px / 10px 2px no-repeat,
+    linear-gradient(var(--mode-color), var(--mode-color)) right 5px top 5px / 2px 10px no-repeat,
+    linear-gradient(var(--mode-color), var(--mode-color)) left 5px bottom 5px / 10px 2px no-repeat,
+    linear-gradient(var(--mode-color), var(--mode-color)) left 5px bottom 5px / 2px 10px no-repeat,
+    linear-gradient(var(--mode-color), var(--mode-color)) right 5px bottom 5px / 10px 2px no-repeat,
+    linear-gradient(var(--mode-color), var(--mode-color)) right 5px bottom 5px / 2px 10px no-repeat;
+  box-shadow: inset 0 0 24px var(--mode-glow);
+  opacity: 0.5;
+  transition: background-size 0.15s ease;
+  animation: modeCardGlow 2.6s ease-in-out calc(var(--enter-delay) + 0.6s) infinite alternate;
+}
+
+@keyframes modeCardGlow {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Layer 2: a light streak sweeps across now and then */
+.mode-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -45%;
+  width: 35%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transform: skewX(-20deg);
+  animation: modeShine 5s ease-in-out calc(var(--enter-delay) + 1s) infinite;
+}
+
+.mode-card-endless::after {
+  animation-delay: calc(var(--enter-delay) + 3.2s);
+}
+
+@keyframes modeShine {
+  0%,
+  55% {
+    transform: translateX(0) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(560%) skewX(-20deg);
+  }
+}
+
+/* Press: the card sinks and flashes */
+.mode-card:active {
+  transform: translateY(4px);
+  filter: brightness(1.3);
+  box-shadow:
+    0 0 0 var(--mode-dark),
+    0 0 22px var(--mode-glow);
+}
+
+/* Mouse hover (not on touch screens): the card lifts and the brackets open up */
+@media (hover: hover) {
+  .mode-card:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.12);
+  }
+
+  .mode-card:hover::before,
+  .mode-card:focus-visible::before {
+    background-size: 16px 2px, 2px 16px, 16px 2px, 2px 16px, 16px 2px, 2px 16px, 16px 2px, 2px 16px;
+  }
+}
+
+/* ---------- CARD: emblem ---------- */
+.mode-card-art {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A dashed ring turns slowly around the emblem; a small square rides on it */
+.mode-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed var(--mode-color);
+  border-radius: 50%;
+  opacity: 0.75;
+  animation: modeSpin 14s linear infinite;
+}
+
+.mode-ring::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  background-color: var(--mode-color);
+  box-shadow: 0 0 8px var(--mode-glow);
+}
+
+.mode-card-endless .mode-ring {
+  animation-direction: reverse;
+  animation-duration: 10s;
+}
+
+@keyframes modeSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* CAMPAIGN: our ship hovers and fires */
+.mode-ship {
+  width: 33px;
+  height: 30px;
+  animation: modeBob 1.6s ease-in-out infinite;
+}
+
+@keyframes modeBob {
+  0%,
+  100% {
+    transform: translateY(2px);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.mode-bullet {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3px;
+  height: 9px;
+  margin-left: -1px;
+  background-color: var(--c-text);
+  box-shadow: 0 0 6px var(--mode-color);
+  animation: modeShoot 1.3s linear infinite;
+}
+
+@keyframes modeShoot {
+  0% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-40px);
+    opacity: 0;
+  }
+}
+
+/* ENDLESS: a boss alien flaps its wings (the same two-frame swap as the main menu) */
+.mode-alien {
+  position: relative;
+  width: 45px;
+  height: 25px;
+  animation: modeBob 2.2s ease-in-out infinite;
+}
+
+.mode-alien .px {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- CARD: text ---------- */
+.mode-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+
+.mode-card-tag {
+  padding: 1px 6px;
+  font-size: 0.6rem;
+  font-weight: bold;
+  letter-spacing: 3px;
+  color: var(--c-bg);
+  background-color: var(--mode-color);
 }
 
 .mode-card-title {
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   font-weight: bold;
   letter-spacing: 3px;
   text-shadow: 1px 1px 0 #000000;
 }
 
 .mode-card-desc {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   line-height: 1.4;
   color: #d6dbe6;
 }
 
 .mode-card-meta {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   letter-spacing: 2px;
   color: var(--c-blue);
+}
+
+.mode-card-stars {
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  color: var(--c-gold);
+}
+
+.mode-card-stars:empty {
+  display: none;
+}
+
+/* The arrow on the right nudges forward */
+.mode-card-go {
+  font-size: 1rem;
+  animation: modeArrow 0.9s steps(2) infinite;
+}
+
+@keyframes modeArrow {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(4px);
+  }
 }
 
 .mode-message {
@@ -71,4 +428,83 @@
   font-size: 0.8rem;
   letter-spacing: 2px;
   color: var(--c-pink);
+}
+
+.screen-mode .panel-actions {
+  animation: modeFadeUp 0.45s ease-out 0.45s backwards;
+}
+
+/* ---------- SMALL SCREENS ---------- */
+@media (max-height: 700px), (max-width: 340px) {
+  .screen-mode {
+    padding-top: 14px;
+    gap: 10px;
+  }
+
+  .mode-list {
+    gap: 12px;
+  }
+
+  .mode-card {
+    grid-template-columns: 56px minmax(0, 1fr) 12px;
+    gap: 10px;
+    padding: 12px 10px;
+  }
+
+  .mode-card-art {
+    width: 56px;
+    height: 56px;
+  }
+
+  .mode-ship {
+    width: 28px;
+    height: 25px;
+  }
+
+  .mode-alien {
+    width: 36px;
+    height: 20px;
+  }
+
+  .mode-card-title {
+    font-size: 1.2rem;
+  }
+
+  .mode-card-desc {
+    font-size: 0.76rem;
+    line-height: 1.3;
+  }
+
+  .mode-subtitle {
+    display: none;
+  }
+}
+
+/* ---------- REDUCED MOTION ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .screen-mode::before,
+  .screen-mode::after,
+  .screen-mode .panel-title,
+  .mode-header::after,
+  .mode-subtitle,
+  .mode-card,
+  .mode-card::before,
+  .mode-card::after,
+  .mode-ring,
+  .mode-ship,
+  .mode-alien,
+  .mode-bullet,
+  .mode-card-go,
+  .screen-mode .panel-actions {
+    animation: none;
+  }
+
+  .mode-bullet,
+  .mode-card::after {
+    display: none;
+  }
+
+  .mode-card {
+    transition: none;
+  }
 }
