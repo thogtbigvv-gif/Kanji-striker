@@ -164,6 +164,16 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.11.3 – Select mode screen
+
+- The SELECT MODE screen got an arcade look. Each mode is a card with a pixel emblem: CAMPAIGN (our ship hovers and fires) and ENDLESS (a boss alien flaps its wings), inside a slowly turning dashed ring.
+- Effects (CSS only): drifting stars behind the cards, a title with a glow and a line that draws itself, cards that fly in from the sides one after another, a breathing glow inside the border, a light streak that sweeps across, corner brackets (they open up on mouse hover), a blinking arrow and a press flash. All motion stops with `prefers-reduced-motion`.
+- The CAMPAIGN card now also shows your star total (for example `★ 3 / 15`) next to the next stage; ENDLESS shows your best score.
+- Smaller layout for short screens (height up to 700px) and very narrow screens (width up to 340px).
+- Files: `index.html` (new markup), `css/mode-select.css` (rewritten), `js/state.js` and `js/render.js` (star total), `sw.js` (cache name). Gameplay and saved data are unchanged.
+
+---
+
 ### v0.11.2 – Install on a phone and play offline
 
 - **Fix:** the icons were linked as `icons/...` but the files are in the project root, so the app icons returned 404 and a phone could not offer to install the game. `manifest.webmanifest` and `index.html` now point at the root files.
@@ -242,4 +252,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.11.2** (shown in the footer of the menu).
+Current version: **v0.11.3** (shown in the footer of the menu).
