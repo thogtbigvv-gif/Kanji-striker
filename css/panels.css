@@ -1,0 +1,189 @@
+/* KANJI STRIKER - panels: kanji collection and settings screens. */
+
+/* ---------- PANELS (COLLECTION + SETTINGS) ---------- */
+
+.screen-collection,
+.screen-settings {
+  padding: 20px 16px 12px;
+  gap: 14px;
+}
+
+.panel-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.panel-title {
+  font-size: 1.6rem;
+  letter-spacing: 3px;
+  color: var(--c-gold);
+  text-shadow:
+    2px 2px 0 #b36b00,
+    4px 4px 0 #000000;
+}
+
+.panel-summary {
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: var(--c-blue);
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.panel-actions .menu-button {
+  max-width: 280px;
+}
+
+.collection-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  align-content: start;
+  overflow-y: auto;
+  touch-action: pan-y;
+  padding: 4px 2px;
+}
+
+.kanji-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  aspect-ratio: 1 / 1;
+  background-color: var(--c-panel);
+  border: 2px solid var(--c-border);
+}
+
+.kanji-cell-char {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--c-text);
+  font-family: var(--font-kanji);
+}
+
+.kanji-cell-meaning {
+  font-size: 0.7rem;
+  color: var(--c-muted);
+}
+
+/* Review state (Phase 3): mastery percentage, pink when a review is due */
+.kanji-cell-srs {
+  font-size: 0.6rem;
+  letter-spacing: 1px;
+  color: var(--c-muted);
+}
+
+.kanji-cell.is-due {
+  border-style: dashed;
+}
+
+.kanji-cell.is-due .kanji-cell-srs,
+.kanji-cell.is-weak .kanji-cell-srs {
+  color: var(--c-pink);
+}
+
+.panel-review {
+  font-size: 0.7rem;
+  color: var(--c-muted);
+}
+
+.kanji-cell.is-locked .kanji-cell-char {
+  color: var(--c-border-light);
+}
+
+.kanji-cell.is-collected {
+  border-color: var(--c-blue);
+}
+
+.kanji-cell.is-collected .kanji-cell-meaning {
+  color: var(--c-blue);
+}
+
+.kanji-cell.is-mastered {
+  border-color: var(--c-gold);
+  background-color: #1d1a0c;
+}
+
+.kanji-cell.is-mastered .kanji-cell-char,
+.kanji-cell.is-mastered .kanji-cell-meaning {
+  color: var(--c-gold);
+}
+
+.settings-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding-top: 20px;
+}
+
+.settings-list .menu-button {
+  max-width: 280px;
+}
+
+.settings-message {
+  min-height: 1.2em;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  color: var(--c-blue);
+  text-align: center;
+}
+
+/* Collection legend */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 0.7rem;
+  color: var(--c-muted);
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid;
+}
+
+.legend-seen {
+  border-color: var(--c-blue);
+}
+
+.legend-mastered {
+  border-color: var(--c-gold);
+  background-color: #1d1a0c;
+}
+
+.legend-locked {
+  border-color: var(--c-border-light);
+}
+
+.panel-hint {
+  font-size: 0.7rem;
+  color: var(--c-muted);
+}
+
+/* A collected kanji in the collection is a button */
+button.kanji-cell {
+  font-family: inherit;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+button.kanji-cell:active {
+  transform: scale(0.96);
+}
