@@ -55,6 +55,7 @@ var modeCampaignButton = document.getElementById('modeCampaignButton');
 var modeEndlessButton = document.getElementById('modeEndlessButton');
 var modeBackButton = document.getElementById('modeBackButton');
 var modeCampaignMeta = document.getElementById('modeCampaignMeta');
+var modeCampaignStars = document.getElementById('modeCampaignStars');
 var modeEndlessMeta = document.getElementById('modeEndlessMeta');
 var modeMessage = document.getElementById('modeMessage');
 var questionLabel = document.getElementById('questionLabel');
