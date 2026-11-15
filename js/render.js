@@ -77,6 +77,7 @@ function showToast(text, color, lines, time) {
 function showOnly(section, showFooter) {
   mainMenuSection.hidden = section !== mainMenuSection;
   collectionSection.hidden = section !== collectionSection;
+  kanjiCardSection.hidden = section !== kanjiCardSection;
   settingsSection.hidden = section !== settingsSection;
   resultsSection.hidden = section !== resultsSection;
   galaxySection.hidden = section !== galaxySection;
@@ -384,8 +385,14 @@ function buildCollection() {
     var entry = progress[item.kanji];
     var hits = entry && typeof entry.hits === 'number' ? entry.hits : 0;
 
-    var cell = makeEl('div', 'kanji-cell');
-    cell.setAttribute('role', 'listitem');
+    // A collected kanji is a button that opens its kanji card; a locked one is only a picture
+    var cell = makeEl(hits >= 1 ? 'button' : 'div', 'kanji-cell');
+    if (hits >= 1) {
+      cell.type = 'button';
+      cell.setAttribute('data-kanji', item.kanji);
+    } else {
+      cell.setAttribute('role', 'img');
+    }
 
     var charSpan = makeEl('span', 'kanji-cell-char');
     charSpan.lang = 'ja';
@@ -404,7 +411,7 @@ function buildCollection() {
     if (hits >= 1) {
       charSpan.textContent = item.kanji;
       meaningSpan.textContent = item.meaning;
-      cell.setAttribute('aria-label', item.kanji + ' - ' + item.meaning);
+      cell.setAttribute('aria-label', item.kanji + ' - ' + item.meaning + ' - open kanji card');
     } else {
       charSpan.textContent = '?';
       meaningSpan.textContent = '???';
@@ -427,7 +434,7 @@ function buildCollection() {
         cell.className += ' is-weak';
       }
       cell.title = describeKanjiReview(review);
-      cell.setAttribute('aria-label', item.kanji + ' - ' + item.meaning + ' - ' + describeKanjiReview(review));
+      cell.setAttribute('aria-label', item.kanji + ' - ' + item.meaning + ' - ' + describeKanjiReview(review) + ' - open kanji card');
     }
     collectionGrid.appendChild(cell);
   }
@@ -435,6 +442,258 @@ function buildCollection() {
   collectionSummary.textContent = 'COLLECTED ' + collected + ' / ' + KANJI_LIST.length;
   var reviewSum = getReviewSummary();
   collectionReview.textContent = 'REVIEW DUE ' + reviewSum.due + '  |  WEAK ' + reviewSum.weak + '  |  MASTERED ' + reviewSum.mastered;
+}
+
+// ---------- Kanji card (opened from the collection) ----------
+// One screen per collected kanji: meaning, readings, words, example sentences and the review state of every question type.
+var kcardList = [];          // collected kanji, in collection order (PREV / NEXT move through it)
+var kcardIndex = 0;
+var kcardGridScroll = 0;     // collection scroll position, restored on BACK
+
+var KCARD_STATE_NAMES = { 'new': 'NEW', learning: 'LEARNING', reviewing: 'REVIEWING', mastered: 'MASTERED' };
+var KCARD_CATEGORY_HINTS = {
+  kanji: 'Shoot the kanji that matches the meaning',
+  reading: 'Shoot the right reading of a word',
+  vocab: 'Shoot the meaning of a word',
+  context: 'Shoot the translation of a sentence'
+};
+
+function getKanjiHits(kanji) {
+  var entry = progress[kanji];
+  return entry && typeof entry.hits === 'number' ? entry.hits : 0;
+}
+
+function getCollectedKanji() {
+  var list = [];
+  for (var i = 0; i < KANJI_LIST.length; i++) {
+    if (getKanjiHits(KANJI_LIST[i].kanji) >= 1) {
+      list.push(KANJI_LIST[i].kanji);
+    }
+  }
+  return list;
+}
+
+// "due now", "in 3 d", "in 5 h", "in 20 min"
+function describeNextReview(nextTime, now) {
+  if (nextTime <= now) {
+    return 'due now';
+  }
+  var minutes = Math.round((nextTime - now) / 60000);
+  if (minutes < 60) {
+    return 'in ' + Math.max(1, minutes) + ' min';
+  }
+  var hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return 'in ' + hours + ' h';
+  }
+  return 'in ' + Math.round(hours / 24) + ' d';
+}
+
+function makeKcardSection(title) {
+  var box = makeEl('section', 'kcard-box');
+  box.appendChild(makeEl('h3', 'kcard-box-title', title));
+  return box;
+}
+
+function makeMasteryBar(score, stateName) {
+  var bar = makeEl('div', 'kcard-bar');
+  bar.setAttribute('aria-hidden', 'true');
+  var fill = makeEl('div', 'kcard-bar-fill kcard-state-' + stateName);
+  fill.style.width = Math.round(Math.max(0, Math.min(1, score)) * 100) + '%';
+  bar.appendChild(fill);
+  return bar;
+}
+
+function buildKcardReadings(kanji) {
+  var on = getKanjiOnyomi(kanji);
+  var kun = getKanjiKunyomi(kanji);
+  if (on.length + kun.length === 0) {
+    return null;
+  }
+  var box = makeKcardSection('READINGS');
+  var rows = [['ON', on], ['KUN', kun]];
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i][1].length === 0) {
+      continue;
+    }
+    var row = makeEl('div', 'kcard-reading-row');
+    row.appendChild(makeEl('span', 'kcard-reading-label', rows[i][0]));
+    var chips = makeEl('span', 'kcard-reading-chips');
+    for (var j = 0; j < rows[i][1].length; j++) {
+      var chip = makeEl('span', 'kcard-chip', rows[i][1][j]);
+      chip.lang = 'ja';
+      chips.appendChild(chip);
+    }
+    row.appendChild(chips);
+    box.appendChild(row);
+  }
+  return box;
+}
+
+function buildKcardWords(kanji) {
+  var words = getKanjiVocabulary(kanji);
+  if (words.length === 0) {
+    return null;
+  }
+  var box = makeKcardSection('WORDS');
+  var list = makeEl('ul', 'kcard-words');
+  for (var i = 0; i < words.length; i++) {
+    var li = makeEl('li', 'kcard-word');
+    var word = makeEl('span', 'kcard-word-ja', words[i].word);
+    word.lang = 'ja';
+    var info = makeEl('span', 'kcard-word-info');
+    var reading = makeEl('span', 'kcard-word-reading', words[i].reading);
+    reading.lang = 'ja';
+    var meaning = makeEl('span', 'kcard-word-meaning', words[i].meaning);
+    meaning.lang = 'mn';
+    info.appendChild(reading);
+    info.appendChild(meaning);
+    li.appendChild(word);
+    li.appendChild(info);
+    list.appendChild(li);
+  }
+  box.appendChild(list);
+  return box;
+}
+
+function buildKcardExamples(kanji) {
+  var examples = getKanjiExamples(kanji);
+  if (examples.length === 0) {
+    return null;
+  }
+  var box = makeKcardSection(examples.length > 1 ? 'EXAMPLES' : 'EXAMPLE');
+  for (var i = 0; i < examples.length; i++) {
+    var block = makeEl('div', 'kcard-example');
+    var sentence = makeEl('p', 'kcard-example-ja', examples[i].sentence);
+    sentence.lang = 'ja';
+    var reading = makeEl('p', 'kcard-example-reading', examples[i].reading);
+    reading.lang = 'ja';
+    var meaning = makeEl('p', 'kcard-example-meaning', examples[i].meaning);
+    meaning.lang = 'mn';
+    block.appendChild(sentence);
+    block.appendChild(reading);
+    block.appendChild(meaning);
+    box.appendChild(block);
+  }
+  return box;
+}
+
+// Review state: overall mastery plus one row per question type (only the types this kanji can be asked in)
+function buildKcardMastery(kanji) {
+  var now = Date.now();
+  var status = getKanjiStatus(kanji, now);
+  var box = makeKcardSection('MASTERY');
+
+  var total = makeEl('div', 'kcard-mastery-total');
+  var totalLine = makeEl('div', 'kcard-mastery-line');
+  totalLine.appendChild(makeEl('span', 'kcard-mastery-name', 'OVERALL'));
+  totalLine.appendChild(makeEl('span', 'kcard-mastery-value kcard-state-' + status.state,
+    Math.round(status.score * 100) + '%  ' + KCARD_STATE_NAMES[status.state]));
+  total.appendChild(totalLine);
+  total.appendChild(makeMasteryBar(status.score, status.state));
+  box.appendChild(total);
+
+  var hasData = hasKanjiLearningData(kanji);
+  for (var i = 0; i < SRS_CATEGORIES.length; i++) {
+    var name = SRS_CATEGORIES[i];
+    var cs = status.categories[name];
+    if (name !== 'kanji' && !hasData && cs.attempts === 0) {
+      continue;
+    }
+    var row = makeEl('div', 'kcard-mastery-row');
+    row.title = KCARD_CATEGORY_HINTS[name];
+    var line = makeEl('div', 'kcard-mastery-line');
+    line.appendChild(makeEl('span', 'kcard-mastery-name', SRS_CATEGORY_NAMES[name].toUpperCase()));
+    var detail;
+    if (cs.attempts === 0) {
+      detail = 'not asked yet';
+    } else {
+      detail = cs.correct + '/' + cs.attempts + ' correct, ' + describeNextReview(cs.next, now);
+    }
+    var valueClass = 'kcard-mastery-detail' + (cs.attempts > 0 && cs.due ? ' is-due' : '') + (cs.weak ? ' is-weak' : '');
+    line.appendChild(makeEl('span', valueClass, (cs.weak ? 'WEAK  ' : '') + detail));
+    row.appendChild(line);
+    row.appendChild(makeMasteryBar(cs.score, cs.state));
+    box.appendChild(row);
+  }
+  return box;
+}
+
+function buildKanjiCard(kanji) {
+  var item = KANJI_BY_CHAR[kanji];
+  clearChildren(kcardBody);
+  if (!item) {
+    return;
+  }
+  var status = getKanjiStatus(kanji);
+
+  var head = makeEl('header', 'kcard-head');
+  var title = makeEl('h2', 'kcard-char', kanji);
+  title.id = 'kcardTitle';
+  title.lang = 'ja';
+  title.tabIndex = -1;
+  head.appendChild(title);
+  var meaning = makeEl('p', 'kcard-meaning', item.meaning);
+  meaning.lang = 'mn';
+  head.appendChild(meaning);
+  var badges = makeEl('p', 'kcard-badges');
+  var jlpt = getKanjiJlpt(kanji);
+  if (jlpt) {
+    badges.appendChild(makeEl('span', 'kcard-badge', jlpt));
+  }
+  badges.appendChild(makeEl('span', 'kcard-badge kcard-state-' + status.state, KCARD_STATE_NAMES[status.state]));
+  badges.appendChild(makeEl('span', 'kcard-badge kcard-badge-count', (kcardIndex + 1) + ' / ' + kcardList.length));
+  head.appendChild(badges);
+  kcardBody.appendChild(head);
+
+  var parts = [buildKcardReadings(kanji), buildKcardWords(kanji), buildKcardExamples(kanji), buildKcardMastery(kanji)];
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i]) {
+      kcardBody.appendChild(parts[i]);
+    }
+  }
+  kcardBody.scrollTop = 0;
+  kcardPrevButton.disabled = kcardList.length < 2;
+  kcardNextButton.disabled = kcardList.length < 2;
+}
+
+// Opens the card of a collected kanji (a locked kanji never opens)
+function showKanjiCard(kanji) {
+  if (getKanjiHits(kanji) < 1 || !KANJI_BY_CHAR[kanji]) {
+    return;
+  }
+  if (collectionSection.hidden === false) {
+    kcardGridScroll = collectionGrid.scrollTop;
+  }
+  kcardList = getCollectedKanji();
+  kcardIndex = Math.max(0, kcardList.indexOf(kanji));
+  buildKanjiCard(kanji);
+  showOnly(kanjiCardSection, true);
+  document.getElementById('kcardTitle').focus();
+}
+
+// PREV / NEXT: step through the collected kanji (wraps around)
+function stepKanjiCard(direction) {
+  if (kcardList.length < 2) {
+    return;
+  }
+  kcardIndex = (kcardIndex + direction + kcardList.length) % kcardList.length;
+  buildKanjiCard(kcardList[kcardIndex]);
+  document.getElementById('kcardTitle').focus();
+}
+
+function closeKanjiCard() {
+  var kanji = kcardList[kcardIndex];
+  showOnly(collectionSection, true);
+  collectionGrid.scrollTop = kcardGridScroll;
+  // Put the focus back on the kanji that was open
+  var cells = collectionGrid.querySelectorAll('button.kanji-cell');
+  for (var i = 0; i < cells.length; i++) {
+    if (cells[i].getAttribute('data-kanji') === kanji) {
+      cells[i].focus();
+      break;
+    }
+  }
 }
 
 // ---------- HUD ----------
