@@ -90,19 +90,38 @@
 
     <!-- GAME MODE (opens after PRESS START) -->
     <section id="modeSection" class="screen screen-mode" aria-labelledby="modeTitle" hidden>
-      <header class="panel-header">
+      <header class="panel-header mode-header">
         <h2 id="modeTitle" class="panel-title">SELECT MODE</h2>
+        <p class="mode-subtitle" lang="mn">Тоглох горимоо сонго</p>
       </header>
       <div class="mode-list">
-        <button id="modeCampaignButton" class="mode-card" type="button">
-          <span class="mode-card-title">CAMPAIGN</span>
-          <span class="mode-card-desc" lang="mn">Galaxy-н stage-үүд. Монгол утгад таарах kanji-г буудаж, boss-той тулна.</span>
-          <span id="modeCampaignMeta" class="mode-card-meta"></span>
+        <button id="modeCampaignButton" class="mode-card mode-card-campaign" type="button">
+          <span class="mode-card-art" aria-hidden="true">
+            <i class="mode-ring"></i>
+            <i class="mode-bullet"></i>
+            <svg class="px mode-ship"><use href="#sp-ship"/></svg>
+          </span>
+          <span class="mode-card-body">
+            <span class="mode-card-tag">STORY</span>
+            <span class="mode-card-title">CAMPAIGN</span>
+            <span class="mode-card-desc" lang="mn">Galaxy-н stage-үүд. Монгол утгад таарах kanji-г буудаж, boss-той тулна.</span>
+            <span id="modeCampaignMeta" class="mode-card-meta"></span>
+            <span id="modeCampaignStars" class="mode-card-stars"></span>
+          </span>
+          <span class="mode-card-go" aria-hidden="true">&#9654;</span>
         </button>
         <button id="modeEndlessButton" class="mode-card mode-card-endless" type="button">
-          <span class="mode-card-title">ENDLESS</span>
-          <span class="mode-card-desc" lang="mn">Төгсгөлгүй. Гарч ирсэн бүх хөлгийг устга! Wave бүр хүндэрнэ, 5 wave тутамд boss.</span>
-          <span id="modeEndlessMeta" class="mode-card-meta"></span>
+          <span class="mode-card-art" aria-hidden="true">
+            <i class="mode-ring"></i>
+            <span class="mode-alien"><svg class="px flap-a"><use href="#sp-b1"/></svg><svg class="px flap-b"><use href="#sp-b2"/></svg></span>
+          </span>
+          <span class="mode-card-body">
+            <span class="mode-card-tag">SCORE ATTACK</span>
+            <span class="mode-card-title">ENDLESS</span>
+            <span class="mode-card-desc" lang="mn">Төгсгөлгүй. Гарч ирсэн бүх хөлгийг устга! Wave бүр хүндэрнэ, 5 wave тутамд boss.</span>
+            <span id="modeEndlessMeta" class="mode-card-meta"></span>
+          </span>
+          <span class="mode-card-go" aria-hidden="true">&#9654;</span>
         </button>
         <p id="modeMessage" class="mode-message" role="status"></p>
       </div>
@@ -311,7 +330,7 @@
 
     <!-- APP FOOTER -->
     <footer id="appFooter" class="app-footer">
-      <small id="versionLabel">v0.11.2</small>
+      <small id="versionLabel">v0.11.3</small>
     </footer>
 
   </div>
