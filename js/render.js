@@ -181,41 +181,168 @@ function starText(count) {
   return text;
 }
 
-function makeStageRow(stage, continueId) {
+// ---------- Galaxy map: worlds are planets, stages are nodes on a winding path ----------
+var GALAXY_NODE_X = [50, 24, 74, 26, 52]; // x position (%) of stage 1..5: the path zigzags down the map
+var GALAXY_ROW_HEIGHT = 96;               // distance between two nodes (px)
+var GALAXY_FIRST_NODE_Y = 40;             // y of the first node (px)
+var GALAXY_SVG_NS = 'http://www.w3.org/2000/svg';
+
+function getGalaxyNodeX(index) {
+  return GALAXY_NODE_X[index % GALAXY_NODE_X.length];
+}
+
+function getGalaxyNodeY(index) {
+  return GALAXY_FIRST_NODE_Y + index * GALAXY_ROW_HEIGHT;
+}
+
+function makeStageNode(stage, index, continueId, order) {
   var done = isStageCompleted(stage.id);
   var playable = isStagePlayable(stage.id) || (stage.id === debugStageId && stage.ready);
-  var row = makeEl('button', 'stage-row');
-  row.type = 'button';
-  if (done) {
-    row.className += ' is-done';
+  var isCurrent = stage.id === continueId && playable;
+  var x = getGalaxyNodeX(index);
+
+  var node = makeEl('button', 'stage-node');
+  node.type = 'button';
+  node.style.left = x + '%';
+  node.style.top = getGalaxyNodeY(index) + 'px';
+  node.style.setProperty('--i', String(order));
+  if (x > 50) {
+    node.className += ' label-left';
   }
-  if (stage.id === continueId && playable) {
-    row.className += ' is-current';
+  if (stage.boss) {
+    node.className += ' is-boss';
+  }
+  if (done) {
+    node.className += ' is-done';
+  }
+  if (isCurrent) {
+    node.className += ' is-current';
   }
   if (!playable) {
-    row.className += ' is-locked';
-    row.disabled = true;
+    node.className += ' is-locked';
+    node.disabled = true;
   }
 
   var info = getStageProgress(stage.id);
-  var num = makeEl('span', 'stage-num', stage.boss ? 'B' : String(stage.number));
-  var name = makeEl('span', 'stage-name', stage.name);
-  var subLine = makeEl('span', 'stage-sub',
-    done ? 'Best ' + info.bestScore : stage.boss ? 'Boss fight' : stage.kanji.length + ' new kanji');
-  name.appendChild(subLine);
-  var status = makeEl('span', 'stage-status', done ? starText(info.stars) : playable ? 'PLAY' : 'LOCKED');
-  row.appendChild(num);
-  row.appendChild(name);
-  row.appendChild(status);
-  row.setAttribute('aria-label', 'World ' + stage.worldId + ' stage ' + stage.number + ' ' + stage.name +
-    (playable ? '' : ' (locked)'));
+  if (isCurrent) {
+    var ship = makeEl('span', 'node-ship');
+    ship.setAttribute('aria-hidden', 'true');
+    var svg = document.createElementNS(GALAXY_SVG_NS, 'svg');
+    svg.setAttribute('class', 'px');
+    var use = document.createElementNS(GALAXY_SVG_NS, 'use');
+    use.setAttribute('href', '#sp-ship');
+    svg.appendChild(use);
+    ship.appendChild(svg);
+    node.appendChild(ship);
+  }
+  node.appendChild(makeEl('span', 'node-orb', stage.boss ? 'B' : String(stage.number)));
+  if (done) {
+    node.appendChild(makeEl('span', 'node-stars', starText(info.stars)));
+  }
+
+  var label = makeEl('span', 'node-label');
+  label.appendChild(makeEl('span', 'node-name', stage.name));
+  label.appendChild(makeEl('span', 'node-sub',
+    done ? 'Best ' + info.bestScore
+      : !playable ? 'LOCKED'
+      : stage.boss ? 'Boss fight'
+      : stage.kanji.length + ' new kanji'));
+  node.appendChild(label);
+
+  node.setAttribute('aria-label', 'World ' + stage.worldId + ' stage ' + stage.number + ' ' + stage.name +
+    (done ? ', ' + info.stars + ' of 3 stars' : isCurrent ? ', next stage' : playable ? '' : ', locked'));
 
   if (playable) {
-    row.addEventListener('click', function () {
+    node.addEventListener('click', function () {
       startStage(stage.id);
     });
   }
-  return row;
+  return node;
+}
+
+// The dotted path that joins the nodes of one world (one curve per pair of nodes)
+function makeGalaxyPath(world, continueId, height) {
+  var svg = document.createElementNS(GALAXY_SVG_NS, 'svg');
+  svg.setAttribute('class', 'world-path');
+  svg.setAttribute('viewBox', '0 0 100 ' + height);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  for (var i = 0; i < world.stages.length - 1; i++) {
+    var x0 = getGalaxyNodeX(i);
+    var y0 = getGalaxyNodeY(i);
+    var x1 = getGalaxyNodeX(i + 1);
+    var y1 = getGalaxyNodeY(i + 1);
+    var bend = GALAXY_ROW_HEIGHT * 0.55;
+    var path = document.createElementNS(GALAXY_SVG_NS, 'path');
+    path.setAttribute('d', 'M ' + x0 + ' ' + y0 + ' C ' + x0 + ' ' + (y0 + bend) + ', ' + x1 + ' ' + (y1 - bend) + ', ' + x1 + ' ' + y1);
+    var cls = '';
+    if (isStageCompleted(world.stages[i].id)) {
+      cls = 'is-open';
+      if (world.stages[i + 1].id === continueId) {
+        cls += ' is-flow';
+      }
+    }
+    path.setAttribute('class', cls);
+    svg.appendChild(path);
+  }
+  return svg;
+}
+
+// One world: a header with its planet, and (for a world with kanji data) the map of its stages
+function makeWorldBlock(world, continueId, order) {
+  var unlocked = world.ready && isWorldUnlocked(world.id);
+  var worldStars = 0;
+  var maxWorldStars = 0;
+  var block = makeEl('section', 'world-block world-' + world.id +
+    (unlocked ? '' : ' is-locked') + (world.ready ? '' : ' is-soon'));
+
+  var head = makeEl('header', 'world-head');
+  var planet = makeEl('span', 'world-planet');
+  planet.setAttribute('aria-hidden', 'true');
+  head.appendChild(planet);
+  var titles = makeEl('div', 'world-titles');
+  titles.appendChild(makeEl('span', 'world-eyebrow', 'WORLD ' + world.id));
+  titles.appendChild(makeEl('h3', 'world-name', world.name.toUpperCase()));
+  head.appendChild(titles);
+  head.appendChild(makeEl('span', 'world-level', world.jlpt));
+  block.appendChild(head);
+
+  if (world.ready) {
+    for (var s = 0; s < world.stages.length; s++) {
+      worldStars += getStageProgress(world.stages[s].id).stars;
+      maxWorldStars += 3;
+    }
+  }
+
+  var info = makeEl('p', 'world-info');
+  if (!world.ready) {
+    info.textContent = 'COMING SOON';
+  } else if (!unlocked) {
+    info.textContent = 'LOCKED - CLEAR WORLD ' + (world.id - 1) + ' FIRST';
+  } else {
+    info.textContent = '\u2605 ' + worldStars + ' / ' + maxWorldStars;
+  }
+  block.appendChild(info);
+
+  if (world.ready) {
+    var meter = makeEl('span', 'world-meter');
+    meter.setAttribute('aria-hidden', 'true');
+    var fill = makeEl('i', '');
+    fill.style.width = (maxWorldStars > 0 ? Math.round(worldStars / maxWorldStars * 100) : 0) + '%';
+    meter.appendChild(fill);
+    block.appendChild(meter);
+
+    var height = getGalaxyNodeY(world.stages.length - 1) + 56;
+    var map = makeEl('div', 'world-map');
+    map.style.height = height + 'px';
+    map.appendChild(makeGalaxyPath(world, continueId, height));
+    for (var n = 0; n < world.stages.length; n++) {
+      map.appendChild(makeStageNode(world.stages[n], n, continueId, order + n));
+    }
+    block.appendChild(map);
+  }
+  return { element: block, stars: worldStars, max: maxWorldStars };
 }
 
 function buildGalaxyMap() {
@@ -223,48 +350,28 @@ function buildGalaxyMap() {
   var continueId = getContinueStageId();
   var totalStars = 0;
   var maxStars = 0;
+  var order = 0;
 
   for (var w = 0; w < CAMPAIGN_WORLDS.length; w++) {
-    var world = CAMPAIGN_WORLDS[w];
-    var unlocked = world.ready && isWorldUnlocked(world.id);
-    var worldStars = 0;
-    var card = makeEl('div', 'world-card' + (unlocked ? '' : ' is-locked'));
-
-    var head = makeEl('div', 'world-head');
-    head.appendChild(makeEl('span', 'world-title', 'WORLD ' + world.id + ' - ' + world.name.toUpperCase()));
-    head.appendChild(makeEl('span', 'world-level', world.jlpt));
-    card.appendChild(head);
-
-    var info = makeEl('p', 'world-info');
-    card.appendChild(info);
-
-    if (!world.ready) {
-      info.textContent = 'COMING SOON';
-    } else {
-      for (var s = 0; s < world.stages.length; s++) {
-        var stage = world.stages[s];
-        worldStars += getStageProgress(stage.id).stars;
-        maxStars += 3;
-        card.appendChild(makeStageRow(stage, continueId));
-      }
-      totalStars += worldStars;
-      info.textContent = unlocked
-        ? worldStars + ' / ' + (world.stages.length * 3) + ' STARS'
-        : 'LOCKED - CLEAR WORLD ' + (world.id - 1) + ' FIRST';
-    }
-    galaxyList.appendChild(card);
+    var result = makeWorldBlock(CAMPAIGN_WORLDS[w], continueId, order);
+    order += CAMPAIGN_WORLDS[w].stages.length;
+    totalStars += result.stars;
+    maxStars += result.max;
+    galaxyList.appendChild(result.element);
   }
   galaxySummary.textContent = 'STARS ' + totalStars + ' / ' + maxStars;
+  galaxyMeterFill.style.width = (maxStars > 0 ? Math.round(totalStars / maxStars * 100) : 0) + '%';
 }
 
 function showGalaxyMap() {
   buildGalaxyMap();
   showOnly(galaxySection, true);
-  var current = galaxyList.querySelector('.stage-row.is-current');
+  var current = galaxyList.querySelector('.stage-node.is-current');
   galaxyList.scrollTop = 0;
   if (current) {
-    // put the stage the player should play next in the middle of the list
-    galaxyList.scrollTop = Math.max(0, current.offsetTop - galaxyList.clientHeight / 2 + current.offsetHeight / 2);
+    // put the stage the player should play next in the middle of the screen
+    var offset = current.getBoundingClientRect().top - galaxyList.getBoundingClientRect().top + galaxyList.scrollTop;
+    galaxyList.scrollTop = Math.max(0, offset - galaxyList.clientHeight / 2);
   }
 }
 
