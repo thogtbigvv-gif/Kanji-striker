@@ -1,0 +1,377 @@
+/* KANJI STRIKER - UX/UI polish layer (v0.13.0).
+   Loaded LAST. Only overrides: no ids, classes or markup that the JS uses were changed.
+   Goals: readable text sizes, clear button hierarchy, better contrast, tidier HUD,
+   bigger game area, smooth screen changes, hover/focus feedback, nicer desktop frame.
+   To undo everything: remove the <link> to this file in index.html. */
+
+:root {
+  --fs-xs: 0.75rem;      /* smallest text allowed anywhere (was 0.6-0.68rem) */
+  --fs-sm: 0.82rem;
+  --c-muted: #9a9ab2;    /* a bit brighter: better contrast on dark panels */
+  --c-faint: #6c6c84;    /* disabled / empty states (was #555566, too dark) */
+  --c-surface: #181824;  /* raised panel */
+  --c-surface-2: #1e1e2c;
+  --c-primary-1: #ec1c47;
+  --c-primary-2: #b80f33;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ---------- Page frame (desktop) and screen transitions ---------- */
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(111, 183, 255, 0.08), transparent 60%),
+    var(--c-bg);
+}
+
+#app {
+  box-shadow: 0 0 60px rgba(111, 183, 255, 0.08), 0 0 0 1px #000;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Fade only (no transform), so the game canvas size is never affected */
+.screen:not([hidden]) {
+  animation: screenIn 0.22s var(--ease-out) both;
+}
+
+@keyframes screenIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Thin, themed scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border-light) transparent;
+}
+
+/* ---------- Tiny text: raise to a readable minimum ---------- */
+
+.hud-label,
+.menu-stat-label,
+.arcade-scorebar .menu-stat-label,
+.question-label,
+.stat-label,
+.learn-title,
+.chip-meaning,
+.kanji-cell-srs,
+.kanji-cell-meaning,
+.panel-review,
+.panel-hint,
+.legend,
+.menu-credit,
+.results-kicker,
+.results-note,
+.app-footer {
+  font-size: var(--fs-xs);
+}
+
+.chip-empty {
+  color: var(--c-faint);
+}
+
+.app-footer {
+  padding: 8px 10px;
+}
+
+/* ---------- Buttons: a clear hierarchy ---------- */
+/* 1) primary = filled red, 2) secondary = gold outline, 3) back/ghost = quiet */
+
+.menu-button {
+  min-height: 52px;
+  border-width: 2px;
+  box-shadow: 0 4px 0 var(--c-gold-dark);
+  transition: transform 0.08s linear, box-shadow 0.08s linear, background-color 0.15s linear, filter 0.15s linear;
+}
+
+.menu-button-primary {
+  background-image: linear-gradient(180deg, var(--c-primary-1), var(--c-primary-2));
+  box-shadow: 0 4px 0 var(--c-crimson-dark), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  font-size: 1.1rem;
+}
+
+/* Back buttons are ghost buttons so they never compete with the main action */
+.menu-button[id$="BackButton"]:not(.menu-button-primary) {
+  color: var(--c-muted);
+  background-color: transparent;
+  border-color: var(--c-border-light);
+  box-shadow: none;
+  text-shadow: none;
+  font-weight: normal;
+  letter-spacing: 3px;
+}
+
+.menu-button[id$="BackButton"]:not(.menu-button-primary):active {
+  transform: none;
+  background-color: var(--c-surface);
+}
+
+.menu-button-small {
+  min-height: 48px;
+  font-size: var(--fs-sm);
+}
+
+.menu-button:disabled {
+  opacity: 1;
+  color: var(--c-faint);
+  border-color: var(--c-border-light);
+  box-shadow: none;
+  text-shadow: none;
+}
+
+@media (hover: hover) {
+  .menu-button:not(:disabled):hover {
+    filter: brightness(1.15);
+    background-color: var(--c-surface-2);
+  }
+  .menu-button-primary:not(:disabled):hover {
+    background-color: transparent;
+  }
+  .control-button:hover,
+  button.kanji-cell:hover {
+    filter: brightness(1.2);
+  }
+}
+
+/* One clear, consistent focus ring */
+button:focus-visible {
+  outline: 3px solid var(--c-gold);
+  outline-offset: 3px;
+}
+
+/* ---------- Main menu ---------- */
+
+.screen-menu {
+  gap: 18px;
+}
+
+.menu-nav {
+  gap: 12px;
+}
+
+.menu-next {
+  padding: 8px 10px;
+  background-color: rgba(20, 20, 28, 0.7);
+  border-left: 3px solid var(--c-blue);
+  text-align: left;
+  color: #d6d6e4;
+}
+
+.menu-row {
+  gap: 8px;
+}
+
+/* ---------- Game screen: slimmer chrome = bigger playfield ---------- */
+
+.game-hud {
+  padding: 6px 12px;
+  gap: 10px;
+  background: linear-gradient(180deg, #11111a, #0b0b10);
+}
+
+.hud-item {
+  min-width: 64px;
+}
+
+.hud-value {
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.hud-hp {
+  max-width: 160px;
+}
+
+.hp-track {
+  height: 10px;
+  background-color: #12121a;
+}
+
+#comboDisplay {
+  color: var(--c-blue);
+}
+
+/* The question is the most important text on screen: give it a stage */
+.question-bar {
+  padding: 8px 14px 10px;
+  gap: 3px;
+  background:
+    linear-gradient(180deg, rgba(255, 107, 134, 0.1), rgba(255, 107, 134, 0) 70%),
+    #0b0b10;
+}
+
+.question-label {
+  letter-spacing: 3px;
+  color: var(--c-muted);
+}
+
+.question-meaning {
+  font-size: clamp(1.7rem, 8vw, 2.2rem);
+  overflow-wrap: anywhere;
+}
+
+.question-meaning.is-long {
+  font-size: clamp(1.15rem, 5.4vw, 1.4rem);
+}
+
+.question-reading {
+  font-size: var(--fs-sm);
+}
+
+.game-controls {
+  padding: 8px 12px;
+  gap: 10px;
+}
+
+.control-button {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: var(--fs-sm);
+  transition: transform 0.08s linear, box-shadow 0.08s linear, filter 0.15s linear;
+}
+
+@media (max-height: 640px) {
+  .question-meaning {
+    font-size: 1.5rem;
+  }
+  .game-hud {
+    padding: 4px 12px;
+  }
+  .game-controls {
+    padding: 6px 12px;
+  }
+}
+
+/* ---------- Panels: collection and settings ---------- */
+
+.screen-collection,
+.screen-settings {
+  gap: 12px;
+}
+
+.panel-title {
+  font-size: clamp(1.4rem, 7vw, 1.8rem);
+}
+
+.panel-summary {
+  font-size: var(--fs-sm);
+}
+
+.collection-grid {
+  gap: 10px;
+  padding: 6px 4px;
+}
+
+.kanji-cell {
+  border-radius: 2px;
+  background-color: var(--c-surface);
+  transition: transform 0.1s linear, filter 0.15s linear;
+}
+
+.kanji-cell-char {
+  font-size: clamp(1.7rem, 8vw, 2.1rem);
+}
+
+.kanji-cell.is-collected {
+  background-color: #14202e;
+}
+
+.legend {
+  gap: 6px 12px;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+}
+
+.settings-list {
+  gap: 16px;
+}
+
+/* ---------- Results ---------- */
+
+.results-scroll {
+  gap: 14px;
+  padding: 16px 16px 10px;
+}
+
+.results-title {
+  font-size: clamp(1.6rem, 8.5vw, 2rem);
+}
+
+.stat {
+  padding: 8px 4px;
+  background-color: var(--c-surface);
+}
+
+.stat-label {
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.results-block {
+  background-color: var(--c-surface);
+  padding: 12px;
+}
+
+.results-block-title {
+  letter-spacing: 2px;
+}
+
+.xp-row {
+  font-size: var(--fs-sm);
+}
+
+.chip {
+  padding: 5px 9px;
+}
+
+.chip-char {
+  font-size: 1.5rem;
+}
+
+.results-actions {
+  padding: 10px 16px 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px) * 0);
+  box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.35);
+}
+
+.results-actions .menu-button {
+  padding: 12px 8px;
+  font-size: 0.95rem;
+}
+
+/* ---------- Small phones ---------- */
+
+@media (max-width: 360px) {
+  .menu-button {
+    letter-spacing: 1px;
+  }
+  .collection-grid {
+    gap: 6px;
+  }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .screen:not([hidden]) {
+    animation: none;
+  }
+  .menu-button,
+  .control-button,
+  .kanji-cell {
+    transition: none;
+  }
+}
