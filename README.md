@@ -58,8 +58,9 @@ Kanji-striker/
 │   ├── galaxy.css        # Galaxy map
 │   ├── mode-select.css   # CAMPAIGN / ENDLESS screen
 │   └── kanji-card.css    # Kanji card
-├── manifest.webmanifest  # Install-as-app settings
-├── icons/            # App icons (192, 512, maskable, Apple touch)
+├── manifest.webmanifest  # App name, colours and icons (install as an app)
+├── sw.js             # Service worker: offline play and install (v0.11.2)
+├── icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png   # App icons (project root)
 └── js/
     ├── data.js       # Kanji list (meaning, readings, vocabulary, example sentences, JLPT), worlds and stages
     ├── kanji-info.js # Safe helper functions to read the kanji learning data
@@ -77,7 +78,8 @@ Kanji-striker/
     ├── game.js       # Start / pause / menu, gameplay update, game loop
     ├── render.js     # Screens, HUD, canvas size, drawing
     ├── input.js      # Touch / mouse / keyboard, buttons, window events
-    └── script.js     # Startup
+    ├── script.js     # Startup
+    └── pwa.js        # Service worker registration and the INSTALL APP button (v0.11.2)
 ```
 
 The stylesheets are plain `<link>` files. **The load order in `index.html` matters** (later rules override earlier ones of the same strength): `base → buttons → menu → menu-attract → game → panels → how-to → results → galaxy → mode-select → kanji-card`. To change a colour, edit `:root` in `css/base.css`.
@@ -162,6 +164,17 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.11.2 – Install on a phone and play offline
+
+- **Fix:** the icons were linked as `icons/...` but the files are in the project root, so the app icons returned 404 and a phone could not offer to install the game. `manifest.webmanifest` and `index.html` now point at the root files.
+- **New:** `sw.js` (service worker) saves the whole game on the phone at the first visit, so it opens with no internet. A file is shown from the saved copy and refreshed in the background, so an update appears the next time the game is opened. Progress is in `localStorage` and is never touched by an update.
+- **New:** SETTINGS → **INSTALL APP**. On Android (Chrome, Edge, Samsung Internet) it opens the install prompt; on iPhone it explains Share → Add to Home Screen; other browsers get a short hint. The button hides itself once the game runs as an installed app.
+- **New file:** `js/pwa.js` (registers the service worker, runs the install button).
+- Release rule: when a file is added or renamed, list it in `APP_FILES` in `sw.js` and change the number in `CACHE_NAME`.
+- The game must be opened over **https** (for example GitHub Pages) for install and offline to work; opening `index.html` as a local file still plays normally.
+
+---
+
 ### v0.11.1 – Stylesheet split
 
 - `style.css` is now 11 files in the `css/` folder (see Project Structure). Same rules, same look: every element of every screen was compared before and after at 6 screen sizes with no difference.
@@ -229,4 +242,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.11.1** (shown in the footer of the menu).
+Current version: **v0.11.2** (shown in the footer of the menu).
