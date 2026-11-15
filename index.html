@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Kanji Striker">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <title>KANJI STRIKER</title>
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/buttons.css">
@@ -41,6 +41,7 @@
   <script src="js/render.js" defer></script>
   <script src="js/input.js" defer></script>
   <script src="js/script.js" defer></script>
+  <script src="js/pwa.js" defer></script>
 </head>
 <body>
   <div id="app" class="app">
@@ -142,6 +143,7 @@
       </header>
       <div class="settings-list">
         <button id="soundToggleButton" class="menu-button" type="button">SOUND: ON</button>
+        <button id="installAppButton" class="menu-button" type="button">INSTALL APP</button>
         <button id="resetProgressButton" class="menu-button menu-button-danger" type="button">RESET PROGRESS</button>
         <p id="settingsMessage" class="settings-message" role="status"></p>
       </div>
@@ -309,7 +311,7 @@
 
     <!-- APP FOOTER -->
     <footer id="appFooter" class="app-footer">
-      <small id="versionLabel">v0.11.1</small>
+      <small id="versionLabel">v0.11.2</small>
     </footer>
 
   </div>
