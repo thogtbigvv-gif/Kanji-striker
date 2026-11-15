@@ -1,0 +1,57 @@
+/* KANJI STRIKER - HOW TO PLAY screen. */
+
+/* How to play */
+.screen-how {
+  padding: 20px 16px 12px;
+  gap: 12px;
+}
+
+.how-list {
+  flex: 1;
+  min-height: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.how-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background-color: var(--c-panel);
+  border: 2px solid var(--c-border);
+}
+
+.how-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 56px;
+  height: 40px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  letter-spacing: 0;
+  text-align: center;
+  color: var(--c-gold);
+  background-color: #1d1a0c;
+  border: 2px solid var(--c-gold);
+  font-family: var(--font-kanji);
+}
+
+.how-item h3 {
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  color: var(--c-blue);
+}
+
+.how-item p {
+  margin-top: 2px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #e4e4ee;
+}
