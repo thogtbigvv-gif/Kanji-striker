@@ -297,6 +297,7 @@ var ENEMY_FLASH_COLORS = { B: '#ffffff', D: '#cfd6e6', Y: '#ffffff', L: '#ffffff
 var WAVE_INTRO_TIME = 1.6;  // seconds the "WAVE n" banner is shown (nothing spawns during it)
 var WAVE_GAP_TIME = 0.5;    // short quiet pause after a wave is cleared, before the next banner
 var V_FORMATION_LIFT = 40;  // how much higher the outer ships of a V start (pixels)
+var PROMOTE_MAX_Y = 0.6;    // a ship that becomes the next question must be above this part of the screen height (a low ship leaves no time to answer)
 var EMPTY_SCREEN_GAP = 0.35; // when the screen is empty, the next group comes after this many seconds
 var RESCUE_DELAY = 0.8;      // a missed correct target comes back after this many seconds (last group only)
 var STAGE_COMPLETE_EVENT = 'kanjiStriker:stageComplete';
@@ -416,7 +417,8 @@ var CHALLENGE_ENABLED = true;               // false = the game plays exactly li
 var CHALLENGE_IN_ENDLESS = false;           // the ENDLESS mode keeps the plain kanji questions
 var CHALLENGE_SKIP_STAGE_KINDS = ['learn']; // the "New Kanji" stage only introduces kanji
 var CHALLENGE_WEIGHTS = { kanji: 5, reading: 2, vocab: 2, context: 1.5 }; // relative chance of every question type
-var CHALLENGE_MIN_HITS = 1;                 // a kanji must have been answered correctly this often before it gets a harder question
+var CHALLENGE_MIN_HITS = 3;                 // a kanji must have been answered correctly this often before it gets a harder question (3 = the mastered level: plain recall first, then reading / vocabulary / context)
+var LEARN_HINT_HITS = 2;                    // campaign: a kanji answered correctly fewer times than this is SHOWN in the question bar (kanji = meaning), so a new kanji is learned by matching first and recalled from memory afterwards. 0 = never show the hint
 var CHALLENGE_MAX_STREAK = 2;               // the same question type is never asked more than this many times in a row (new types: once)
 var CHALLENGE_RECENT_MEMORY = 6;            // the last few asked words / sentences are not repeated
 var CHALLENGE_MIN_OPTIONS = 8;              // fewer wrong options than this = fall back to the plain kanji question
