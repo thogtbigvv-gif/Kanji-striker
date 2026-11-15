@@ -396,9 +396,33 @@ function updateEnemies(dt, scale, speedFactor) {
       if (currentState === STATE_GAME_OVER) {
         return true;
       }
+      grantHitInvuln();
     }
   }
   return false;
+}
+
+// True when a bullet that hit a wrong ship was really flying toward the correct target: the target is visible, higher up
+// on the screen, and the bullet's column passes through it. Such a ship is only an obstacle, not a wrong answer.
+function blocksTarget(ship, bullet) {
+  for (var i = 0; i < enemies.length; i++) {
+    var t = enemies[i];
+    if (!isActiveTarget(t) || t.y <= KANJI_VISIBLE_Y || t.y >= ship.y) {
+      continue;
+    }
+    if (Math.abs(bullet.x - t.x) <= t.w / 2 + BULLET_HIT_PADDING) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// After real contact damage (a crash or an enemy shot) the ship is a ghost for a moment, so one mistake cannot
+// chain into three hits. Wrong answers and missed targets do not give this protection.
+function grantHitInvuln() {
+  if (currentState === STATE_PLAYING) {
+    dashInvuln = Math.max(dashInvuln, HIT_INVULN_TIME);
+  }
 }
 
 // Bullets hitting enemies: one bullet hits at most one enemy (the lowest one it reaches)
@@ -458,6 +482,11 @@ function resolveBulletHits() {
       correctHit(target.data, target.x, target.y, target.kind);
     } else if (gameMode === MODE_ENDLESS) {
       endlessKill(target); // endless mode: every ship is a good target
+    } else if (blocksTarget(target, b)) {
+      // The shot was aimed at the correct kanji and a wrong ship was in the way: it is cleared without a penalty
+      burst(target.x, target.y + target.h / 2, '#ffb347');
+      addFloater(target.x, target.y, 'CLEAR', '#ffb347');
+      playTone(240, 0.05, 'square', 0.05);
     } else {
       burst(target.x, target.y + target.h / 2, '#ff6b86');
       wrongHit(target.data);
@@ -548,7 +577,7 @@ function startDash(dir) {
   }
   dashDir = dir;
   dashTimer = DASH_TIME;
-  dashInvuln = DASH_TIME + DASH_GRACE;
+  dashInvuln = Math.max(dashInvuln, DASH_TIME + DASH_GRACE); // never shortens the ghost time of a recent hit
   dashCooldown = combatStats.dashCooldown;
   playTone(300, 0.12, 'sawtooth', 0.06, 0, 900);
   return true;
