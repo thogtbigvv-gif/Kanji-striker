@@ -46,7 +46,18 @@
 Kanji-striker/
 │
 ├── index.html        # Page structure and all screens (menu, collection, kanji card, settings, game, results)
-├── style.css         # Retro pixel-art styling and mobile layout
+├── css/              # Retro pixel-art styling and mobile layout, one file per part (v0.11.1)
+│   ├── base.css          # Colour palette (:root), reset, app frame, footer, keyboard focus
+│   ├── buttons.css       # .menu-button family (used on every screen)
+│   ├── menu.css          # Main menu: layout and v0.6.0 additions
+│   ├── menu-attract.css  # Main menu: arcade attract look (v0.7.0), overrides menu.css
+│   ├── game.css          # Game screen: HUD, canvas, controls, HP bar, question bar
+│   ├── panels.css        # Kanji collection and settings
+│   ├── how-to.css        # HOW TO PLAY screen
+│   ├── results.css       # Stage results screen
+│   ├── galaxy.css        # Galaxy map
+│   ├── mode-select.css   # CAMPAIGN / ENDLESS screen
+│   └── kanji-card.css    # Kanji card
 ├── manifest.webmanifest  # Install-as-app settings
 ├── icons/            # App icons (192, 512, maskable, Apple touch)
 └── js/
@@ -68,6 +79,8 @@ Kanji-striker/
     ├── input.js      # Touch / mouse / keyboard, buttons, window events
     └── script.js     # Startup
 ```
+
+The stylesheets are plain `<link>` files. **The load order in `index.html` matters** (later rules override earlier ones of the same strength): `base → buttons → menu → menu-attract → game → panels → how-to → results → galaxy → mode-select → kanji-card`. To change a colour, edit `:root` in `css/base.css`.
 
 The scripts are plain `<script>` files (not ES modules) that share global variables, so **the load order in `index.html` matters**. Keep it exactly as listed above: `data → config → state → storage → progression → audio → waves → enemies → arcade → endless → game → render → input → script`.
 
@@ -149,6 +162,13 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.11.1 – Stylesheet split
+
+- `style.css` is now 11 files in the `css/` folder (see Project Structure). Same rules, same look: every element of every screen was compared before and after at 6 screen sizes with no difference.
+- The old `style.css` was removed; `index.html` links the new files in the required order.
+
+---
+
 ### v0.11.0 – Kanji card
 
 - **New screen:** tap a collected kanji in KANJI COLLECTION to open its card. It shows the meaning, JLPT level, on / kun readings, words, example sentences (Japanese, hiragana reading, Mongolian meaning) and a MASTERY box: overall mastery and one bar per question type (Recognition, Reading, Vocabulary, Context) with correct / attempts, WEAK marker and the next review time (`due now`, `in 3 d`).
@@ -200,8 +220,8 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 - **Fix:** the `icons/` folder was missing from the repository, so installing the game as an app and the iPhone home-screen icon did not work. The four icons (192, 512, maskable, Apple touch) are now included.
 - **Accessibility:** button names now match the text you see on them (needed for voice control and screen readers), Mongolian texts are marked as Mongolian, and the placeholder `STRPB` symbol in HOW TO PLAY is replaced by a proper icon.
-- **Stylesheet:** the colour palette now lives in one place (`:root` at the top of `style.css`), so a colour is changed once instead of in 30 places. Looks exactly the same.
-- **Kanji display:** the kanji in the Collection and in the result chips are marked as Japanese (`lang="ja"`), so a phone with a Chinese system language still draws the Japanese shape of each character. The kanji font list is defined once (`--font-kanji` in `style.css`).
+- **Stylesheet:** the colour palette now lives in one place (`:root` at the top of `css/base.css`), so a colour is changed once instead of in 30 places. Looks exactly the same.
+- **Kanji display:** the kanji in the Collection and in the result chips are marked as Japanese (`lang="ja"`), so a phone with a Chinese system language still draws the Japanese shape of each character. The kanji font list is defined once (`--font-kanji` in `css/base.css`).
 - **Performance:** at most `MAX_PARTICLES` sparks exist at once (`js/config.js`), so a bomb in a busy ENDLESS wave cannot slow down an older phone.
 - **Code:** removed unused leftovers (`BANNER_HEIGHT`, `ENEMY_COLORS`, `pickSpawnX`). Gameplay, saved data and balance are unchanged.
 
@@ -209,4 +229,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.11.0** (shown in the footer of the menu).
+Current version: **v0.11.1** (shown in the footer of the menu).
