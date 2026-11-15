@@ -573,7 +573,9 @@ function drawShip() {
   var left = Math.round(player.x - SHIP_WIDTH / 2);
   var top = Math.round(player.y - SHIP_HEIGHT / 2);
   if (dashInvuln > 0) {
-    ctx.globalAlpha = 0.55; // a see-through ship = a ghost: nothing can hurt it
+    // a see-through ship = a ghost: nothing can hurt it. After a hit (longer than a dash) the ghost also blinks.
+    var blinkOff = dashInvuln > DASH_TIME + DASH_GRACE && Math.floor(totalTime * 16) % 2 === 0;
+    ctx.globalAlpha = blinkOff ? 0.25 : 0.55;
   }
 
   drawSprite(SHIP_PIXELS, SHIP_COLORS, left, top, PIXEL);
