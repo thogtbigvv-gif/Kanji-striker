@@ -1,0 +1,204 @@
+/* KANJI STRIKER - game screen: HUD, canvas, controls, HP bar, question bar. */
+
+/* ---------- GAME SCREEN ---------- */
+
+.game-hud {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background-color: #0b0b10;
+  border-bottom: 2px solid var(--c-border);
+}
+
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.hud-hp {
+  flex: 1;
+  max-width: 150px;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.hud-hp .hud-label,
+.hud-hp .hud-value {
+  text-align: left;
+}
+
+.hud-label {
+  font-size: 0.65rem;
+  letter-spacing: 2px;
+  color: var(--c-blue);
+}
+
+.hud-value {
+  font-size: 1.15rem;
+  font-weight: bold;
+  color: var(--c-gold);
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.canvas-container {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background-color: #050508;
+  overflow: hidden;
+}
+
+#gameCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.game-controls {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  background-color: #0b0b10;
+  border-top: 2px solid var(--c-border);
+}
+
+.control-button {
+  flex: 1;
+  min-height: 48px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: var(--c-blue);
+  background-color: var(--c-panel);
+  border: 2px solid var(--c-blue);
+  box-shadow: 0 3px 0 #2c5a8a;
+  cursor: pointer;
+}
+
+.control-button:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 #2c5a8a;
+}
+
+.control-button-danger {
+  color: var(--c-pink);
+  border-color: var(--c-pink);
+  box-shadow: 0 3px 0 var(--c-crimson-dark);
+}
+
+.control-button-danger:active {
+  box-shadow: 0 0 0 var(--c-crimson-dark);
+}
+
+/* HP bar */
+.hp-track {
+  width: 100%;
+  height: 8px;
+  background-color: #1a1a24;
+  border: 2px solid var(--c-border);
+}
+
+.hp-fill {
+  height: 100%;
+  width: 100%;
+  background-color: var(--c-green);
+  transition: width 0.15s linear, background-color 0.2s linear;
+}
+
+.hp-fill.is-mid {
+  background-color: var(--c-gold);
+}
+
+.hp-fill.is-low {
+  background-color: #ff4d6d;
+  animation: hpPulse 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes hpPulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
+/* Question bar: the one thing the player must always read */
+.question-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px 10px;
+  background-color: #0b0b10;
+  border-bottom: 3px solid var(--c-pink);
+}
+
+.question-label {
+  font-size: 0.68rem;
+  letter-spacing: 2px;
+  color: var(--c-blue);
+}
+
+.question-meaning {
+  font-size: 1.9rem;
+  font-weight: bold;
+  line-height: 1.1;
+  color: var(--c-gold);
+  text-shadow: 2px 2px 0 #000000;
+  text-align: center;
+}
+
+.question-bar.is-new .question-meaning {
+  animation: questionPop 0.3s ease-out;
+}
+
+/* Sentence questions (Context challenge) are longer than a single word */
+.question-meaning.is-long {
+  font-size: 1.3rem;
+  line-height: 1.25;
+}
+
+.question-reading {
+  font-size: 0.8rem;
+  color: var(--c-blue);
+  text-align: center;
+}
+
+@keyframes questionPop {
+  from {
+    transform: scale(1.25);
+    color: var(--c-text);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Small screens: smaller question text */
+@media (max-height: 640px) {
+  .question-meaning {
+    font-size: 1.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-fill.is-low,
+  .question-bar.is-new .question-meaning {
+    animation: none;
+  }
+  .hp-fill {
+    transition: none;
+  }
+}
