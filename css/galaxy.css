@@ -1,10 +1,58 @@
-/* KANJI STRIKER - galaxy map screen. */
+/* KANJI STRIKER - galaxy map screen.
+   v0.12.0: a real map. Each world is a planet with a header; its five stages are round nodes on a
+   winding dotted path (done = gold with stars, next = pulsing with our ship above it, locked = dark,
+   boss = big and purple). CSS only. Motion stops with prefers-reduced-motion (last block). */
 
-/* ---------- GALAXY MAP (v0.5.0) ---------- */
-
+/* ---------- SCREEN ---------- */
 .screen-galaxy {
+  position: relative;
+  overflow: hidden;
   padding: 20px 16px 8px;
   gap: 12px;
+  background-image: radial-gradient(ellipse at 50% -5%, rgba(111, 183, 255, 0.12), transparent 55%);
+}
+
+.screen-galaxy > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Stars drift behind the map (each layer loops over its own tile size, so no jump) */
+.screen-galaxy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.75;
+  background-image:
+    radial-gradient(circle at 30% 20%, var(--c-text) 0 1px, transparent 2px),
+    radial-gradient(circle at 80% 60%, #9cc9ff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 55% 85%, #ffe27a 0 1px, transparent 2px);
+  background-size: 200px 250px, 240px 190px, 160px 270px;
+  animation: galaxyStars 40s linear infinite;
+}
+
+@keyframes galaxyStars {
+  to {
+    background-position: 0 250px, 0 190px, 0 270px;
+  }
+}
+
+/* Total star progress under the title */
+.galaxy-meter {
+  width: 170px;
+  height: 6px;
+  background-color: #0b0b10;
+  border: 1px solid var(--c-border-light);
+}
+
+.galaxy-meter i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--c-gold-dark), var(--c-gold));
+  transition: width 0.6s ease-out;
 }
 
 .galaxy-list {
@@ -12,157 +60,464 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   overflow-y: auto;
   touch-action: pan-y;
   position: relative;
   padding: 2px;
 }
 
-.world-card {
+/* ---------- WORLD ---------- */
+.world-block {
+  /* every world has its own colour for the frame and the planet */
+  --world-color: var(--c-blue);
+  --world-glow: rgba(111, 183, 255, 0.4);
+  --planet-light: #bfe6ff;
+  --planet-mid: #3a8fd6;
+  --planet-dark: #123a6a;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px;
-  background-color: #0e0e15;
-  border: 2px solid var(--c-blue);
+  padding: 12px 10px 8px;
+  background-color: rgba(14, 14, 21, 0.88);
+  border: 2px solid var(--world-color);
+  box-shadow: 0 0 18px -6px var(--world-glow);
 }
 
-.world-card.is-locked {
+.world-2 {
+  --world-color: #ff9a3d;
+  --world-glow: rgba(255, 154, 61, 0.4);
+  --planet-light: #ffe0b8;
+  --planet-mid: #e0792a;
+  --planet-dark: #6a3210;
+}
+
+.world-3 {
+  --world-color: #9b6bff;
+  --world-glow: rgba(155, 107, 255, 0.4);
+  --planet-light: #e0d0ff;
+  --planet-mid: #7a4be0;
+  --planet-dark: #35208a;
+}
+
+.world-4 {
+  --world-color: var(--c-pink);
+  --world-glow: rgba(255, 107, 134, 0.4);
+  --planet-light: #ffd0da;
+  --planet-mid: #e0486a;
+  --planet-dark: #6a1226;
+}
+
+.world-5 {
+  --world-color: var(--c-gold);
+  --world-glow: rgba(255, 210, 31, 0.4);
+  --planet-light: #fff3b0;
+  --planet-mid: #e0b000;
+  --planet-dark: #6a5000;
+}
+
+.world-block.is-locked {
   border-color: var(--c-border);
+  box-shadow: none;
+}
+
+.world-block.is-soon {
   opacity: 0.7;
 }
 
 .world-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.world-title {
-  font-size: 0.78rem;
-  font-weight: bold;
-  letter-spacing: 1px;
-  color: var(--c-gold);
+/* The planet: a lit ball with a tilted ring that bobs a little */
+.world-planet {
+  position: relative;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--planet-light), var(--planet-mid) 50%, var(--planet-dark) 100%);
+  box-shadow: 0 0 14px var(--world-glow);
+  animation: planetBob 4s ease-in-out infinite;
 }
 
-.world-level {
-  padding: 2px 6px;
-  font-size: 0.7rem;
-  font-weight: bold;
-  color: var(--c-bg);
-  background-color: var(--c-blue);
+.world-planet::after {
+  content: "";
+  position: absolute;
+  left: -11px;
+  top: 14px;
+  width: 62px;
+  height: 14px;
+  border: 2px solid var(--planet-light);
+  border-radius: 50%;
+  opacity: 0.7;
+  transform: rotate(-18deg);
 }
 
-.world-card.is-locked .world-level {
-  background-color: var(--c-border-light);
-  color: var(--c-muted);
+.world-block.is-locked .world-planet {
+  filter: grayscale(1) brightness(0.55);
+  box-shadow: none;
 }
 
-.world-info {
-  font-size: 0.68rem;
-  letter-spacing: 2px;
-  color: var(--c-blue);
+@keyframes planetBob {
+  0%,
+  100% {
+    transform: translateY(1px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
-.world-card.is-locked .world-info {
-  color: var(--c-muted);
-}
-
-.stage-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px;
-  font-family: inherit;
-  color: var(--c-text);
-  text-align: left;
-  background-color: var(--c-panel);
-  border: 2px solid var(--c-border);
-  cursor: pointer;
-}
-
-.stage-row:active:not(:disabled) {
-  background-color: #1d1d2a;
-}
-
-.stage-num {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex: none;
-  font-size: 0.9rem;
-  font-weight: bold;
-  color: var(--c-bg);
-  background-color: var(--c-blue);
-}
-
-.stage-name {
+.world-titles {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 0.9rem;
-  font-weight: bold;
 }
 
-.stage-sub {
-  font-size: 0.7rem;
-  font-weight: normal;
+.world-eyebrow {
+  font-size: 0.65rem;
+  letter-spacing: 3px;
   color: var(--c-muted);
 }
 
-.stage-status {
+.world-name {
+  font-size: 0.95rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: var(--world-color);
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.world-block.is-locked .world-name {
+  color: var(--c-muted);
+}
+
+.world-level {
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: bold;
+  color: var(--c-bg);
+  background-color: var(--world-color);
+}
+
+.world-block.is-locked .world-level {
+  color: var(--c-muted);
+  background-color: var(--c-border-light);
+}
+
+.world-info {
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  color: var(--c-gold);
+}
+
+.world-block.is-locked .world-info {
+  color: var(--c-muted);
+}
+
+.world-meter {
+  display: block;
+  height: 5px;
+  background-color: #0b0b10;
+  border: 1px solid var(--c-border-light);
+}
+
+.world-meter i {
+  display: block;
+  height: 100%;
+  background-color: var(--c-gold);
+}
+
+/* ---------- MAP: the path and the nodes ---------- */
+.world-map {
+  position: relative;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.world-path {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.world-path path {
+  fill: none;
+  stroke: var(--c-border-light);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 2 9;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The part of the road you have already opened */
+.world-path path.is-open {
+  stroke: var(--c-gold);
+  stroke-dasharray: 9 7;
+}
+
+/* The road into the next stage: the dashes run toward it */
+.world-path path.is-flow {
+  animation: pathFlow 0.9s linear infinite;
+}
+
+@keyframes pathFlow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* A node is a zero-size anchor on the map; the orb, label, stars and ship are placed around it */
+.stage-node {
+  position: absolute;
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+  transform-origin: 0 0;
+  animation: nodePop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.4) calc(var(--i, 0) * 60ms + 80ms) backwards;
+}
+
+.stage-node:disabled {
+  cursor: default;
+}
+
+@keyframes nodePop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.node-orb {
+  position: absolute;
+  left: -27px;
+  top: -27px;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--c-bg);
+  background: radial-gradient(circle at 35% 30%, #d9efff, var(--c-blue) 55%, #1f5f9e);
+  border: 3px solid #d9efff;
+  border-radius: 50%;
+  box-shadow: 0 3px 0 #000000, 0 0 12px rgba(111, 183, 255, 0.5);
+  transition: transform 0.12s ease;
+}
+
+.stage-node:not(:disabled):active .node-orb {
+  transform: translateY(3px);
+}
+
+@media (hover: hover) {
+  .stage-node:not(:disabled):hover .node-orb {
+    transform: scale(1.08);
+  }
+}
+
+.stage-node:focus-visible {
+  outline: none;
+}
+
+.stage-node:focus-visible .node-orb {
+  outline: 3px solid var(--c-text);
+  outline-offset: 3px;
+}
+
+/* Done: gold, with the stars under it */
+.stage-node.is-done .node-orb {
+  background: radial-gradient(circle at 35% 30%, #fff6c8, var(--c-gold) 55%, var(--c-gold-dark));
+  border-color: #fff3b0;
+  box-shadow: 0 3px 0 #000000, 0 0 12px rgba(255, 210, 31, 0.5);
+}
+
+.node-stars {
+  position: absolute;
+  left: -32px;
+  top: 30px;
+  width: 64px;
+  text-align: center;
   font-size: 0.8rem;
+  letter-spacing: 1px;
+  color: var(--c-gold);
+  text-shadow: 1px 1px 0 #000000;
+}
+
+/* Locked: dark and quiet */
+.stage-node.is-locked .node-orb {
+  color: var(--c-muted);
+  background: var(--c-panel);
+  border-color: var(--c-border-light);
+  box-shadow: 0 3px 0 #000000;
+}
+
+/* Next stage: a ring keeps pulsing out of the orb and our ship hovers above it */
+.stage-node.is-current .node-orb {
+  background: radial-gradient(circle at 35% 30%, #ffe9ee, var(--c-pink) 55%, var(--c-crimson-dark));
+  border-color: #ffe9ee;
+  box-shadow: 0 3px 0 #000000, 0 0 14px rgba(255, 107, 134, 0.6);
+}
+
+.stage-node.is-current .node-orb::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 3px solid var(--c-pink);
+  border-radius: 50%;
+  animation: nodePulse 1.5s ease-out infinite;
+}
+
+@keyframes nodePulse {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+.node-ship {
+  position: absolute;
+  left: -17px;
+  top: -66px;
+  width: 34px;
+  height: 31px;
+  animation: nodeShip 1.4s ease-in-out infinite;
+}
+
+.node-ship .px {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes nodeShip {
+  0%,
+  100% {
+    transform: translateY(2px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* Boss: bigger and purple, with a slow throb */
+.stage-node.is-boss .node-orb {
+  left: -33px;
+  top: -33px;
+  width: 66px;
+  height: 66px;
+  font-size: 1.6rem;
+  color: #ffffff;
+  background: radial-gradient(circle at 35% 30%, #e0d0ff, #9b6bff 55%, #35208a);
+  border-color: #e0d0ff;
+  box-shadow: 0 3px 0 #000000, 0 0 16px rgba(155, 107, 255, 0.7);
+  animation: bossThrob 2.4s ease-in-out infinite;
+}
+
+.stage-node.is-boss.is-locked .node-orb {
+  color: var(--c-muted);
+  background: var(--c-panel);
+  border-color: var(--c-border-light);
+  box-shadow: 0 3px 0 #000000;
+  animation: none;
+}
+
+.stage-node.is-boss .node-stars {
+  top: 38px;
+}
+
+.stage-node.is-boss .node-ship {
+  top: -74px;
+}
+
+@keyframes bossThrob {
+  0%,
+  100% {
+    box-shadow: 0 3px 0 #000000, 0 0 10px rgba(155, 107, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 3px 0 #000000, 0 0 22px rgba(155, 107, 255, 0.95);
+  }
+}
+
+/* Label next to the orb: on the right of the left half of the map, on the left of the right half */
+.node-label {
+  position: absolute;
+  top: -18px;
+  left: 38px;
+  width: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  text-align: left;
+}
+
+.stage-node.label-left .node-label {
+  left: auto;
+  right: 38px;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.stage-node.is-boss .node-label {
+  left: 44px;
+}
+
+.stage-node.is-boss.label-left .node-label {
+  left: auto;
+  right: 44px;
+}
+
+.node-name {
+  font-size: 0.82rem;
+  font-weight: bold;
+  letter-spacing: 1px;
+  color: var(--c-text);
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.node-sub {
+  font-size: 0.68rem;
   letter-spacing: 1px;
   color: var(--c-blue);
 }
 
-.stage-row.is-done {
-  border-color: var(--c-green);
-}
-
-.stage-row.is-done .stage-num {
-  background-color: var(--c-green);
-}
-
-.stage-row.is-done .stage-status {
+.stage-node.is-done .node-name {
   color: var(--c-gold);
 }
 
-.stage-row.is-current {
-  border-color: var(--c-gold);
-  background-color: #1d1a0c;
+.stage-node.is-current .node-name {
+  color: var(--c-pink);
 }
 
-.stage-row.is-current .stage-num {
-  background-color: var(--c-gold);
-}
-
-.stage-row.is-current .stage-status {
-  color: var(--c-gold);
-  font-weight: bold;
-}
-
-.stage-row.is-locked {
-  cursor: default;
-  color: #7c7c92;
-}
-
-.stage-row.is-locked .stage-num {
-  background-color: var(--c-border-light);
+.stage-node.is-locked .node-name,
+.stage-node.is-locked .node-sub {
   color: var(--c-muted);
 }
 
-.stage-row.is-locked .stage-status,
-.stage-row.is-locked .stage-sub {
-  color: #7c7c92;
-}
-
+/* ---------- BUTTONS ---------- */
 .galaxy-actions {
   display: flex;
   gap: 10px;
@@ -172,4 +527,26 @@
 .galaxy-actions .menu-button {
   padding: 11px 10px;
   font-size: 0.9rem;
+}
+
+/* ---------- REDUCED MOTION ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .screen-galaxy::before,
+  .world-planet,
+  .world-path path.is-flow,
+  .stage-node,
+  .stage-node.is-current .node-orb::after,
+  .node-ship,
+  .stage-node.is-boss .node-orb {
+    animation: none;
+  }
+
+  .stage-node.is-current .node-orb::after {
+    display: none;
+  }
+
+  .galaxy-meter i,
+  .node-orb {
+    transition: none;
+  }
 }
