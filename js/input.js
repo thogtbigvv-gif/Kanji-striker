@@ -71,20 +71,25 @@ canvas.addEventListener('pointermove', function (event) {
   if (tapStart && Math.abs(moveX - tapStart.x) > TAP_MAX_MOVE) {
     tapStart = null;
   }
-  // Moved further than the tolerance: shooting stops and the aim lock starts again from this spot
-  if (Math.abs(moveX - player.aimX) > AIM_TOLERANCE) {
-    player.aimX = moveX;
-    player.aimTimer = 0;
-    player.fireHeld = false;
-  }
   player.lastPointerX = moveX;
-  // Flick: a fast move of DASH_FLICK_DIST pixels within DASH_FLICK_TIME seconds throws the ship sideways
   var nowSec = performance.now() / 1000;
   flickTrail.push({ t: nowSec, x: moveX });
   while (flickTrail.length > 1 && nowSec - flickTrail[0].t > DASH_FLICK_TIME) {
     flickTrail.shift();
   }
   var flickMove = moveX - flickTrail[0].x;
+  // Aim lock. While the ship is already shooting, a slow finger keeps shooting (the anchor follows the finger), so a
+  // swaying ship can be followed. A fast move, or a move further than the tolerance, stops the shooting and the
+  // aim lock starts again from this spot.
+  var fingerSpeed = Math.abs(flickMove) / Math.max(AIM_TRACK_WINDOW, nowSec - flickTrail[0].t);
+  if (AIM_TRACK_SPEED > 0 && player.fireHeld && fingerSpeed <= AIM_TRACK_SPEED) {
+    player.aimX = moveX;
+  } else if (Math.abs(moveX - player.aimX) > AIM_TOLERANCE) {
+    player.aimX = moveX;
+    player.aimTimer = 0;
+    player.fireHeld = false;
+  }
+  // Flick: a fast move of DASH_FLICK_DIST pixels within DASH_FLICK_TIME seconds throws the ship sideways
   if (Math.abs(flickMove) >= DASH_FLICK_DIST && startDash(flickMove > 0 ? 1 : -1)) {
     flickTrail = [{ t: nowSec, x: moveX }];
   }
