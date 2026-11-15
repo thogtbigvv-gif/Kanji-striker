@@ -583,6 +583,21 @@ function getQuestionBarInfo() {
   if (challenge) {
     return { label: challenge.label, text: challenge.prompt, reading: challenge.promptReading, long: challenge.long };
   }
+  // Learning hint: a kanji the player has hardly answered yet is shown together with its meaning, so the first
+  // meetings are "match what you see" and not a blind guess. After LEARN_HINT_HITS correct answers the bar
+  // shows the meaning only (recall). The ENDLESS mode keeps the plain question.
+  if (question && gameMode !== MODE_ENDLESS && LEARN_HINT_HITS > 0) {
+    var seen = progress[question.kanji];
+    var seenHits = seen && typeof seen.hits === 'number' ? seen.hits : 0;
+    if (seenHits < LEARN_HINT_HITS) {
+      return {
+        label: 'NEW KANJI - SHOOT IT',
+        text: question.kanji + ' = ' + question.meaning.toUpperCase(),
+        reading: '',
+        long: false
+      };
+    }
+  }
   return {
     label: gameMode === MODE_ENDLESS ? 'BONUS KANJI FOR' : 'SHOOT THE KANJI FOR',
     text: question ? question.meaning.toUpperCase() : '-',
