@@ -8,7 +8,7 @@
 // Your progress is NOT stored here (it lives in localStorage), so an update never touches it.
 // When you add or rename a file, add it to APP_FILES and change the number in CACHE_NAME.
 
-var CACHE_NAME = 'kanji-striker-v0.12.0';
+var CACHE_NAME = 'kanji-striker-v0.13.0';
 
 var APP_FILES = [
   './',
@@ -25,6 +25,7 @@ var APP_FILES = [
   'css/galaxy.css',
   'css/mode-select.css',
   'css/kanji-card.css',
+  'css/polish.css',
   'js/data.js',
   'js/kanji-info.js',
   'js/config.js',
