@@ -19,7 +19,7 @@
 - **Bombs:** Double tap the screen (or press `B`) to destroy every wrong ship and enemy bullet. The correct kanji ship survives, so you still have to answer.
 - **Dash:** Flick your finger sideways (or press `Space` / `Shift`) to dash. The ship is a ghost during the dash. Cooldown 1.2 s.
 - **Stage results screen:** Score, accuracy, best combo, XP, 1–3 stars and a kanji learning summary (new, correct, incorrect, needs review).
-- **Kanji collection:** See which kanji you have discovered.
+- **Kanji collection and kanji cards (v0.11.0):** See which kanji you have discovered. Tap a collected kanji to open its **kanji card**: meaning, on / kun readings, common words, example sentences and the review state (mastery bar, next review time) of every question type. PREV / NEXT move through the collected kanji.
 - **Sound effects:** Simple generated beeps (no audio files). Can be turned off in Settings.
 - **Two game modes (v0.7.0):** PRESS START opens a mode screen. **CAMPAIGN** is the galaxy stage game. **ENDLESS** never stops: every ship that appears can be shot down for points, the waves get harder, and every 5th wave is a boss.
 - **Mobile-first design:** Optimized for portrait smartphone browsers with responsive Canvas rendering.
@@ -45,7 +45,7 @@
 ```text
 Kanji-striker/
 │
-├── index.html        # Page structure and all screens (menu, collection, settings, game, results)
+├── index.html        # Page structure and all screens (menu, collection, kanji card, settings, game, results)
 ├── style.css         # Retro pixel-art styling and mobile layout
 ├── manifest.webmanifest  # Install-as-app settings
 ├── icons/            # App icons (192, 512, maskable, Apple touch)
@@ -149,6 +149,15 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.11.0 – Kanji card
+
+- **New screen:** tap a collected kanji in KANJI COLLECTION to open its card. It shows the meaning, JLPT level, on / kun readings, words, example sentences (Japanese, hiragana reading, Mongolian meaning) and a MASTERY box: overall mastery and one bar per question type (Recognition, Reading, Vocabulary, Context) with correct / attempts, WEAK marker and the next review time (`due now`, `in 3 d`).
+- PREV / NEXT step through the collected kanji; BACK returns to the collection at the same scroll position. Keyboard: `←` / `→` / `Esc`.
+- Locked kanji stay closed. Collected cells are now real buttons (keyboard and screen-reader friendly).
+- Only reads existing data (`kanji-info.js`, `srs.js`). Gameplay, saved data and balance are unchanged.
+
+---
+
 ### v0.10.1 – Logic audit fixes
 
 - **Fix:** a stage could leave the player with a question that had no ship to shoot (about 45% of the time in a headless test). When no ship of the stage's own kanji is flying, a review-kanji ship now becomes the target.
@@ -200,4 +209,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.10.1** (shown in the footer of the menu).
+Current version: **v0.11.0** (shown in the footer of the menu).
