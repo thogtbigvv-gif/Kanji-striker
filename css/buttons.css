@@ -1,0 +1,66 @@
+/* KANJI STRIKER - buttons: the .menu-button family used on every screen.
+   Order matters: later rules override earlier ones of the same strength. */
+
+.menu-button {
+  width: 100%;
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: var(--c-gold);
+  background-color: var(--c-panel);
+  border: 3px solid var(--c-gold);
+  box-shadow: 0 4px 0 var(--c-gold-dark);
+  text-shadow: 1px 1px 0 #000000;
+  cursor: pointer;
+}
+
+.menu-button:active {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--c-gold-dark);
+}
+
+.menu-button-primary {
+  color: var(--c-text);
+  background-color: #d4143c;
+  border-color: var(--c-pink);
+  box-shadow: 0 4px 0 var(--c-crimson-dark);
+}
+
+.menu-button-primary:active {
+  box-shadow: 0 0 0 var(--c-crimson-dark);
+}
+
+.menu-button-danger {
+  color: var(--c-pink);
+  border-color: var(--c-pink);
+  box-shadow: 0 4px 0 var(--c-crimson-dark);
+}
+
+.menu-button-danger:active {
+  box-shadow: 0 0 0 var(--c-crimson-dark);
+}
+
+.menu-button-small {
+  padding: 12px 4px;
+  font-size: 0.78rem;
+  letter-spacing: 1px;
+  border-width: 2px;
+  box-shadow: 0 3px 0 var(--c-gold-dark);
+}
+
+.menu-button-small:active {
+  transform: translateY(3px);
+}
+
+/* Buttons: at least 48px tall on touch screens */
+
+.menu-button {
+  min-height: 48px;
+}
+
+.menu-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
