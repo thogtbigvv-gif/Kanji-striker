@@ -164,6 +164,17 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ---
 
+### v0.12.0 – Galaxy map
+
+- The GALAXY MAP is now a real map. Each world has a header with its own planet (a lit ball with a tilted ring), its JLPT level and a star meter. A world with kanji data shows its five stages as round **nodes on a winding dotted path** instead of a list.
+- Node states: **done** = gold with its stars underneath and the best score; **next stage** = pink with a pulsing ring and our ship hovering above it; **locked** = dark and not tappable; **boss** = bigger and purple with a slow glow. Tap a node to play that stage.
+- The path you have opened is gold; the road into the next stage has dashes that run toward it. Nodes pop in one after another when the map opens, and the stars drift slowly behind it.
+- A star meter under the title shows total progress. The map scrolls so the next stage is in the middle of the screen.
+- Worlds without kanji data yet stay compact ("COMING SOON"). All motion stops with `prefers-reduced-motion`.
+- Files: `index.html` (meter), `css/galaxy.css` (rewritten), `js/render.js` (map drawing), `js/state.js`, `sw.js` (cache name). Stage rules, saved data and the CONTINUE button are unchanged.
+
+---
+
 ### v0.11.3 – Select mode screen
 
 - The SELECT MODE screen got an arcade look. Each mode is a card with a pixel emblem: CAMPAIGN (our ship hovers and fires) and ENDLESS (a boss alien flaps its wings), inside a slowly turning dashed ring.
@@ -252,4 +263,4 @@ To change how the game feels (speeds, damage, fire rate, power-up drop rate, wav
 
 ## 📌 Version
 
-Current version: **v0.11.3** (shown in the footer of the menu).
+Current version: **v0.12.0** (shown in the footer of the menu).
