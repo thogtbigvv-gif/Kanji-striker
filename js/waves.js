@@ -419,8 +419,9 @@ function updateWaveSpawning(dt) {
 
   if (waveState.phase === 'spawning') {
     waveState.groupTimer -= dt;
-    // No dead time: when every ship is gone, the next group comes after a very short pause
-    if (waveState.groupTimer > EMPTY_SCREEN_GAP && waveState.groupIndex > 0 && aliveEnemyCount() === 0) {
+    // No dead time: when the question has no ship on screen (everything is gone, or only wrong ships are left),
+    // the next group comes after a very short pause
+    if (waveState.groupTimer > EMPTY_SCREEN_GAP && waveState.groupIndex > 0 && !activeTargetOnScreen()) {
       waveState.groupTimer = EMPTY_SCREEN_GAP;
     }
     if (waveState.groupTimer > 0) {
@@ -472,7 +473,11 @@ function aliveEnemyCount() {
 // The correct target was missed and every group of the wave is already on screen, so no new target
 // would ever come. After a short pause one rescue ship carrying the same question flies in.
 function updateTargetRescue(dt) {
-  if (!targetLost || waveState.phase !== 'clearing' || activeTargetOnScreen()) {
+  // Also when the target was not lost but the question simply has no ship (the new question took a kanji that no
+  // flying ship carries) while wrong ships are still on screen: otherwise the player would watch them fall
+  // for seconds with nothing to shoot. With an empty screen the wave is cleared instead.
+  var questionHasNoShip = !targetLost && aliveEnemyCount() > 0;
+  if ((!targetLost && !questionHasNoShip) || waveState.phase !== 'clearing' || activeTargetOnScreen()) {
     rescueTimer = -1;
     return;
   }
