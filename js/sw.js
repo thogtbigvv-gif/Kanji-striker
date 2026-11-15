@@ -1,6 +1,6 @@
 'use strict';
 
-// KANJI STRIKER service worker (v0.11.2)
+// KANJI STRIKER service worker (v0.11.3)
 // 1. The whole game is saved on the phone at the first visit, so it opens with no internet.
 // 2. It makes the game installable (Add to Home Screen / Install app).
 // 3. Updates: a file is served from the saved copy at once and refreshed from the network in the
@@ -8,7 +8,7 @@
 // Your progress is NOT stored here (it lives in localStorage), so an update never touches it.
 // When you add or rename a file, add it to APP_FILES and change the number in CACHE_NAME.
 
-var CACHE_NAME = 'kanji-striker-v0.11.2';
+var CACHE_NAME = 'kanji-striker-v0.11.3';
 
 var APP_FILES = [
   './',
