@@ -131,6 +131,22 @@ function showGame() {
   showOnly(gameSection, false);
 }
 
+// Stars earned / possible in the ready campaign stages (shown on the CAMPAIGN card)
+function getCampaignStarTotals() {
+  var totals = { stars: 0, max: 0 };
+  for (var w = 0; w < CAMPAIGN_WORLDS.length; w++) {
+    var world = CAMPAIGN_WORLDS[w];
+    if (!world.ready) {
+      continue;
+    }
+    for (var s = 0; s < world.stages.length; s++) {
+      totals.stars += getStageProgress(world.stages[s].id).stars;
+      totals.max += 3;
+    }
+  }
+  return totals;
+}
+
 // Game mode screen: CAMPAIGN or ENDLESS (opens after PRESS START)
 function showModeSelect() {
   modeMessage.textContent = '';
@@ -140,6 +156,8 @@ function showModeSelect() {
     : isStageCompleted(nextId) ? 'ALL READY STAGES CLEARED'
     : 'NEXT: STAGE ' + next.worldId + '-' + next.number + '  ' + next.name.toUpperCase();
   modeEndlessMeta.textContent = 'BEST ' + endlessBest;
+  var starTotals = getCampaignStarTotals();
+  modeCampaignStars.textContent = starTotals.max > 0 ? '\u2605 ' + starTotals.stars + ' / ' + starTotals.max : '';
   showOnly(modeSection, true);
 }
 
