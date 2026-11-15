@@ -246,6 +246,29 @@ pauseButton.addEventListener('click', togglePause);
 kanjiCollectionButton.addEventListener('click', showCollection);
 settingsButton.addEventListener('click', showSettings);
 collectionBackButton.addEventListener('click', showMenu);
+
+// Kanji card: tap a collected kanji in the collection
+collectionGrid.addEventListener('click', function (event) {
+  var cell = event.target.closest ? event.target.closest('button.kanji-cell') : null;
+  if (cell) {
+    showKanjiCard(cell.getAttribute('data-kanji'));
+  }
+});
+kcardPrevButton.addEventListener('click', function () { stepKanjiCard(-1); });
+kcardNextButton.addEventListener('click', function () { stepKanjiCard(1); });
+kcardBackButton.addEventListener('click', closeKanjiCard);
+window.addEventListener('keydown', function (event) {
+  if (kanjiCardSection.hidden) {
+    return;
+  }
+  if (event.key === 'ArrowLeft') {
+    stepKanjiCard(-1);
+  } else if (event.key === 'ArrowRight') {
+    stepKanjiCard(1);
+  } else if (event.key === 'Escape') {
+    closeKanjiCard();
+  }
+});
 settingsBackButton.addEventListener('click', showMenu);
 
 // Galaxy map buttons
