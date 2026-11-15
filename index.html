@@ -107,10 +107,21 @@
         <p id="collectionSummary" class="panel-summary" role="status">COLLECTED 0 / 0</p>
         <p id="collectionReview" class="panel-summary panel-review" role="status"></p>
         <p class="legend" aria-hidden="true"><span class="legend-dot legend-seen"></span>Seen <span class="legend-dot legend-mastered"></span>Strong (3 hits) <span class="legend-dot legend-locked"></span>Locked</p>
+        <p class="panel-hint" lang="mn">Нээгдсэн kanji дээр дарж уншлага, үг, жишээг үз.</p>
       </header>
-      <div id="collectionGrid" class="collection-grid" role="list" aria-label="Kanji list"></div>
+      <div id="collectionGrid" class="collection-grid" role="group" aria-label="Kanji list"></div>
       <div class="panel-actions">
         <button id="collectionBackButton" class="menu-button" type="button">BACK</button>
+      </div>
+    </section>
+
+    <!-- KANJI CARD (opened from the collection) -->
+    <section id="kanjiCardSection" class="screen screen-kcard" aria-labelledby="kcardTitle" hidden>
+      <div id="kcardBody" class="kcard-scroll"></div>
+      <div class="kcard-actions">
+        <button id="kcardPrevButton" class="menu-button" type="button">PREV</button>
+        <button id="kcardBackButton" class="menu-button" type="button">BACK</button>
+        <button id="kcardNextButton" class="menu-button" type="button">NEXT</button>
       </div>
     </section>
 
@@ -288,7 +299,7 @@
 
     <!-- APP FOOTER -->
     <footer id="appFooter" class="app-footer">
-      <small id="versionLabel">v0.10.1</small>
+      <small id="versionLabel">v0.11.0</small>
     </footer>
 
   </div>
