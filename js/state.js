@@ -19,6 +19,12 @@ var collectionGrid = document.getElementById('collectionGrid');
 var collectionReview = document.getElementById('collectionReview');
 var collectionBackButton = document.getElementById('collectionBackButton');
 
+var kanjiCardSection = document.getElementById('kanjiCardSection');
+var kcardBody = document.getElementById('kcardBody');
+var kcardPrevButton = document.getElementById('kcardPrevButton');
+var kcardBackButton = document.getElementById('kcardBackButton');
+var kcardNextButton = document.getElementById('kcardNextButton');
+
 var settingsSection = document.getElementById('settingsSection');
 var soundToggleButton = document.getElementById('soundToggleButton');
 var resetProgressButton = document.getElementById('resetProgressButton');
