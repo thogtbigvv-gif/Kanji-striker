@@ -46,6 +46,7 @@ var questionReading = document.getElementById('questionReading'); // small readi
 
 var galaxySection = document.getElementById('galaxySection');
 var galaxySummary = document.getElementById('galaxySummary');
+var galaxyMeterFill = document.getElementById('galaxyMeterFill');
 var galaxyList = document.getElementById('galaxyList');
 var galaxyContinueButton = document.getElementById('galaxyContinueButton');
 var galaxyBackButton = document.getElementById('galaxyBackButton');
