@@ -1,0 +1,160 @@
+/* KANJI STRIKER - main menu (base layout and v0.6.0 additions).
+   The arcade look of v0.7.0 is in menu-attract.css, which loads right after this file. */
+
+/* ---------- MAIN MENU ---------- */
+
+.screen-menu {
+  justify-content: center;
+  align-items: center;
+  gap: 28px;
+  padding: 24px 20px;
+  text-align: center;
+  background-image:
+    radial-gradient(circle at 12% 18%, var(--c-text) 0 1px, transparent 2px),
+    radial-gradient(circle at 78% 12%, #9cc9ff 0 1px, transparent 2px),
+    radial-gradient(circle at 40% 70%, var(--c-text) 0 1px, transparent 2px),
+    radial-gradient(circle at 90% 82%, #ffe27a 0 1px, transparent 2px),
+    radial-gradient(circle at 22% 90%, #9cc9ff 0 1px, transparent 2px),
+    radial-gradient(circle at 60% 40%, var(--c-text) 0 1px, transparent 2px);
+  background-size: 220px 260px, 300px 240px, 260px 300px, 280px 220px, 240px 280px, 320px 260px;
+}
+
+.menu-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.game-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.title-line {
+  display: block;
+  font-weight: bold;
+  letter-spacing: 3px;
+  color: var(--c-gold);
+  text-shadow:
+    3px 3px 0 #b36b00,
+    6px 6px 0 #000000,
+    0 0 18px rgba(255, 210, 31, 0.45);
+}
+
+.title-line-top {
+  font-size: clamp(2.6rem, 14vw, 3.8rem);
+}
+
+.title-line-bottom {
+  font-size: clamp(2rem, 11vw, 3rem);
+  color: #ffb800;
+  margin-top: 6px;
+}
+
+.game-tagline {
+  max-width: 300px;
+  text-wrap: balance;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  letter-spacing: 1.5px;
+  color: var(--c-blue);
+  text-shadow: 0 0 8px rgba(111, 183, 255, 0.5);
+}
+
+.menu-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Main menu: the starfield drifts slowly; each layer loops over its own tile size, so the loop has no jump */
+
+.screen-menu {
+  animation: starDrift 60s linear infinite;
+}
+
+@keyframes starDrift {
+  to {
+    background-position: 0 220px, 0 240px, 0 300px, 0 220px, 0 280px, 0 260px;
+  }
+}
+
+.menu-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.menu-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background-color: rgba(14, 14, 21, 0.85);
+  border: 2px solid var(--c-border);
+}
+
+.menu-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+}
+
+.menu-stat + .menu-stat {
+  border-left: 2px solid var(--c-border);
+}
+
+.menu-stat-value {
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: var(--c-gold);
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.menu-stat-label {
+  font-size: 0.68rem;
+  letter-spacing: 2px;
+  color: var(--c-blue);
+}
+
+.menu-next {
+  min-height: 2.4em;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: center;
+  color: #c8c8d8;
+}
+
+.menu-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr;
+  gap: 10px;
+}
+
+/* Small screens: tighter menu */
+@media (max-height: 640px) {
+  .screen-menu {
+    gap: 14px;
+    padding: 12px 20px;
+  }
+  .title-line-top {
+    font-size: 2.3rem;
+  }
+  .title-line-bottom {
+    font-size: 1.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-menu {
+    animation: none;
+  }
+}
