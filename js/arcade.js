@@ -50,6 +50,7 @@ function updateEnemyBullets(dt, scale, speedFactor) {
       if (currentState === STATE_GAME_OVER) {
         return;
       }
+      grantHitInvuln();
     }
     if (!eb.dead) {
       enemyBullets[n++] = eb;
