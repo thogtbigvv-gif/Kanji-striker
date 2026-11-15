@@ -1592,3 +1592,289 @@ button:focus-visible {
   letter-spacing: 2px;
   color: var(--c-pink);
 }
+
+/* ---------- KANJI CARD (v0.11.0) ---------- */
+
+.panel-hint {
+  font-size: 0.7rem;
+  color: var(--c-muted);
+}
+
+/* A collected kanji in the collection is a button */
+button.kanji-cell {
+  font-family: inherit;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+button.kanji-cell:active {
+  transform: scale(0.96);
+}
+
+.menu-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.screen-kcard {
+  padding: 16px 16px 12px;
+  gap: 12px;
+}
+
+.kcard-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  touch-action: pan-y;
+  padding: 2px;
+}
+
+.kcard-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0 2px;
+  text-align: center;
+}
+
+.kcard-char {
+  font-family: var(--font-kanji);
+  font-size: 5rem;
+  font-weight: normal;
+  line-height: 1.1;
+  color: var(--c-gold);
+  text-shadow:
+    3px 3px 0 #b36b00,
+    6px 6px 0 #000000;
+}
+
+.kcard-char:focus {
+  outline: none;
+}
+
+.kcard-meaning {
+  font-size: 1.2rem;
+  color: var(--c-blue);
+}
+
+.kcard-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.kcard-badge {
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  letter-spacing: 2px;
+  color: var(--c-muted);
+  border: 2px solid var(--c-border-light);
+}
+
+.kcard-box {
+  padding: 10px 12px;
+  background-color: var(--c-panel);
+  border: 2px solid var(--c-border);
+}
+
+.kcard-box-title {
+  margin-bottom: 8px;
+  font-size: 0.7rem;
+  letter-spacing: 3px;
+  color: var(--c-muted);
+}
+
+.kcard-reading-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.kcard-reading-label {
+  flex: 0 0 38px;
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  color: var(--c-gold);
+}
+
+.kcard-reading-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.kcard-chip {
+  padding: 2px 8px;
+  font-family: var(--font-kanji);
+  font-size: 1.05rem;
+  color: var(--c-text);
+  border: 2px solid var(--c-border-light);
+}
+
+.kcard-words {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kcard-word {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.kcard-word-ja {
+  flex: 0 0 92px;
+  font-family: var(--font-kanji);
+  font-size: 1.15rem;
+  color: var(--c-text);
+}
+
+.kcard-word-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.kcard-word-reading {
+  font-family: var(--font-kanji);
+  font-size: 0.8rem;
+  color: var(--c-blue);
+}
+
+.kcard-word-meaning {
+  font-size: 0.85rem;
+  color: var(--c-muted);
+}
+
+.kcard-example + .kcard-example {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--c-border);
+}
+
+.kcard-example-ja {
+  font-family: var(--font-kanji);
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--c-text);
+}
+
+.kcard-example-reading {
+  font-family: var(--font-kanji);
+  font-size: 0.8rem;
+  color: var(--c-blue);
+}
+
+.kcard-example-meaning {
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: var(--c-muted);
+}
+
+.kcard-mastery-total {
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.kcard-mastery-row + .kcard-mastery-row {
+  margin-top: 8px;
+}
+
+.kcard-mastery-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 3px;
+  font-size: 0.75rem;
+}
+
+.kcard-mastery-name {
+  letter-spacing: 2px;
+  color: var(--c-text);
+}
+
+.kcard-mastery-detail {
+  color: var(--c-muted);
+  text-align: right;
+}
+
+.kcard-mastery-detail.is-due,
+.kcard-mastery-detail.is-weak {
+  color: var(--c-pink);
+}
+
+.kcard-bar {
+  height: 8px;
+  background-color: #0b0b10;
+  border: 1px solid var(--c-border-light);
+}
+
+.kcard-bar-fill {
+  height: 100%;
+  background-color: var(--c-blue);
+}
+
+/* State colours: one set for the bars, the badge and the overall value */
+.kcard-state-new {
+  color: var(--c-muted);
+}
+
+.kcard-state-learning {
+  color: var(--c-pink);
+}
+
+.kcard-state-reviewing {
+  color: var(--c-blue);
+}
+
+.kcard-state-mastered {
+  color: var(--c-gold);
+}
+
+.kcard-bar-fill.kcard-state-new {
+  background-color: var(--c-border-light);
+}
+
+.kcard-bar-fill.kcard-state-learning {
+  background-color: var(--c-pink);
+}
+
+.kcard-bar-fill.kcard-state-reviewing {
+  background-color: var(--c-blue);
+}
+
+.kcard-bar-fill.kcard-state-mastered {
+  background-color: var(--c-gold);
+}
+
+.kcard-badge.kcard-state-new,
+.kcard-badge.kcard-state-learning,
+.kcard-badge.kcard-state-reviewing,
+.kcard-badge.kcard-state-mastered {
+  border-color: currentColor;
+}
+
+.kcard-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.kcard-actions .menu-button {
+  padding: 12px 6px;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+}
