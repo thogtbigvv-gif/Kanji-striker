@@ -64,6 +64,7 @@ function weightedPick(list, extraWeight) {
 function pickQuestion() {
   var onScreen = {};
   var promote = null; // a ship already flying that becomes the new correct target (no empty waiting time)
+  var promoteSeen = null; // the best promote candidate that is already visible on screen
   var fallback = null; // same, but carrying a review kanji of the stage (used only when no ship of the stage's own kanji flies)
   var i;
   for (i = 0; i < enemies.length; i++) {
@@ -78,10 +79,19 @@ function pickQuestion() {
     if (en.kind !== 'split' && en.kind !== 'mini' && !en.entering &&
         en.data !== question && questionPool.indexOf(en.data) !== -1 && (promote === null || en.y < promote.y)) {
       promote = en;
+      // A ship that is already visible (and still high enough to give time) is better than one still above the
+      // screen: the player sees the new question AND its ship at once, instead of waiting for it to fly in.
+      if (en.y > KANJI_VISIBLE_Y && en.y < viewHeight * PROMOTE_MAX_Y && (promoteSeen === null || en.y < promoteSeen.y)) {
+        promoteSeen = en;
+      }
     } else if (en.kind !== 'split' && en.kind !== 'mini' && !en.entering && en.data !== question &&
         decoyPool.indexOf(en.data) !== -1 && (fallback === null || en.y < fallback.y)) {
       fallback = en;
     }
+  }
+
+  if (promoteSeen !== null) {
+    promote = promoteSeen;
   }
 
   // No ship of the stage's own kanji is flying: a review-kanji ship becomes the target instead of leaving the
