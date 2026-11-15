@@ -24,7 +24,7 @@ var MODE_ENDLESS = 'endless';   // waves never stop; every ship can be shot down
 
 // ---------- Gameplay tuning ----------
 var FIRE_INTERVAL = 0.2;   // seconds between shots
-var BULLET_SPEED = 560;    // pixels per second
+var BULLET_SPEED = 900;    // pixels per second (fast enough to hit a swaying ship before it moves away)
 var BULLET_HIT_PADDING = 3; // extra pixels on each side of an enemy where a bullet still counts as a hit
 var BULLET_OFFSCREEN_Y = -10; // a bullet higher than this has left the screen and is removed
 var ARMOR_HIT_FLASH = 0.12;   // seconds an armored ship flashes after a hit that only cracks its armor
@@ -38,6 +38,8 @@ var RELATIVE_CONTROL = true;   // true: the ship moves by how far the finger mov
 // So moving the ship never shoots, and a wrong kanji can be passed (or dodged) safely.
 var AIM_DELAY = 0.2;     // seconds the finger must rest before the ship starts shooting
 var AIM_TOLERANCE = 10;  // pixels the finger may wobble while still counting as resting
+var AIM_TRACK_SPEED = 170; // px/s: once the ship is shooting, a finger that moves slower than this keeps shooting (so a swaying ship can be followed); faster = stop. 0 = off (old behaviour)
+var AIM_TRACK_WINDOW = 0.05; // seconds: shortest time window used to measure the finger speed (so a tiny wobble is not read as a fast move)
 var CONTROL_SENSITIVITY = 1.2; // relative control only: 1 = ship moves as far as the finger, 1.2 = a bit more
 // Weapon power-up: the ship shoots more bullets side by side while the combo is high.
 // Any damage resets the combo, so it also drops the weapon back to a single shot.
@@ -71,8 +73,9 @@ var COMBO_HEAL_EVERY = 5;     // every this many correct answers in a row heal t
 var HEAL_AMOUNT = 5;          // HP restored by one streak reward (never above MAX_HP)
 var WRONG_HIT_DAMAGE = 10;    // shooting a wrong kanji
 var TARGET_ESCAPE_DAMAGE = 10; // the correct kanji reached the bottom
-var TARGET_CRASH_DAMAGE = 15;  // the correct kanji crashed into the ship
-var DECOY_CRASH_DAMAGE = 10;   // a wrong kanji crashed into the ship (same as shooting a wrong kanji)
+var TARGET_CRASH_DAMAGE = 10;  // the correct kanji crashed into the ship (same as letting it reach the bottom)
+var DECOY_CRASH_DAMAGE = 5;    // a wrong kanji crashed into the ship (a dodging mistake costs less than a learning mistake)
+var HIT_INVULN_TIME = 1.0;     // seconds the ship is a ghost after a crash or an enemy shot, so one mistake cannot chain into three hits
 var REF_HEIGHT = 640;      // screen height the enemy speed is tuned for
 var MAX_DPR = 3;           // limits canvas size on very dense Android screens
 var MAX_PARTICLES = 240;   // most sparks on screen at once, so a bomb in a busy endless wave cannot slow down a weak phone
