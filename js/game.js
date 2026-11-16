@@ -221,9 +221,9 @@ function hitsPlayer(enemy) {
     return false; // the ship is a ghost while it dashes
   }
   return (
-    Math.abs(enemy.x - player.x) < (enemy.w + SHIP_WIDTH) / 2 - 4 &&
-    enemy.y + enemy.h > player.y - SHIP_HEIGHT / 2 &&
-    enemy.y < player.y + SHIP_HEIGHT / 2
+    Math.abs(enemy.x - player.x) < (enemy.w + SHIP_HIT_W) / 2 &&
+    enemy.y + enemy.h > player.y - SHIP_HIT_H / 2 &&
+    enemy.y < player.y + SHIP_HIT_H / 2
   );
 }
 
@@ -438,9 +438,10 @@ function resolveBulletHits() {
       if (e.dead || e.y <= KANJI_VISIBLE_Y) {
         continue;
       }
-      // A bullet fired for an OLD question flies through wrong ships: the question changed while it was in the
-      // air, so the player cannot be punished for it. It can still hit the new correct target.
-      if (gameMode !== MODE_ENDLESS && b.qid !== questionSerial && !isActiveTarget(e)) {
+      // A bullet fired for an OLD question flies through every ship: the question changed while it was in the
+      // air, so the player can be neither punished for it nor rewarded by it. A new question must be answered
+      // with a bullet fired after the player could read it (otherwise a leftover bullet scores a kanji for free).
+      if (gameMode !== MODE_ENDLESS && b.qid !== questionSerial) {
         continue;
       }
       if (Math.abs(b.x - e.x) > e.w / 2 + BULLET_HIT_PADDING) {
