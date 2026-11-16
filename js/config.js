@@ -43,17 +43,18 @@ var AIM_TRACK_WINDOW = 0.05; // seconds: shortest time window used to measure th
 var CONTROL_SENSITIVITY = 1.2; // relative control only: 1 = ship moves as far as the finger, 1.2 = a bit more
 // Weapon power-up: the ship shoots more bullets side by side while the combo is high.
 // Any damage resets the combo, so it also drops the weapon back to a single shot.
-var DOUBLE_SHOT_COMBO = 5;  // combo needed for 2 bullets
-var TRIPLE_SHOT_COMBO = 10; // combo needed for 3 bullets
+// (A P capsule level is lost only to contact damage - a crash or an enemy shot - not to a wrong answer or a missed target.)
+var DOUBLE_SHOT_COMBO = 3;  // combo needed for 2 bullets (a learner with a few mistakes still reaches it)
+var TRIPLE_SHOT_COMBO = 7;  // combo needed for 3 bullets
 var BULLET_SPREAD = 7;      // pixels between bullets that are fired side by side
 
 // Dash: a quick flick of the finger (touch / mouse) or Space / Shift (keyboard) throws the ship sideways.
 // While the dash lasts (and a moment after it) the ship is a ghost: enemy ships and enemy bullets pass through it
 // without any damage. Dashing is a pure dodge: it does not shoot, and it needs DASH_COOLDOWN seconds to recharge.
-var DASH_DISTANCE = 130;      // pixels the ship travels during one dash
+var DASH_DISTANCE = 150;      // pixels the ship travels during one dash
 var DASH_TIME = 0.16;         // seconds the dash movement lasts
 var DASH_GRACE = 0.1;         // extra seconds of ghost time after the movement ends
-var DASH_COOLDOWN = 1.2;      // seconds from the start of a dash until the next dash is possible
+var DASH_COOLDOWN = 0.9;      // seconds from the start of a dash until the next dash is possible
 var DASH_FLICK_DIST = 70;     // the finger must move this many pixels ...
 var DASH_FLICK_TIME = 0.1;    // ... within this many seconds to count as a flick
 var DASH_MIN_ROOM = 25;       // no dash when the screen edge is closer than this in the flick direction (pixels)
@@ -142,14 +143,14 @@ var STAGE_FIRE = { 1: 0, 2: 0.2, 3: 0.3, 4: 0.4, 5: 0.3 };
 // Boss (the Boss Gate stage, stage 5 of every world): a boss fight is the last wave. Kanji ships keep coming
 // while the boss shoots. Damage: a correct answer = BOSS_ANSWER_DAMAGE, one bullet = BOSS_SHOT_DAMAGE, bomb = BOMB_BOSS_DAMAGE.
 var BOSS_PIXEL = 6;
-var BOSS_HP = 160;
-var BOSS_ANSWER_DAMAGE = 8;
-var BOSS_SHOT_DAMAGE = 0.12;
+var BOSS_HP = 120;
+var BOSS_ANSWER_DAMAGE = 10;
+var BOSS_SHOT_DAMAGE = 0.25;
 var BOSS_DEFEAT_BONUS = 1000;
 var BOSS_REST_Y = 70;           // top of the boss when it is in position
 var BOSS_ENTER_SPEED = 80;      // pixels per second while it flies in
 var BOSS_DYING_TIME = 1.4;      // seconds of explosions before the stage is complete
-var BOSS_FIRE_INTERVAL = [1.9, 1.6, 1.25]; // seconds between volleys in phase 1 / 2 / 3
+var BOSS_FIRE_INTERVAL = [2.2, 1.9, 1.5]; // seconds between volleys in phase 1 / 2 / 3
 var BOSS_SWAY_SPEED = [0.7, 1.0, 1.35];   // sideways speed (radians per second) in phase 1 / 2 / 3
 var BOSS_WAVE_SPEED = 70;       // speed of the kanji ships during the boss fight (slower: you also have to dodge)
 var BOSS_FIRST_GROUP_DELAY = 2.2;
@@ -177,6 +178,7 @@ var BOSS_FLASH_COLORS = { R: '#ffffff', D: '#cfd6e6', W: '#ffffff' };
 var WAVE_CLEAR_BONUS = 200;    // every cleared wave
 var PERFECT_WAVE_BONUS = 100;  // extra, when the ship lost no HP during that wave
 var STAGE_CLEAR_BONUS = 500;   // extra, for clearing the last wave of the stage
+var WAVE_CLEAR_HEAL = 10;       // HP restored when a wave is cleared (campaign only, not after the last wave: stars use the HP left). 0 = off
 
 // ---------- Sizes and fonts ----------
 var ENEMY_WIDTH = 44;
@@ -198,13 +200,14 @@ var SHIP_COLORS = {
   Y: '#ffd21f'  // wing tip light
 };
 // The shape is symmetric. Keep it 11 pixels wide and 10 rows high: the size is used for collisions.
+// Twin cannons on the wings (W tip, G barrel), a wider wing with dark panel shading, and the nozzles under columns 3 and 7.
 var SHIP_PIXELS = [
   '.....W.....',
   '....RLR....',
-  '....RBR....',
-  '...RRCRR...',
-  '..RRRCRRR..',
+  '..W.RBR.W..',
+  '..G.RCR.G..',
   '.GRRRCRRRG.',
+  'GRRDRCRDRRG',
   'GRDRRLRRDRG',
   'YG.DRLRD.GY',
   'Y..RRDRR..Y',
@@ -214,6 +217,9 @@ var SHIP_PIXELS = [
 var SHIP_FLAME_COLORS = ['#ffd21f', '#ff7a1f', '#d4143c'];
 var SHIP_WIDTH = SHIP_PIXELS[0].length * PIXEL;
 var SHIP_HEIGHT = SHIP_PIXELS.length * PIXEL;
+// Crash hitbox: only the core of the ship counts (a classic shmup rule), so a ship that merely grazes the wing tip is not a hit
+var SHIP_HIT_W = SHIP_WIDTH * 0.55;
+var SHIP_HIT_H = SHIP_HEIGHT * 0.65;
 
 var ENEMY_PIXEL = 4;
 var ENEMY_PIXELS = [
@@ -297,7 +303,7 @@ var ENEMY_FLASH_COLORS = { B: '#ffffff', D: '#cfd6e6', Y: '#ffffff', L: '#ffffff
 var WAVE_INTRO_TIME = 1.6;  // seconds the "WAVE n" banner is shown (nothing spawns during it)
 var WAVE_GAP_TIME = 0.5;    // short quiet pause after a wave is cleared, before the next banner
 var V_FORMATION_LIFT = 40;  // how much higher the outer ships of a V start (pixels)
-var PROMOTE_MAX_Y = 0.6;    // a ship that becomes the next question must be above this part of the screen height (a low ship leaves no time to answer)
+var PROMOTE_MIN_TIME = 3.0; // seconds: a ship that becomes the next question must still need at least this long to reach the player (a low ship leaves no time to answer, so a fresh ship comes from the top instead)
 var EMPTY_SCREEN_GAP = 0.35; // when the screen is empty, the next group comes after this many seconds
 var RESCUE_DELAY = 0.8;      // a missed correct target comes back after this many seconds (last group only)
 var STAGE_COMPLETE_EVENT = 'kanjiStriker:stageComplete';
@@ -509,7 +515,7 @@ var UPG_HULL_HP = 10;          // hull:        +10 max HP per level (100 -> 150)
 var UPG_SHIELD_BUFFER = 10;    // shield:      +10 points of permanent shield per level (it absorbs crashes and bullets, NEVER wrong answers)
 var SHIELD_WAVE_REGEN = 0.5;   //              share of the shield that comes back when a wave is cleared
 var UPG_ENGINE_FOLLOW = 0.06;  // engine:      ship follows the finger +6% faster per level ...
-var UPG_ENGINE_DASH = 0.1;     //              ... and the dash cooldown is 0.1 s shorter per level
+var UPG_ENGINE_DASH = 0.06;    //              ... and the dash cooldown is 0.06 s shorter per level (level 5 reaches the floor below)
 var DASH_COOLDOWN_MIN = 0.6;   //              the dash cooldown never goes below this
 var UPG_WEAPON_DAMAGE = 0.15;  // weaponPower: +15% damage against the boss per level
 var UPG_FIRE_RATE = 0.06;      // fireRate:    6% shorter time between shots per level (0.20 s -> 0.14 s)
