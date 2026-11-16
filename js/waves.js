@@ -514,9 +514,15 @@ function awardWaveBonus(isLastWave) {
   if (combatStats.shieldCapacity > 0) {
     shieldBuffer = Math.min(combatStats.shieldCapacity, shieldBuffer + combatStats.shieldCapacity * SHIELD_WAVE_REGEN);
   }
+  // A cleared wave repairs the hull a little, so one slip per wave never adds up to a lost stage
+  var waveHeal = 0;
+  if (!isLastWave && gameMode !== MODE_ENDLESS && WAVE_CLEAR_HEAL > 0 && hp < combatStats.maxHp) {
+    waveHeal = Math.min(WAVE_CLEAR_HEAL, combatStats.maxHp - hp);
+    hp += waveHeal;
+  }
   score += bonus;
   bonusScore += bonus;
-  showToast((isLastWave ? 'STAGE CLEAR' : 'WAVE CLEAR') + (perfect ? '  PERFECT' : '') + '   +' + bonus,
+  showToast((isLastWave ? 'STAGE CLEAR' : 'WAVE CLEAR') + (perfect ? '  PERFECT' : '') + '   +' + bonus + (waveHeal > 0 ? '   +' + waveHeal + ' HP' : ''),
     perfect ? '#ffd21f' : '#5dff8a');
   updateHud();
 }
