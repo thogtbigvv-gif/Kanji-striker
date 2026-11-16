@@ -61,6 +61,15 @@ function weightedPick(list, extraWeight) {
   return list[list.length - 1];
 }
 
+// Seconds a ship still needs before it reaches the player's line (its own speed, the stage speed and SLOW included)
+function secondsToPlayer(enemy) {
+  var speed = enemy.speed * sizeScale() * (slowTimer > 0 ? SLOW_FACTOR : 1);
+  if (speed <= 0) {
+    return Infinity;
+  }
+  return Math.max(0, (player.y - SHIP_HEIGHT / 2 - (enemy.y + enemy.h)) / speed);
+}
+
 function pickQuestion() {
   var onScreen = {};
   var promote = null; // a ship already flying that becomes the new correct target (no empty waiting time)
@@ -76,15 +85,18 @@ function pickQuestion() {
     // Prefer a ship of this stage's own kanji that is not the old question; the highest one gives the most time.
     // Splitters and their mini ships are always wrong answers, so they can never be promoted.
     // A ship still flying in from the screen edge (entering) is not promoted either.
-    if (en.kind !== 'split' && en.kind !== 'mini' && !en.entering &&
+    // A ship may only become the new question while the player still has PROMOTE_MIN_TIME seconds to answer it:
+    // a ship that is already low on the screen would be a question the player cannot possibly answer in time.
+    var hasTime = secondsToPlayer(en) >= PROMOTE_MIN_TIME;
+    if (hasTime && en.kind !== 'split' && en.kind !== 'mini' && !en.entering &&
         en.data !== question && questionPool.indexOf(en.data) !== -1 && (promote === null || en.y < promote.y)) {
       promote = en;
-      // A ship that is already visible (and still high enough to give time) is better than one still above the
-      // screen: the player sees the new question AND its ship at once, instead of waiting for it to fly in.
-      if (en.y > KANJI_VISIBLE_Y && en.y < viewHeight * PROMOTE_MAX_Y && (promoteSeen === null || en.y < promoteSeen.y)) {
+      // A ship that is already visible is better than one still above the screen: the player sees the new
+      // question AND its ship at once, instead of waiting for it to fly in.
+      if (en.y > KANJI_VISIBLE_Y && (promoteSeen === null || en.y < promoteSeen.y)) {
         promoteSeen = en;
       }
-    } else if (en.kind !== 'split' && en.kind !== 'mini' && !en.entering && en.data !== question &&
+    } else if (hasTime && en.kind !== 'split' && en.kind !== 'mini' && !en.entering && en.data !== question &&
         decoyPool.indexOf(en.data) !== -1 && (fallback === null || en.y < fallback.y)) {
       fallback = en;
     }
@@ -336,7 +348,9 @@ function loseHp(amount, quiet, learningHit) {
   }
   hp -= amount;
   waveHpLost = true;
-  powerLevel = Math.max(0, powerLevel - 1); // real damage costs one weapon level
+  if (!learningHit) {
+    powerLevel = Math.max(0, powerLevel - 1); // contact damage (crash / enemy shot) costs one P level; the combo reset already punishes a wrong answer
+  }
   combo = 0;
   damageFlash = 0.25;
   addShake(SHAKE_HURT, SHAKE_HURT_TIME);
